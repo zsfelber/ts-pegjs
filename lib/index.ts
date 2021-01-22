@@ -44,7 +44,11 @@ export interface IOtherExpectation {
 export type Expectation = ILiteralExpectation | IClassExpectation | IAnyExpectation | IEndExpectation | IOtherExpectation;
 
 export class SyntaxError extends Error {
-  public static buildMessage(expected: Expectation[], found: string | null) {
+
+  private static buildMessage(input: IPegjsParseStream, expected: Expectation[], found: string | null) {
+
+    const This = this;
+
     function hex(ch: string): string {
       return ch.charCodeAt(0).toString(16).toUpperCase();
     }
@@ -78,7 +82,7 @@ export class SyntaxError extends Error {
     function describeExpectation(expectation: Expectation) {
       switch (expectation.type) {
         case "literal":
-          return "\"" + this.owner.printTokens(literalEscape(expectation.text)) + "\"";
+          return "\"" + input.printTokens(expectation.text) + "\"";
         case "class":
           const escapedParts = expectation.parts.map((part) => {
             return Array.isArray(part)
@@ -128,7 +132,7 @@ export class SyntaxError extends Error {
     }
 
     function describeFound(found1: string | null) {
-      return found1 ? "\"" + this.owner.printTokens(literalEscape(found1)) + "\"" : "end of input";
+      return found1 ? "\"" + input.printTokens(found1) + "\"" : "end of input";
     }
 
     return "Expected " + describeExpected(expected) + " but " + describeFound(found) + " found.";
@@ -144,7 +148,7 @@ export class SyntaxError extends Error {
   constructor(input: IPegjsParseStream, message: string, expected: Expectation[], found: string | null, location: IFileRange) {
     super();
     this.input = input;
-    this.message = message;
+    this.message = message + SyntaxError.buildMessage(input, expected, found);
     this.expected = expected;
     this.found = found;
     this.location = location;

@@ -34,7 +34,7 @@ export interface IOtherExpectation {
 }
 export declare type Expectation = ILiteralExpectation | IClassExpectation | IAnyExpectation | IEndExpectation | IOtherExpectation;
 export declare class SyntaxError extends Error {
-    static buildMessage(expected: Expectation[], found: string | null): string;
+    private static buildMessage;
     input: IPegjsParseStream;
     message: string;
     expected: Expectation[];

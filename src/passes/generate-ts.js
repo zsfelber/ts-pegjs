@@ -980,7 +980,7 @@ function generateTS(ast, ...args) {
       "",
       "  function peg$buildStructuredError(expected1: Expectation[], found: string | null, location1: IFileRange) {",
       "    return new SyntaxError(",
-      "      input, SyntaxError.buildMessage(expected1, found),",
+      "      input, \"\",",
       "      expected1,",
       "      found,",
       "      location1",
