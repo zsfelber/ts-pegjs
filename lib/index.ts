@@ -47,8 +47,6 @@ export class SyntaxError extends Error {
 
   private static buildMessage(input: IPegjsParseStream, expected: Expectation[], found: string | null) {
 
-    const This = this;
-
     function hex(ch: string): string {
       return ch.charCodeAt(0).toString(16).toUpperCase();
     }
@@ -154,7 +152,7 @@ export class SyntaxError extends Error {
     this.location = location;
     this.name = "SyntaxError";
     if (this.location) {
-      this.message = "At "+location.start.line+":"+location.start.column+" "+message;
+      this.message = "At "+location.start.line+":"+location.start.column+" "+this.message;
     }
 
     //if (typeof (Error as any).captureStackTrace === "function") {
