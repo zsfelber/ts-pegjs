@@ -15,16 +15,6 @@ function generateTS(ast, ...args) {
   // pegjs 0.11+ api pass(ast, config, options);
   const options = args[args.length -1];
   //options.returnTypes = {};
-  var genLitEscFun;
-  if (options.convertTokenTxt) {
-    genLitEscFun = function(thingy) {
-      return "literalEscape("+options.convertTokenTxt+"("+thingy+"))";
-    }
-  } else {
-    genLitEscFun = function(thingy) {
-      return "literalEscape("+thingy+")";
-    }
-  }
 
   // These only indent non-empty lines to avoid trailing whitespace.
   function indent2(code) {
@@ -348,13 +338,13 @@ function generateTS(ast, ...args) {
       "",
       "        case " + op.MATCH_STRING + ":", // MATCH_STRING s, a, f, ...
       indent10(generateCondition(
-        "input.readForward(index, (peg$consts[bc[ip + 1]] as string).length) === peg$consts[bc[ip + 1]]",
+        "input.expect(index, peg$consts[bc[ip + 1]] as string)",
         1
       )),
       "",
       "        case " + op.MATCH_STRING_IC + ":", // MATCH_STRING_IC s, a, f, ...
       indent10(generateCondition(
-        "input.readForward(index, (peg$consts[bc[ip + 1]] as string).length).toLowerCase() === peg$consts[bc[ip + 1]]",
+        "input.expectLowerCase(index, peg$consts[bc[ip + 1]] as string)",
         1
       )),
       "",
@@ -793,239 +783,7 @@ function generateTS(ast, ...args) {
   function generateToplevel() {
     let parts = [];
 
-    parts.push([
-      "export interface IFilePosition {",
-      "  offset: number;",
-      "  line: number;",
-      "  column: number;",
-      "}",
-      "",
-      "export interface IFileRange {",
-      "  start: IFilePosition;",
-      "  end: IFilePosition;",
-      "}",
-      "",
-      "export interface ILiteralExpectation {",
-      "  type: \"literal\";",
-      "  text: string;",
-      "  ignoreCase: boolean;",
-      "}",
-      "",
-      "export interface IClassParts extends Array<string | IClassParts> {}",
-      "",
-      "export interface IClassExpectation {",
-      "  type: \"class\";",
-      "  parts: IClassParts;",
-      "  inverted: boolean;",
-      "  ignoreCase: boolean;",
-      "}",
-      "",
-      "export interface IAnyExpectation {",
-      "  type: \"any\";",
-      "}",
-      "",
-      "export interface IEndExpectation {",
-      "  type: \"end\";",
-      "}",
-      "",
-      "export interface IOtherExpectation {",
-      "  type: \"other\";",
-      "  description: string;",
-      "}",
-      "",
-      "export type Expectation = ILiteralExpectation | IClassExpectation | IAnyExpectation | IEndExpectation | IOtherExpectation;",
-      "",
-      "export class SyntaxError extends Error {",
-      "  public static buildMessage(expected: Expectation[], found: string | null) {",
-      "    function hex(ch: string): string {",
-      "      return ch.charCodeAt(0).toString(16).toUpperCase();",
-      "    }",
-      "",
-      "    function literalEscape(s: string): string {",
-      "      return s",
-      "        .replace(/\\\\/g, \"\\\\\\\\\")", // backslash
-      "        .replace(/\"/g,  \"\\\\\\\"\")", // closing double quote
-      "        .replace(/\\0/g, \"\\\\0\")", // null
-      "        .replace(/\\t/g, \"\\\\t\")", // horizontal tab
-      "        .replace(/\\n/g, \"\\\\n\")", // line feed
-      "        .replace(/\\r/g, \"\\\\r\")", // carriage return
-      "        .replace(/[\\x00-\\x0F]/g,            (ch) => \"\\\\x0\" + hex(ch) )",
-      "        .replace(/[\\x10-\\x1F\\x7F-\\x9F]/g, (ch) => \"\\\\x\"  + hex(ch) );",
-      "    }",
-      "",
-      "    function classEscape(s: string): string {",
-      "      return s",
-      "        .replace(/\\\\/g, \"\\\\\\\\\")", // backslash
-      "        .replace(/\\]/g, \"\\\\]\")", // closing bracket
-      "        .replace(/\\^/g, \"\\\\^\")", // caret
-      "        .replace(/-/g,  \"\\\\-\")", // dash
-      "        .replace(/\\0/g, \"\\\\0\")", // null
-      "        .replace(/\\t/g, \"\\\\t\")", // horizontal tab
-      "        .replace(/\\n/g, \"\\\\n\")", // line feed
-      "        .replace(/\\r/g, \"\\\\r\")", // carriage return
-      "        .replace(/[\\x00-\\x0F]/g,            (ch) => \"\\\\x0\" + hex(ch) )",
-      "        .replace(/[\\x10-\\x1F\\x7F-\\x9F]/g, (ch) => \"\\\\x\"  + hex(ch) );",
-      "    }",
-      "",
-      "    function describeExpectation(expectation: Expectation) {",
-      "      switch (expectation.type) {",
-      "        case \"literal\":",
-      "          return \"\\\"\" + "+genLitEscFun("expectation.text")+" + \"\\\"\";",
-      "        case \"class\":",
-      "          const escapedParts = expectation.parts.map((part) => {",
-      "            return Array.isArray(part)",
-      "              ? classEscape(part[0] as string) + \"-\" + classEscape(part[1] as string)",
-      "              : classEscape(part);",
-      "          });",
-      "",
-      "          return \"[\" + (expectation.inverted ? \"^\" : \"\") + escapedParts + \"]\";",
-      "        case \"any\":",
-      "          return \"any character\";",
-      "        case \"end\":",
-      "          return \"end of input\";",
-      "        case \"other\":",
-      "          return expectation.description;",
-      "      }",
-      "    }",
-      "",
-      "    function describeExpected(expected1: Expectation[]) {",
-      "      const descriptions = expected1.map(describeExpectation);",
-      "      let i: number;",
-      "      let j: number;",
-      "",
-      "      descriptions.sort();",
-      "",
-      "      if (descriptions.length > 0) {",
-      "        for (i = 1, j = 1; i < descriptions.length; i++) {",
-      "          if (descriptions[i - 1] !== descriptions[i]) {",
-      "            descriptions[j] = descriptions[i];",
-      "            j++;",
-      "          }",
-      "        }",
-      "        descriptions.length = j;",
-      "      }",
-      "",
-      "      switch (descriptions.length) {",
-      "        case 1:",
-      "          return descriptions[0];",
-      "",
-      "        case 2:",
-      "          return descriptions[0] + \" or \" + descriptions[1];",
-      "",
-      "        default:",
-      "          return descriptions.slice(0, -1).join(\", \")",
-      "            + \", or \"",
-      "            + descriptions[descriptions.length - 1];",
-      "      }",
-      "    }",
-      "",
-      "    function describeFound(found1: string | null) {",
-      "      return found1 ? \"\\\"\" + "+genLitEscFun("found1")+" + \"\\\"\" : \"end of input\";",
-      "    }",
-      "",
-      "    return \"Expected \" + describeExpected(expected) + \" but \" + describeFound(found) + \" found.\";",
-      "  }",
-      "",
-      "  public message: string;",
-      "  public expected: Expectation[];",
-      "  public found: string | null;",
-      "  public location: IFileRange;",
-      "  public name: string;",
-      "",
-      "  constructor(message: string, expected: Expectation[], found: string | null, location: IFileRange) {",
-      "    super();",
-      "    this.message = message;",
-      "    this.expected = expected;",
-      "    this.found = found;",
-      "    this.location = location;",
-      "    this.name = \"SyntaxError\";",
-      "",
-      "    if (typeof (Error as any).captureStackTrace === \"function\") {",
-      "      (Error as any).captureStackTrace(this, SyntaxError);",
-      "    }",
-      "  }",
-      "}",
-      ""
-    ].join("\n"));
-
-    if (options.trace) {
-      parts.push([
-        "export interface ITraceEvent {",
-        "  type: string;",
-        "  rule: string;",
-        "  result?: any;",
-        "  location: IFileRange;",
-        "}",
-        "",
-        "export class DefaultTracer {",
-        "  private indentLevel: number;",
-        "",
-        "  constructor() {",
-        "    this.indentLevel = 0;",
-        "  }",
-        "",
-        "  public trace(event: ITraceEvent) {",
-        "    const that = this;",
-        "",
-        "    function log(evt: ITraceEvent) {",
-        "      function repeat(text: string, n: number) {",
-        "         let result = \"\", i;",
-        "",
-        "         for (i = 0; i < n; i++) {",
-        "           result += text;",
-        "         }",
-        "",
-        "         return result;",
-        "      }",
-        "",
-        "      function pad(text: string, length: number) {",
-        "        return text + repeat(\" \", length - text.length);",
-        "      }",
-        "",
-        "      if (typeof console === \"object\") {", // IE 8-10
-        "        console.log(",
-        "          evt.location.start.line + \":\" + evt.location.start.column + \"-\"",
-        "            + evt.location.end.line + \":\" + evt.location.end.column + \" \"",
-        "            + pad(evt.type, 10) + \" \"",
-        "            + repeat(\"  \", that.indentLevel) + evt.rule",
-        "        );",
-        "      }",
-        "    }",
-        "",
-        "    switch (event.type) {",
-        "      case \"rule.enter\":",
-        "        log(event);",
-        "        this.indentLevel++;",
-        "        break;",
-        "",
-        "      case \"rule.match\":",
-        "        this.indentLevel--;",
-        "        log(event);",
-        "        break;",
-        "",
-        "      case \"rule.fail\":",
-        "        this.indentLevel--;",
-        "        log(event);",
-        "        break;",
-        "",
-        "      default:",
-        "        throw new Error(\"Invalid event type: \" + event.type + \".\");",
-        "    }",
-        "  }",
-        "}",
-        ""
-      ].join("\n"));
-    }
-
-    if (options.cache) {
-      parts.push([
-        "export interface ICached {",
-        "  nextPos: number;",
-        "  result: any;",
-        "}",
-        "",
-      ].join("\n"));
-    }
+    // interfaces removed from here , it is better to import
 
     parts.push([
       "function peg$parse(input: IParseStream, options?: IParseOptions) {",
@@ -1252,12 +1010,12 @@ function generateTS(ast, ...args) {
       "  }",
       "",
       "  function peg$buildSimpleError(message: string, location1: IFileRange) {",
-      "    return new SyntaxError(message, [], \"\", location1);",
+      "    return new SyntaxError(input, message, [], \"\", location1);",
       "  }",
       "",
       "  function peg$buildStructuredError(expected1: Expectation[], found: string | null, location1: IFileRange) {",
       "    return new SyntaxError(",
-      "      SyntaxError.buildMessage(expected1, found),",
+      "      input, SyntaxError.buildMessage(expected1, found),",
       "      expected1,",
       "      found,",
       "      location1",
@@ -1318,6 +1076,7 @@ function generateTS(ast, ...args) {
         res.push(options.tspegjs.customHeader);
       }
       res = res.concat([
+        "import {IFilePosition, IFileRange, ILiteralExpectation, IClassParts, IClassExpectation, IAnyExpectation, IEndExpectation, IOtherExpectation, Expectation, SyntaxError, ITraceEvent, DefaultTracer, ICached, IParseOptions, PegjsParseFunction, PegjsParser, IPegjsParseStream} from 'ts-pegjs/lib/interfaces';",
         "",
         "// Generated by PEG.js v. " + pegJsVersion + " (ts-pegjs plugin v. " + pluginVersion + " )",
         "//",
@@ -1328,30 +1087,21 @@ function generateTS(ast, ...args) {
     }
 
     function generateParserObject() {
-      const optionsType = `export interface IParseOptions {
-  filename?: string;
-  startRule?: string;
-  tracer?: any;
-  [key: string]: any;
-}`;
-      const streamType = `export interface IParseStream {
-  /* give read-write access to pegjs, do not manipulate them */
-  savedPos: number;
-  currPos: number;
-
-  /* these should read forward if requested position is in the future
-   * meaning lookahead tokens */
-  isAvailableAt(position: number): boolean;
-  charAt(position: number): string;
-  charCodeAt(position: number): number;
-  substring(from: number, to?: number): string;
-  substr(from: number, len?: number): string;
+      const streamType = `export interface IParseStream extends IPegjsParseStream {
 
   // should return this.substr(input.currPos, len)
   readForward(rule: RuleId, len: number): string;
 
-  /* convert tokens to human readable form */
-  printTokens(tokenCodes: string): string;
+  //"input.readForward(rule, expectedText.length) === expectedText",
+  //=
+  //"input.expect(rule, expectedText)",
+  expect(rule: RuleId, expectedText: string): boolean;
+
+  //"input.readForward(rule, expectedText.length).toLowerCase() === expectedText",
+  //=
+  //"input.expectLowerCase(rule, expectedText)",
+  expectIgnoreCase(rule: RuleId, expectedText: string): boolean;
+
 }`;
 
       var ruleNamesEtc = "";
@@ -1379,7 +1129,6 @@ function generateTS(ast, ...args) {
 
       return options.trace ?
         [
-          optionsType,
           streamType,
           parseFunctionType,
           parseExport,
@@ -1391,7 +1140,6 @@ function generateTS(ast, ...args) {
           // "}"
         ].join("\n") :
         [
-          optionsType,
           streamType,
           parseFunctionType,
           parseExport,
