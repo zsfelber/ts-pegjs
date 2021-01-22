@@ -286,10 +286,8 @@ export class PegjsParseStream implements IPegjsParseStream {
   readonly posDetailsCache: IFilePosition[] = [];
 
   constructor(initialBuf?: string, ruleNames?: string[]) {
-    this.buffer = initialBuf;
-    if (ruleNames) {
-      this.ruleNames = ruleNames;
-    }
+    this.buffer = initialBuf ? initialBuf : "";
+    this.ruleNames = ruleNames ? ruleNames : [];
   }
 
   seek(position: number, rule?: number) {
