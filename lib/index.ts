@@ -149,10 +149,13 @@ export class SyntaxError extends Error {
     this.found = found;
     this.location = location;
     this.name = "SyntaxError";
-
-    if (typeof (Error as any).captureStackTrace === "function") {
-      (Error as any).captureStackTrace(this, SyntaxError);
+    if (this.location) {
+      this.message = "At "+location.start.line+":"+location.start.column+" "+message;
     }
+
+    //if (typeof (Error as any).captureStackTrace === "function") {
+    //  (Error as any).captureStackTrace(this, SyntaxError);
+    //}
   }
 }
 
