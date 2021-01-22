@@ -287,6 +287,9 @@ export class PegjsParseStream implements IPegjsParseStream {
 
   constructor(initialBuf?: string, ruleNames?: string[]) {
     this.buffer = initialBuf;
+    if (ruleNames) {
+      this.ruleNames = ruleNames;
+    }
   }
 
   seek(position: number, rule?: number) {
