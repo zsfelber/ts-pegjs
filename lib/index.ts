@@ -355,7 +355,10 @@ export class PegjsParseStream implements IPegjsParseStream {
           details = this.posDetailsCache[p];
         } else {
           p = pos;
-          while (!(details = this.posDetailsCache[--p]));
+          while (!(details = this.posDetailsCache[--p]) && p>0);
+          if (!details) {
+            details = { line: 1, column: 1 };
+          }
         }
 
         details = {
