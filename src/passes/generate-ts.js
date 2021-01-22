@@ -1065,11 +1065,14 @@ function generateTS(ast, ...args) {
   //"input.readForward(rule, expectedText.length).toLowerCase() === expectedText",
   //=
   //"input.expectLowerCase(rule, expectedText)",
-  expectIgnoreCase(rule: RuleId, expectedText: string): boolean;
+  expectLowerCase(rule: RuleId, expectedText: string): boolean;
 
 }`;
     const streamType = `export class ParseStream extends PegjsParseStream {
 
+  constructor(initialBuf?: string) {
+    super(initialBuf, RuleNames);
+  }
   // should return this.substr(input.currPos, len)
   readForward(rule: RuleId, len: number): string {
     return super.readForward(rule, len);

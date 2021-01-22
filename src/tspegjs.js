@@ -10,3 +10,4 @@ exports.use = function (config, options) {
         options.tspegjs.customHeader = null;
     }
 };
+

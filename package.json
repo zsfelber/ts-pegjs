@@ -3,6 +3,7 @@
   "version": "0.3.0",
   "description": "TS target for PEG.js parser generator",
   "main": "src/tspegjs.js",
+  "exports":{"./lib":"./lib"},
   "author": "Pedro J. Molina",
   "license": "MIT",
   "bugs": {
@@ -54,6 +55,7 @@
     "gen:samples": "node test/test.js --cache --trace",
     "gen:samples-optimize-size": "node test/test.js --cache --trace --optimize size",
     "compile:samples": "tsc --declaration output/arithmetics.ts output/css.ts output/json.ts output/javascript.ts output/st.ts output/arithmetics-typed.ts",
+    "compile:lib": "tsc --declaration lib/index.ts ",
     "tslint:samples": "tslint output/*.ts",
     "lint:samples": "eslint output/*.ts",
     "test:cli": "pegjs --plugin ./src/tspegjs --extra-options-file test/genoptions2.json  --allowed-start-rules groupFile,templateFile,templateFileRaw,templateAndEOF -o output/st2.ts examples/st.pegjs && tsc output/st2.ts && tslint output/st2.ts",
