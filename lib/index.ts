@@ -1,9 +1,10 @@
 
 
 export interface IFilePosition {
-  offset: number;
   line: number;
   column: number;
+  offset?: number;
+  text?: string;
 }
 
 export interface IFileRange {
@@ -243,8 +244,6 @@ export interface IPegjsParseStream {
   savedPos: number;
   currPos: number;
 
-  calculatePosition(position: number): IFilePosition;
-
   /* these should read forward if requested position is in the future
   * meaning lookahead tokens */
   isAvailableAt(position: number): boolean;
@@ -266,7 +265,127 @@ export interface IPegjsParseStream {
   //"input.expectLowerCase(rule, expectedText)",
   expectLowerCase(rule: number, expectedText: string): boolean;
 
+  calculatePosition(position: number): IFilePosition;
+
   /* convert tokens to human readable form */
   printTokens(tokenCodes: string): string;
+
+}
+
+
+
+export class PegjsParseStream implements IPegjsParseStream {
+  readonly buffer: string;
+  readonly ruleNames: string[] = [];
+
+  /* give read-write access to pegjs, do not manipulate them */
+  savedPos: number = 0;
+  currPos: number = 0;
+
+  readonly posDetailsCache: IFilePosition[] = [];
+
+  constructor(initialBuf?: string, ruleNames?: string[]) {
+    this.buffer = initialBuf;
+  }
+
+  seek(position: number, rule?: number) {
+    /*if (position >= this.buffer.length) {
+        console.log("Attempt to overseek to " + position +
+            " of len:" + this.buffer.length +
+            (rule === undefined ? "" : "  in rule:" + this.ruleNames[rule]));
+    }*/
+  }
+
+  /* these should read forward if requested position is in the future
+  * meaning lookahead tokens */
+  isAvailableAt(position: number): boolean {
+    this.seek(position);
+    return this.buffer.length > position;
+  }
+  charAt(position: number): string {
+    this.seek(position);
+    return this.buffer.charAt(position);
+  }
+  charCodeAt(position: number): number {
+    this.seek(position);
+    return this.buffer.charCodeAt(position);
+  }
+  substring(from: number, to?: number, rule?: number): string {
+    if (to === undefined) to = this.buffer.length;
+    this.seek(to - 1, rule);
+    return this.buffer.substring(from, to);
+  }
+  substr(from: number, len?: number, rule?: number): string {
+    return this.substring(from, len === undefined ? undefined : from + len, rule);
+  }
+  // should return this.substr(input.currPos, len)
+  readForward(rule: number, len: number): string {
+    return this.substr(this.currPos, len, rule);
+  }
+
+  //"input.readForward(rule, expectedText.length) === expectedText",
+  //=
+  //"input.expect(rule, expectedText)",
+  expect(rule: number, expectedText: string): boolean {
+    return this.readForward(rule, expectedText.length) === expectedText;
+  }
+
+  //"input.readForward(rule, expectedText.length).toLowerCase() === expectedText",
+  //=
+  //"input.expectLowerCase(rule, expectedText)",
+  expectLowerCase(rule: number, expectedText: string): boolean {
+    return this.readForward(rule, expectedText.length).toLowerCase() === expectedText;
+  }
+
+
+  calculatePosition(pos: number): IFilePosition {
+    let details = this.posDetailsCache[pos];
+
+    if (details) {
+      return details;
+    } else {
+      let p = 0;
+      if (this.posDetailsCache.length) {
+        if (pos >= this.posDetailsCache.length) {
+          p = this.posDetailsCache.length - 1;
+          details = this.posDetailsCache[p];
+        } else {
+          p = pos;
+          while (!(details = this.posDetailsCache[--p]));
+        }
+
+        details = {
+          line: details.line,
+          column: details.column
+        };
+
+      } else {
+        details = { line: 1, column: 1 };
+      }
+
+      while (p < pos) {
+        if (this.charCodeAt(p) === 10) {
+          details.line++;
+          details.column = 1;
+          this.posDetailsCache[++p] = {
+            line: details.line,
+            column: details.column
+          };
+        } else {
+          details.column++;
+          ++p;
+        }
+      }
+
+      this.posDetailsCache[pos] = details;
+
+      return details;
+    }
+  }
+
+
+  printTokens(tokenCodes: string): string {
+    return tokenCodes;
+  }
 
 }
