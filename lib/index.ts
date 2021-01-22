@@ -4,6 +4,7 @@ export interface IFilePosition {
   line: number;
   column: number;
   offset?: number;
+  length?: number;
   text?: string;
 }
 
