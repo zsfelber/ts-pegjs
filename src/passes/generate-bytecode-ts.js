@@ -188,53 +188,18 @@ var visitor = require("pegjs/lib/compiler/visitor");
 // [29] SILENT_FAILS_OFF
 //
 //        silentFails--;
-function generateBytecode(ast, ...args) {
+function generateBytecode(ast/*, ...args*/) {
   // pegjs 0.10  api pass(ast, options)
   // pegjs 0.11+ api pass(ast, config, options);
-  const options = args[args.length -1];
+  //const options = args[args.length -1];
 
   let consts = [];
-  let funcs = {};
+  var currentRule;
 
   function addConst(value) {
     let index = consts.indexOf(value);
 
     return index === -1 ? consts.push(value) - 1 : index;
-  }
-
-  function generateTypeArgs(node, lab) {
-    if (node.name) {
-      return node.name;
-    }
-
-    var r = {};
-    var opt;
-    switch (node.type) {
-      case "action":
-        r = generateTypeArgs(node.expression);
-        break;
-      case "sequence":
-        r = {type:node.type, elements: node.elements.map(elem=>generateTypeArgs(elem))};
-        break;
-      case "choice":
-        r = {type:node.type, elements: node.alternatives.map(alt=>generateTypeArgs(alt))};
-        break;
-      case "optional":
-        //opt = true;
-        r = {type:node.type, element: generateTypeArgs(node.expression)};
-        break;
-      case "zero_or_more":
-        r = {type:node.type, element: generateTypeArgs(node.expression)};
-        break;
-      case "labeled":
-        r = {type:node.type, label: node.label, element: generateTypeArgs(node.expression, true)};
-        break;
-    }
-    //if (lab) {
-    //  if (opt) r = "?: "+r;
-    //  else r = ": "+r;
-    //}
-    return r;
   }
 
   function addFunctionConst(context, code, node, gengeneric) {
@@ -245,12 +210,10 @@ function generateBytecode(ast, ...args) {
     //  console.log(currentRule + " : "+JSON.stringify(node, null, "  "));
     //}
 
+    //storeRule(code, node);
+
     var result;
     if (gengeneric) {
-      var r = generateTypeArgs(node);
-      r.code = code;
-      r.rule = currentRule;
-      funcs[currentRule] = r;
       result = currentRule;
     } else {
       result = "function(" + Object.keys(context.env).join(", ") + ") {" + code + "}";
@@ -346,18 +309,17 @@ function generateBytecode(ast, ...args) {
     );
   }
 
-  var currentRule, currentRuleRef;
-
   let generate = visitor.build({
     grammar(node) {
       node.rules.forEach(generate);
 
       node.consts = consts;
-      node.funcs = funcs;
     },
 
     rule(node) {
       currentRule = node.name;
+      //storeRule(null, node);
+
       node.bytecode = generate(node.expression, {
         sp: -1,        // stack pointer
         env: { },      // mapping of label names to stack positions
@@ -366,6 +328,8 @@ function generateBytecode(ast, ...args) {
     },
 
     named(node, context) {
+      //storeRule(null, node)
+
       let nameIndex = addConst(
         "peg$otherExpectation(\"" + js.stringEscape(node.name) + "\")"
       );
@@ -383,6 +347,8 @@ function generateBytecode(ast, ...args) {
     },
 
     choice(node, context) {
+      //storeRule(null, node)
+
       function buildAlternativesCode(alternatives, context) {
         return buildSequence(
           generate(alternatives[0], {
@@ -437,6 +403,8 @@ function generateBytecode(ast, ...args) {
     sequence(node, context) {
       function buildElementsCode(elements, context) {
         if (elements.length > 0) {
+          //storeRule(null, node)
+
           let processedCount = node.elements.length - elements.slice(1).length;
 
           return buildSequence(
@@ -478,6 +446,8 @@ function generateBytecode(ast, ...args) {
               [op.NIP]
             );
           } else {
+            //storeRule(null, node)
+
             return buildSequence([op.WRAP, node.elements.length], [op.NIP]);
           }
         }
@@ -494,6 +464,7 @@ function generateBytecode(ast, ...args) {
     },
 
     labeled(node, context) {
+      //storeRule(null, node)
       let env = cloneEnv(context.env);
 
       context.env[node.label] = context.sp + 1;
@@ -506,6 +477,8 @@ function generateBytecode(ast, ...args) {
     },
 
     text(node, context) {
+      //storeRule(null, node)
+
       return buildSequence(
         [op.PUSH_CURR_POS],
         generate(node.expression, {
@@ -522,14 +495,18 @@ function generateBytecode(ast, ...args) {
     },
 
     simple_and(node, context) {
+      //storeRule(null, node)
       return buildSimplePredicate(node.expression, false, context);
     },
 
     simple_not(node, context) {
+      //storeRule(null, node)
       return buildSimplePredicate(node.expression, true, context);
     },
 
     optional(node, context) {
+      //storeRule(null, node)
+
       return buildSequence(
         generate(node.expression, {
           sp: context.sp,
@@ -545,6 +522,8 @@ function generateBytecode(ast, ...args) {
     },
 
     zero_or_more(node, context) {
+      //storeRule(null, node)
+
       let expressionCode = generate(node.expression, {
         sp: context.sp + 1,
         env: cloneEnv(context.env),
@@ -560,6 +539,8 @@ function generateBytecode(ast, ...args) {
     },
 
     one_or_more(node, context) {
+      //storeRule(null, node)
+
       let expressionCode = generate(node.expression, {
         sp: context.sp + 1,
         env: cloneEnv(context.env),
@@ -578,6 +559,8 @@ function generateBytecode(ast, ...args) {
     },
 
     group(node, context) {
+      //storeRule(null, node)
+
       return generate(node.expression, {
         sp: context.sp,
         env: cloneEnv(context.env),
@@ -594,11 +577,14 @@ function generateBytecode(ast, ...args) {
     },
 
     rule_ref(node) {
-      currentRuleRef = node.name;
+      //storeRule(null, node)
+
       return [op.RULE, asts.indexOfRule(ast, node.name)];
     },
 
     literal(node) {
+      //storeRule(null, node)
+
       if (node.value.length > 0) {
         let stringIndex = addConst("\""
           + js.stringEscape(
@@ -633,6 +619,8 @@ function generateBytecode(ast, ...args) {
     },
 
     class(node) {
+      //storeRule(null, node)
+
       let regexp = "/^["
         + (node.inverted ? "^" : "")
         + node.parts.map(part =>

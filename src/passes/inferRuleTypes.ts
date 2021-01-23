@@ -1,34 +1,138 @@
 import * as ts from "typescript";
 import * as fs from "fs";
+var visitor = require("pegjs/lib/compiler/visitor");
 
 // Generates parser JavaScript code.
 function generate(ast, ...args) {
 
-  var inferredTypes = {};
+  // console.log("infer : "+JSON.stringify(ast.funcs, null, "  "));
+  // console.log("ast : "+JSON.stringify(ast, null, "  "));
 
-  function generateTmpClass(node, lab?): string {
-    var r = "";
+  var inferredTypes = {};
+  let funcs = {};
+  ast.funcs = funcs;
+
+  ast.rules.forEach(function (rule) {
+    var currentRule = rule.name;
+    var r = funcs[currentRule];
+    if (!r) {
+      r = { rule: currentRule, funcs: [] };
+      funcs[currentRule] = r;
+    }
+    var fun = generateTypeArgs(rule, rule.expression, false);
+
+    r.funcs.push(fun);
+  });
+
+
+  function generateTypeArgs(parent, node, lab?) {
+    if (node.name) {
+
+      return node.name;
+
+    } else {
+
+      var r: any = {type:node.type};
+      var opt;
+      switch (node.type) {
+        case "action":
+          r = {type:"action", code: node.code, element: generateTypeArgs(node, node.expression)};
+          r.elements = [r.element];
+          break;
+        case "sequence":
+          r = { type: node.type, elements: node.elements.map(elem => generateTypeArgs(node, elem)) };
+          break;
+        case "choice":
+          r = { type: node.type, elements: node.alternatives.map(alt => generateTypeArgs(node, alt)) };
+          break;
+        case "optional":
+          //opt = true;
+          r = { type: node.type, element: generateTypeArgs(node, node.expression) };
+          r.elements = [r.element];
+          break;
+        case "zero_or_more":
+        case "one_or_more":
+            r = { type: node.type, element: generateTypeArgs(node, node.expression) };
+          r.elements = [r.element];
+          break;
+        case "labeled":
+          r = { type: node.type, label: node.label, element: generateTypeArgs(node, node.expression, true) };
+          r.elements = [r.element];
+          break;
+      }
+
+      return r;
+    }
+    //if (lab) {
+    //  if (opt) r = "?: "+r;
+    //  else r = ": "+r;
+    //}
+  }
+
+  var islab = 0;
+  var waslab = 0;
+  var isaction = 0;
+  var wasaction = 0;
+  function generateTmpClass(node, parent, lab?): string[] {
+    var r = [];
     var opt;
+    if (!parent) {
+      islab = 0;
+      waslab = 0;
+      isaction = 0;
+      wasaction = 0;
+    }
     switch (node.type) {
+      case "action":
+        isaction = 1;
+        r = generateTmpClass(node.element, node);
+        isaction = 0;
+        wasaction = 1;
+        r.push("    "+node.code);
+        break;
       case "sequence":
-        r = node.elements.map(elem=>generateTmpClass(elem)).join("\n");
+        node.elements.forEach(elem => {
+          r = r.concat(generateTmpClass(elem, node));
+        });
         break;
       case "choice":
-        r = node.elements.map(elem=>generateTmpClass(elem)).join(" || ");
+        if (islab) {
+          r = [node.elements.map(elem => generateTmpClass(elem, node)[0]).join(" || ")];
+        } else {
+          var i = 0;
+          node.elements.forEach(elem => {
+            r.push("    if (input['randomVar']==="+(i++)+") {");
+            r = r.concat(generateTmpClass(elem, node));
+            r.push("    }");
+          });
+  
+        }
         break;
       case "optional":
         //opt = true;
-        r = "[ "+generateTmpClass(node.element)+" ]";
+        if (islab) r = generateTmpClass(node.element, node);
         break;
       case "zero_or_more":
-        r = generateTmpClass(node.element);
+      case "one_or_more":
+        if (islab) r = ["[ " + generateTmpClass(node.element, node)[0] + " ]"];
         break;
       case "labeled":
-        r = "    var "+node.label + " = " + generateTmpClass(node.element, true)+";";
+        islab = 1;
+        r = ["    var " + node.label + " = " + generateTmpClass(node.element, node, true)[0] + ";"];
+        islab = 0;
+        waslab = 0;
+        if (!isaction) {
+          r.push("    return " + node.label + ";");
+        }
         break;
       case undefined:
         // it's a rule name
-        r = node+"()";
+        if (islab) r = [node + "()"];
+        else if (!isaction) r = ["    return "+node + "()"];
+        break;
+      default:
+        r = ["    // ? "+node.type ];
+        break;
     }
 
     return r;
@@ -39,10 +143,10 @@ function generate(ast, ...args) {
     var opt;
     switch (node.type) {
       case "sequence":
-        r = node.elements.map(elem=>generateArgs(elem)).filter(str=>!!str).join(", ");
+        r = node.elements.map(elem => generateArgs(elem)).filter(str => !!str).join(", ");
         break;
       case "choice":
-        r = node.elements.map(elem=>generateArgs(elem)).filter(str=>!!str).join(" | ");
+        r = node.elements.map(elem => generateArgs(elem)).filter(str => !!str).join(" | ");
         break;
       case "optional":
         //opt = true;
@@ -62,7 +166,7 @@ function generate(ast, ...args) {
     if (r && lab) {
       var pf = "";
       if (opt) pf = "?";
-      r = pf + ": " + r; 
+      r = pf + ": " + r;
     }
     return r;
   }
@@ -75,31 +179,42 @@ function generate(ast, ...args) {
 
   // pegjs 0.10  api pass(ast, options)
   // pegjs 0.11+ api pass(ast, config, options);
-  const options = args[args.length -1];
+  const options = args[args.length - 1];
 
   //var lstfiles = glob.sync(srcd + "**/_all_here_root.ts", {});
 
+  //console.log("infer : "+JSON.stringify(ast.funcs, null, "  "));
+
   var genclss = [];
+  genclss.push("import {IFilePosition, IFileRange, ILiteralExpectation, IClassParts, IClassExpectation, IAnyExpectation, IEndExpectation, IOtherExpectation, Expectation, SyntaxError, ITraceEvent, DefaultTracer, ICached, IParseOptions, IPegjsParseStream, PegjsParseStream} from 'ts-pegjs/lib';");
+
+  genclss.push("var input: IPegjsParseStream;");
+
   if (options.param0) {
-    genclss.push("var "+options.param0+";");
+    genclss.push("var " + options.param0 + ";");
   }
   if (options.tspegjs.customHeader) {
-    genclss.push(options.tspegjs.customHeader);
+    genclss.push(options.tspegjs.customHeader + "");
   }
 
-  console.log("infer : "+JSON.stringify(ast.funcs, null, "  "));
-
-  Object.values(ast.funcs).forEach((fun:any) => {
-
-    var ftxt = "function "+fun.rule+"() {\n"
-    ftxt += "    " + generateTmpClass(fun);
-    ftxt += fun.code;
-    ftxt += "}\n";
-    genclss.push(ftxt);
+  Object.values(ast.funcs).forEach((funs: any) => {
+    funs.funcs.forEach((fun: any) => {
+      genclss.push("function " + funs.rule + "() {");
+      genclss = genclss.concat(generateTmpClass(fun, null));
+      genclss.push("}");
+    });
   });
 
+  genclss = genclss.filter((elem: string) => {
+    if (!elem) {
+      return false;
+    }
+    elem = elem.replace(/^(\s|\n)+/g, "");
+    elem = elem.replace(/(\s|\n)+$/g, "");
+    return elem;
+  });
 
-  const fnm = options.dir+"/$$infer$tmp.ts";
+  const fnm = options.dir + "/$$infer$tmp.ts";
   fs.writeFileSync(fnm, genclss.join("\n"));
 
   //var program = ts.createProgram([], {});
