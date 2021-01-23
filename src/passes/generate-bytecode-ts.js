@@ -1,4 +1,3 @@
-"use strict";
 
 // Base: (original file: generate-bycode.js for codegen JS)
 
@@ -195,13 +194,7 @@ function generateBytecode(ast, ...args) {
   const options = args[args.length -1];
 
   let consts = [];
-  let funcs = [];
-
-  function addFunc(value) {
-    let index = funcs.indexOf(value);
-
-    return index === -1 ? funcs.push(value) - 1 : index;
-  }
+  let funcs = {};
 
   function addConst(value) {
     let index = consts.indexOf(value);
@@ -210,56 +203,54 @@ function generateBytecode(ast, ...args) {
   }
 
   function generateTypeArgs(node, lab) {
-    var r;
+    if (node.name) {
+      return node.name;
+    }
+
+    var r = {};
     var opt;
     switch (node.type) {
       case "action":
         r = generateTypeArgs(node.expression);
         break;
       case "sequence":
-        r = node.elements.map(elem=>generateTypeArgs(elem)).join(", ");
+        r = {type:node.type, elements: node.elements.map(elem=>generateTypeArgs(elem))};
         break;
       case "choice":
-        r = node.alternatives.map(alt=>generateTypeArgs(alt)).join(" | ");
+        r = {type:node.type, elements: node.alternatives.map(alt=>generateTypeArgs(alt))};
+        break;
+      case "optional":
+        //opt = true;
+        r = {type:node.type, element: generateTypeArgs(node.expression)};
         break;
       case "zero_or_more":
-        opt = true;
-        r = generateTypeArgs(node.expression);
+        r = {type:node.type, element: generateTypeArgs(node.expression)};
         break;
       case "labeled":
-        r = node.label+generateTypeArgs(node.expression, true);
+        r = {type:node.type, label: node.label, element: generateTypeArgs(node.expression, true)};
         break;
     }
-    if (node.name) {
-      r = inferType(node.name);
-    }
-    if (lab) {
-      if (opt) r = "?: "+r;
-      else r = ": "+r;
-    }
+    //if (lab) {
+    //  if (opt) r = "?: "+r;
+    //  else r = ": "+r;
+    //}
     return r;
-  }
-
-  function inferType(rule) {
-    const outputType = (options && options.returnTypes && options.returnTypes[rule]) ?
-      ": "+options.returnTypes[rule] : "$"+rule;//": any";
-    return outputType;
   }
 
   function addFunctionConst(context, code, node, gengeneric) {
 
     //console.log("context:"+JSON.stringify(context, null, "  "));
     //console.log("code:"+JSON.stringify(code, null, "  "));
-    if (currentRule==="Start") {
-      console.log(currentRule + " : "+JSON.stringify(node, null, "  "));
-    }
+    //if (currentRule==="TypeDefinition") {
+    //  console.log(currentRule + " : "+JSON.stringify(node, null, "  "));
+    //}
 
     var result;
     if (gengeneric) {
-      var tcode = "function "+currentRule;
-      tcode += "(" + generateTypeArgs(node) + ")";
-      tcode += ": "+inferType(currentRule)+" {" + code + "}";
-      addFunc(tcode);
+      var r = generateTypeArgs(node);
+      r.code = code;
+      r.rule = currentRule;
+      funcs[currentRule] = r;
       result = currentRule;
     } else {
       result = "function(" + Object.keys(context.env).join(", ") + ") {" + code + "}";
