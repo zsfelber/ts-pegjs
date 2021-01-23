@@ -144,9 +144,12 @@ function generate(ast) {
             if (node.code) {
                 var f = [];
                 f.push("function (");
-                f.push(generateNodeClasses(funs, node.element, node, indent).join(", ") + "): " + inferredTypes[funs.rule] + "{ ");
-                f = f.concat(node.code.trim().split(/\n/).map(function (line) { return indent + line.trim(); }));
-                f.push(indent + " }");
+                f.push(generateNodeClasses(funs, node.element, node, indent).join(", "));
+                f.push("): ");
+                f.push(inferredTypes[funs.rule]);
+                f.push(" {");
+                f = f.concat(node.code.trim().split(/\n/).map(function (line) { return " " + line.trim(); }));
+                f.push(" }");
                 return f.join("");
             }
         }

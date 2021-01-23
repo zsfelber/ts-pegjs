@@ -149,10 +149,13 @@ function generate(ast, ...args) {
     function gf() {
       if (node.code) {
         var f = [];
-         f.push("function (");
-        f.push(generateNodeClasses(funs, node.element, node, indent).join(", ") + "): " + inferredTypes[funs.rule] + "{ ");
-        f = f.concat(node.code.trim().split(/\n/).map(line => indent + line.trim()));
-        f.push(indent + " }");
+        f.push("function (");
+        f.push(generateNodeClasses(funs, node.element, node, indent).join(", "));
+        f.push("): ");
+        f.push(inferredTypes[funs.rule]);
+        f.push(" {");
+        f = f.concat(node.code.trim().split(/\n/).map(line => " "+line.trim()));
+        f.push(" }");
         return f.join("");
       }
     }
@@ -191,7 +194,7 @@ function generate(ast, ...args) {
       case "choice":
         if (isaction) {
           var uniqtps = {};
-          node.elements.map(elem => generateNodeClasses(funs, elem, node, indent)[0]).forEach(tp=>{
+          node.elements.map(elem => generateNodeClasses(funs, elem, node, indent)[0]).forEach(tp => {
             uniqtps[tp] = tp;
           });
           r = [Object.keys(uniqtps).join(" | ")];
