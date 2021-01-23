@@ -189,8 +189,19 @@ var visitor = require("pegjs/lib/compiler/visitor");
 // [29] SILENT_FAILS_OFF
 //
 //        silentFails--;
-function generateBytecode(ast) {
+function generateBytecode(ast, ...args) {
+  // pegjs 0.10  api pass(ast, options)
+  // pegjs 0.11+ api pass(ast, config, options);
+  const options = args[args.length -1];
+
   let consts = [];
+  let funcs = [];
+
+  function addFunc(value) {
+    let index = funcs.indexOf(value);
+
+    return index === -1 ? funcs.push(value) - 1 : index;
+  }
 
   function addConst(value) {
     let index = consts.indexOf(value);
@@ -198,10 +209,65 @@ function generateBytecode(ast) {
     return index === -1 ? consts.push(value) - 1 : index;
   }
 
-  function addFunctionConst(params, code) {
-    return addConst(
-      "function(" + params.map(v => v /*+ ": any"*/).join(", ") + ")"+/*: any*/" {" + code + "}"
-    );
+  function generateTypeArgs(node, lab) {
+    var r;
+    var opt;
+    switch (node.type) {
+      case "action":
+        r = generateTypeArgs(node.expression);
+        break;
+      case "sequence":
+        r = node.elements.map(elem=>generateTypeArgs(elem)).join(", ");
+        break;
+      case "choice":
+        r = node.alternatives.map(alt=>generateTypeArgs(alt)).join(" | ");
+        break;
+      case "zero_or_more":
+        opt = true;
+        r = generateTypeArgs(node.expression);
+        break;
+      case "labeled":
+        r = node.label+generateTypeArgs(node.expression, true);
+        break;
+    }
+    if (node.name) {
+      r = inferType(node.name);
+    }
+    if (lab) {
+      if (opt) r = "?: "+r;
+      else r = ": "+r;
+    }
+    return r;
+  }
+
+  function inferType(rule) {
+    const outputType = (options && options.returnTypes && options.returnTypes[rule]) ?
+      ": "+options.returnTypes[rule] : "$"+rule;//": any";
+    return outputType;
+  }
+
+  function addFunctionConst(context, code, node, gengeneric) {
+
+    //console.log("context:"+JSON.stringify(context, null, "  "));
+    //console.log("code:"+JSON.stringify(code, null, "  "));
+    if (currentRule==="Start") {
+      console.log(currentRule + " : "+JSON.stringify(node, null, "  "));
+    }
+
+    var result;
+    if (gengeneric) {
+      var tcode = "function "+currentRule;
+      tcode += "(" + generateTypeArgs(node) + ")";
+      tcode += ": "+inferType(currentRule)+" {" + code + "}";
+      addFunc(tcode);
+      result = currentRule;
+    } else {
+      result = "function(" + Object.keys(context.env).join(", ") + ") {" + code + "}";
+    }
+
+    //console.log(info+" :  "+JSON.stringify(code, null, "  "));
+
+    return addConst(result);
   }
 
   function cloneEnv(env) {
@@ -262,8 +328,8 @@ function generateBytecode(ast) {
     );
   }
 
-  function buildSemanticPredicate(code, negative, context) {
-    let functionIndex = addFunctionConst(Object.keys(context.env), code);
+  function buildSemanticPredicate(code, negative, context, node) {
+    let functionIndex = addFunctionConst(context, code, node);
 
     return buildSequence(
       [op.UPDATE_SAVED_POS],
@@ -289,14 +355,18 @@ function generateBytecode(ast) {
     );
   }
 
+  var currentRule, currentRuleRef;
+
   let generate = visitor.build({
     grammar(node) {
       node.rules.forEach(generate);
 
       node.consts = consts;
+      node.funcs = funcs;
     },
 
     rule(node) {
+      currentRule = node.name;
       node.bytecode = generate(node.expression, {
         sp: -1,        // stack pointer
         env: { },      // mapping of label names to stack positions
@@ -354,7 +424,7 @@ function generateBytecode(ast) {
         env: env,
         action: node
       });
-      let functionIndex = addFunctionConst(Object.keys(env), node.code);
+      let functionIndex = addFunctionConst({env:env}, node.code, node, true);
 
       return emitCall
         ? buildSequence(
@@ -401,8 +471,9 @@ function generateBytecode(ast) {
         } else {
           if (context.action) {
             let functionIndex = addFunctionConst(
-              Object.keys(context.env),
-              context.action.code
+              context,
+              context.action.code,
+              node
             );
 
             return buildSequence(
@@ -524,14 +595,15 @@ function generateBytecode(ast) {
     },
 
     semantic_and(node, context) {
-      return buildSemanticPredicate(node.code, false, context);
+      return buildSemanticPredicate(node.code, false, context, node);
     },
 
     semantic_not(node, context) {
-      return buildSemanticPredicate(node.code, true, context);
+      return buildSemanticPredicate(node.code, true, context, node);
     },
 
     rule_ref(node) {
+      currentRuleRef = node.name;
       return [op.RULE, asts.indexOfRule(ast, node.name)];
     },
 

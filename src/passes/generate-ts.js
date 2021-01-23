@@ -29,6 +29,7 @@ function generateTS(ast, ...args) {
   function generateTables() {
     if (options.optimize === "size") {
       return [
+        indent2(ast.funcs.join("\n")),
         "const peg$consts = [",
         indent2(ast.consts.join(",\n")),
         "];",
