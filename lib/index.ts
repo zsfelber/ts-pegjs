@@ -238,13 +238,6 @@ export interface IParseOptions {
   [key: string]: any;
 }
 
-export type PegjsParseFunction = (input: IPegjsParseStream, options?: IParseOptions) => any;
-
-export type PegjsParser = {
-  parse: PegjsParseFunction;
-  RuleNames: string[];
-}
-
 export interface IPegjsParseStream {
   /* give read-write access to pegjs, do not manipulate them */
   savedPos: number;
