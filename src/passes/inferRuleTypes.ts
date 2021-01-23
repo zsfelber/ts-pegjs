@@ -73,7 +73,7 @@ function generate(ast, ...args) {
   var waslab = 0;
   var isaction = 0;
   var wasaction = 0;
-  function generateTmpClass(node, parent, lab?): string[] {
+  function generateTmpClass(node, parent, indent, lab?): string[] {
     var r = [];
     var opt;
     if (!parent) {
@@ -85,53 +85,53 @@ function generate(ast, ...args) {
     switch (node.type) {
       case "action":
         isaction = 1;
-        r = generateTmpClass(node.element, node);
+        r = generateTmpClass(node.element, node, indent);
         isaction = 0;
         wasaction = 1;
-        r.push("    "+node.code);
+        r = r.concat(node.code.trim().split(/\n/).map(line=>indent+line.trim()));
         break;
       case "sequence":
         node.elements.forEach(elem => {
-          r = r.concat(generateTmpClass(elem, node));
+          r = r.concat(generateTmpClass(elem, node, indent));
         });
         break;
       case "choice":
         if (islab) {
-          r = [node.elements.map(elem => generateTmpClass(elem, node)[0]).join(" || ")];
+          r = [node.elements.map(elem => generateTmpClass(elem, node, indent)[0]).join(" || ")];
         } else {
           var i = 0;
           node.elements.forEach(elem => {
-            r.push("    if (input['randomVar']==="+(i++)+") {");
-            r = r.concat(generateTmpClass(elem, node));
-            r.push("    }");
+            r.push(indent+"if (input['randomVar']==="+(i++)+") {");
+            r = r.concat(generateTmpClass(elem, node, indent+"    "));
+            r.push(indent+"}");
           });
   
         }
         break;
       case "optional":
         //opt = true;
-        if (islab) r = generateTmpClass(node.element, node);
+        if (islab) r = generateTmpClass(node.element, node, indent);
         break;
       case "zero_or_more":
       case "one_or_more":
-        if (islab) r = ["[ " + generateTmpClass(node.element, node)[0] + " ]"];
+        if (islab) r = ["[ " + generateTmpClass(node.element, node, indent)[0] + " ]"];
         break;
       case "labeled":
         islab = 1;
-        r = ["    var " + node.label + " = " + generateTmpClass(node.element, node, true)[0] + ";"];
+        r = [indent+"var " + node.label + " = " + generateTmpClass(node.element, node, indent, true)[0] + ";"];
         islab = 0;
         waslab = 0;
         if (!isaction) {
-          r.push("    return " + node.label + ";");
+          r.push(indent+"return " + node.label + ";");
         }
         break;
       case undefined:
         // it's a rule name
         if (islab) r = [node + "()"];
-        else if (!isaction) r = ["    return "+node + "()"];
+        else if (!isaction) r = [indent+"return "+node + "()"];
         break;
       default:
-        r = ["    // ? "+node.type ];
+        r = [indent+"// ? "+node.type ];
         break;
     }
 
@@ -200,7 +200,7 @@ function generate(ast, ...args) {
   Object.values(ast.funcs).forEach((funs: any) => {
     funs.funcs.forEach((fun: any) => {
       genclss.push("function " + funs.rule + "() {");
-      genclss = genclss.concat(generateTmpClass(fun, null));
+      genclss = genclss.concat(generateTmpClass(fun, null, "    "));
       genclss.push("}");
     });
   });
