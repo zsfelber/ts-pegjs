@@ -202,7 +202,7 @@ function generateBytecode(ast/*, ...args*/) {
     return index === -1 ? consts.push(value) - 1 : index;
   }
 
-  function addFunctionConst(context, code, node, gengeneric) {
+  function addFunctionConst(context, code, node) {
 
     //console.log("context:"+JSON.stringify(context, null, "  "));
     //console.log("code:"+JSON.stringify(code, null, "  "));
@@ -213,8 +213,8 @@ function generateBytecode(ast/*, ...args*/) {
     //storeRule(code, node);
 
     var result;
-    if (gengeneric) {
-      result = currentRule;
+    if (node.templateFunction) {
+      result = node.templateFunction;
     } else {
       result = "function(" + Object.keys(context.env).join(", ") + ") {" + code + "}";
     }
@@ -381,7 +381,7 @@ function generateBytecode(ast/*, ...args*/) {
         env: env,
         action: node
       });
-      let functionIndex = addFunctionConst({env:env}, node.code, node, true);
+      let functionIndex = addFunctionConst({env:env}, node.code, node);
 
       return emitCall
         ? buildSequence(
