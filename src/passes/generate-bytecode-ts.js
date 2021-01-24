@@ -214,8 +214,10 @@ function generateBytecode(ast/*, ...args*/) {
 
     var result;
     var ids = Object.keys(context.env);
-    if (node.checkIds !== ids) {
-      console.warn(currentRule+" check arg ids failed : "+(node.checkIds?node.checkIds.join(","):"-")+" vs "+ids.join(","));
+    var i1 = node.checkids?node.checkids.join():"";
+    var i2 = ids?ids.join():"";
+    if (i1 !== i2) {
+      console.warn(currentRule+" check arg ids failed : "+i1+" vs "+i2);
     }
     if (node.templateFunction) {
       result = node.templateFunction;

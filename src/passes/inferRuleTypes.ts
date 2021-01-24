@@ -216,6 +216,7 @@ function generate(ast, ...args) {
         islab = 1;
         r = [simpleNode.label + ": " + generateNodeClasses(simpleRule, simpleNode.element, simpleNode, indent, true)[0]];
         simpleNode.checkid = simpleNode.label;
+        simpleNode.node.checkids = simpleNode.checkids = [simpleNode.label];
         islab = 0;
         waslab = 0;
         break;
@@ -282,7 +283,7 @@ function generate(ast, ...args) {
     generateNodeClasses(simpleRule, simpleRule, null, "    ");
   });
 
-  console.log("ast : "+JSON.stringify(ast, null, "  "));
+  //console.log("ast : "+JSON.stringify(ast, null, "  "));
 
 }
 

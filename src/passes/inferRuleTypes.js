@@ -12,23 +12,16 @@ function generate(ast) {
     // pegjs 0.10  api pass(ast, options)
     // pegjs 0.11+ api pass(ast, config, options);
     var options = args[args.length - 1];
-    // console.log("infer : "+JSON.stringify(ast.funcs, null, "  "));
+    // console.log("infer : "+JSON.stringify(ast.simplified, null, "  "));
     // console.log("ast : "+JSON.stringify(ast, null, "  "));
-    //console.log("infer : "+JSON.stringify(funcs, null, "  "));
+    //console.log("infer : "+JSON.stringify(simplified, null, "  "));
     //console.log("inferred types:"+JSON.stringify(inferredTypes, null, "   "));
+    var simplifiedRules = {};
     var inferredTypes = {};
-    var funcs = {};
-    ast.funcs = funcs;
-    ast.inferredTypes = inferredTypes;
-    ast.rules.forEach(function (rule) {
-        var currentRule = rule.name;
-        var r = funcs[currentRule];
-        if (!r) {
-            r = { rule: currentRule, funcs: [] };
-            funcs[currentRule] = r;
-        }
-        var fun = simplifyStructure(rule, rule.expression, false);
-        r.funcs.push(fun);
+    ast.rules.forEach(function (rule0) {
+        var currentRule = rule0.name;
+        simplifiedRules[currentRule] = simplifyStructure(rule0, rule0.expression, false);
+        simplifiedRules[currentRule].rule = currentRule;
     });
     function simplifyStructure(parent, node, lab) {
         if (node.name) {
@@ -74,37 +67,37 @@ function generate(ast) {
     var waslab = 0;
     var isaction = 0;
     var wasaction = 0;
-    function generateTmpClass(node, parent, indent, lab) {
+    function generateTmpClass(simpleNode, simpleParent, indent, lab) {
         var r = [];
         var opt;
-        if (!parent) {
+        if (!simpleParent) {
             islab = 0;
             waslab = 0;
             isaction = 0;
             wasaction = 0;
         }
-        switch (node.type) {
+        switch (simpleNode.type) {
             case "action":
                 isaction = 1;
-                r = generateTmpClass(node.element, node, indent);
+                r = generateTmpClass(simpleNode.element, simpleNode, indent);
                 isaction = 0;
                 wasaction = 1;
-                r = r.concat(node.code.trim().split(/\n/).map(function (line) { return indent + line.trim(); }));
+                r = r.concat(simpleNode.code.trim().split(/\n/).map(function (line) { return indent + line.trim(); }));
                 break;
             case "sequence":
-                node.elements.forEach(function (elem) {
-                    r = r.concat(generateTmpClass(elem, node, indent));
+                simpleNode.elements.forEach(function (simplEelem) {
+                    r = r.concat(generateTmpClass(simplEelem, simpleNode, indent));
                 });
                 break;
             case "choice":
                 if (islab) {
-                    r = [node.elements.map(function (elem) { return generateTmpClass(elem, node, indent)[0]; }).join(" || ")];
+                    r = [simpleNode.elements.map(function (simpleElem) { return generateTmpClass(simpleElem, simpleNode, indent)[0]; }).join(" || ")];
                 }
                 else {
                     var i = 0;
-                    node.elements.forEach(function (elem) {
+                    simpleNode.elements.forEach(function (simpleElem) {
                         r.push(indent + "if (input['randomVar']===" + (i++) + ") {");
-                        r = r.concat(generateTmpClass(elem, node, indent + "    "));
+                        r = r.concat(generateTmpClass(simpleElem, simpleNode, indent + "    "));
                         r.push(indent + "}");
                     });
                 }
@@ -112,54 +105,54 @@ function generate(ast) {
             case "optional":
                 //opt = true;
                 if (islab)
-                    r = generateTmpClass(node.element, node, indent);
+                    r = generateTmpClass(simpleNode.element, simpleNode, indent);
                 break;
             case "zero_or_more":
             case "one_or_more":
                 if (islab)
-                    r = ["[ " + generateTmpClass(node.element, node, indent)[0] + " ]"];
+                    r = ["[ " + generateTmpClass(simpleNode.element, simpleNode, indent)[0] + " ]"];
                 break;
             case "labeled":
                 islab = 1;
-                r = [indent + "var " + node.label + " = " + generateTmpClass(node.element, node, indent, true)[0] + ";"];
+                r = [indent + "var " + simpleNode.label + " = " + generateTmpClass(simpleNode.element, simpleNode, indent, true)[0] + ";"];
                 islab = 0;
                 waslab = 0;
                 if (!isaction) {
-                    r.push(indent + "return " + node.label + ";");
+                    r.push(indent + "return " + simpleNode.label + ";");
                 }
                 break;
             case undefined:
                 // it's a rule name
                 if (islab)
-                    r = [node + "()"];
+                    r = [simpleNode + "()"];
                 else if (!isaction)
-                    r = [indent + "return " + node + "()"];
+                    r = [indent + "return " + simpleNode + "()"];
                 break;
             default:
-                r = [indent + "// ? " + node.type];
+                r = [indent + "// ? " + simpleNode.type];
                 break;
         }
         return r;
     }
-    function generateNodeClasses(funs, node, parent, indent, lab) {
+    function generateNodeClasses(simpleRule, simpleNode, simpleParent, indent, lab) {
         function gf() {
-            if (node.code) {
+            if (simpleNode.code) {
                 var f = [];
                 f.push("function (");
-                f.push(generateNodeClasses(funs, node.element, node, indent).filter(function (e) { return e ? e.length : false; }).join(", "));
+                f.push(generateNodeClasses(simpleRule, simpleNode.element, simpleNode, indent).filter(function (e) { return e ? e.length : false; }).join(", "));
                 f.push("): ");
-                f.push(inferredTypes[funs.rule]);
+                f.push(inferredTypes[simpleRule.rule]);
                 f.push(" {");
-                f = f.concat(node.code.trim().split(/\n/).map(function (line) { return " " + line.trim(); }));
+                f = f.concat(simpleNode.code.trim().split(/\n/).map(function (line) { return " " + line.trim(); }));
                 f.push(" }");
                 return f.join("");
             }
         }
         var r = [];
         var opt;
-        if (parent) {
-            if (typeof node !== "string") {
-                node.parentAction = parent.parentAction;
+        if (simpleParent) {
+            if (typeof simpleNode !== "string") {
+                simpleNode.parentAction = simpleParent.parentAction;
             }
         }
         else {
@@ -168,114 +161,74 @@ function generate(ast) {
             isaction = 0;
             wasaction = 0;
         }
-        switch (node.type) {
+        switch (simpleNode.type) {
             case "action":
                 isaction = 1;
-                node.parentAction = node;
+                simpleNode.parentAction = simpleNode;
                 var f = gf();
-                node.node.templateFunction = f;
-                generateNodeClasses(funs, node.element, node, indent);
-                node.node.checkids = node.element.checkids;
-                if (!node.node.checkids)
-                    node.node.checkids = [];
+                simpleNode.node.templateFunction = f;
+                generateNodeClasses(simpleRule, simpleNode.element, simpleNode, indent);
+                simpleNode.node.checkids = simpleNode.element.checkids;
+                if (!simpleNode.node.checkids)
+                    simpleNode.node.checkids = [];
                 isaction = 0;
                 wasaction = 1;
                 break;
             case "sequence":
-                if (node.parentAction) {
-                    node.node.templateFunction = node.parentAction.node.templateFunction;
+                if (simpleNode.parentAction) {
+                    simpleNode.node.templateFunction = simpleNode.parentAction.node.templateFunction;
                 }
-                node.node.checkids = node.checkids = [];
-                return node.elements.map(function (elem) {
-                    var r = generateNodeClasses(funs, elem, node, indent)[0];
-                    if (elem.checkid)
-                        node.checkids.push(elem.checkid);
+                simpleNode.node.checkids = simpleNode.checkids = [];
+                return simpleNode.elements.map(function (simpleElem) {
+                    var r = generateNodeClasses(simpleRule, simpleElem, simpleNode, indent)[0];
+                    if (simpleElem.checkid)
+                        simpleNode.checkids.push(simpleElem.checkid);
                     return r;
                 });
                 break;
             case "choice":
                 if (isaction) {
                     var uniqtps = {};
-                    node.elements.map(function (elem) { return generateNodeClasses(funs, elem, node, indent)[0]; }).forEach(function (tp) {
+                    simpleNode.elements.map(function (simpleElem) { return generateNodeClasses(simpleRule, simpleElem, simpleNode, indent)[0]; }).forEach(function (tp) {
                         uniqtps[tp] = tp;
                     });
                     r = [Object.keys(uniqtps).join(" | ")];
                 }
                 else {
-                    node.elements.forEach(function (elem) {
-                        generateNodeClasses(funs, elem, node, indent);
+                    simpleNode.elements.forEach(function (simpleElem) {
+                        generateNodeClasses(simpleRule, simpleElem, simpleNode, indent);
                     });
                 }
                 break;
             case "optional":
                 //opt = true;
                 if (islab)
-                    r = generateNodeClasses(funs, node.element, node, indent);
+                    r = generateNodeClasses(simpleRule, simpleNode.element, simpleNode, indent);
                 break;
             case "zero_or_more":
             case "one_or_more":
                 if (islab)
-                    r = [generateNodeClasses(funs, node.element, node, indent)[0] + "[]"];
+                    r = [generateNodeClasses(simpleRule, simpleNode.element, simpleNode, indent)[0] + "[]"];
                 break;
             case "labeled":
                 islab = 1;
-                r = [node.label + ": " + generateNodeClasses(funs, node.element, node, indent, true)[0]];
-                node.checkid = node.label;
+                r = [simpleNode.label + ": " + generateNodeClasses(simpleRule, simpleNode.element, simpleNode, indent, true)[0]];
+                simpleNode.checkid = simpleNode.label;
+                simpleNode.node.checkids = simpleNode.checkids = [simpleNode.label];
                 islab = 0;
                 waslab = 0;
                 break;
             case undefined:
                 // it's a rule name
                 if (islab)
-                    r = [inferredTypes[node]];
+                    r = [inferredTypes[simpleNode]];
                 break;
             default:
-                r = ["/* ? " + node.type + "*/"];
+                r = ["/* ? " + simpleNode.type + "*/"];
                 break;
         }
         return r;
     }
-    /*
-      function generateArgs(node, lab?): string {
-        var r = "";
-        var opt;
-        switch (node.type) {
-          case "sequence":
-            r = node.elements.map(elem => generateArgs(elem)).filter(str => !!str).join(", ");
-            break;
-          case "choice":
-            r = node.elements.map(elem => generateArgs(elem)).filter(str => !!str).join(" | ");
-            break;
-          case "optional":
-            //opt = true;
-            r = generateArgs(node.element);
-            break;
-          case "zero_or_more":
-            r = generateArgs(node.element);
-            break;
-          case "labeled":
-            r = node.label + generateArgs(node.element, true);
-            break;
-          case undefined:
-            // it's a rule name
-            r = inferredTypes[node];
-        }
-    
-        if (r && lab) {
-          var pf = "";
-          if (opt) pf = "?";
-          r = pf + ": " + r;
-        }
-        return r;
-      }
-    
-      function predefType(rule) {
-        const outputType = (options && options.returnTypes && options.returnTypes[rule]) ?
-          options.returnTypes[rule] : null;
-        return outputType;
-      }
-    */
-    //var lstfiles = glob.sync(srcd + "**/_all_here_root.ts", {});
     var genclss = [];
     genclss.push("import {IFilePosition, IFileRange, ILiteralExpectation, IClassParts, IClassExpectation, IAnyExpectation, IEndExpectation, IOtherExpectation, Expectation, SyntaxError, ITraceEvent, DefaultTracer, ICached, IParseOptions, IPegjsParseStream, PegjsParseStream} from 'ts-pegjs/lib';");
     genclss.push("var input: IPegjsParseStream;");
@@ -285,12 +238,10 @@ function generate(ast) {
     if (options.tspegjs.customHeader) {
         genclss.push(options.tspegjs.customHeader + "");
     }
-    Object.values(funcs).forEach(function (funs) {
-        funs.funcs.forEach(function (fun) {
-            genclss.push("function " + funs.rule + "() {");
-            genclss = genclss.concat(generateTmpClass(fun, null, "    "));
-            genclss.push("}");
-        });
+    Object.values(simplifiedRules).forEach(function (simpleRule) {
+        genclss.push("function " + simpleRule.rule + "() {");
+        genclss = genclss.concat(generateTmpClass(simpleRule, null, "    "));
+        genclss.push("}");
     });
     genclss = genclss.filter(function (elem) {
         if (!elem) {
@@ -313,11 +264,9 @@ function generate(ast) {
             inferredTypes[fun.name.text] = ttxt;
         }
     });
-    Object.values(funcs).forEach(function (funs) {
-        funs.funcs.forEach(function (fun) {
-            generateNodeClasses(funs, fun, null, "    ");
-        });
+    Object.values(simplifiedRules).forEach(function (simpleRule) {
+        generateNodeClasses(simpleRule, simpleRule, null, "    ");
     });
-    console.log("ast : " + JSON.stringify(ast, null, "  "));
+    //console.log("ast : "+JSON.stringify(ast, null, "  "));
 }
 module.exports = generate;
