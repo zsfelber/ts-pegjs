@@ -129,8 +129,8 @@ function generate(ast, ...args) {
         break;
       case undefined:
         // it's a rule name
-        if (islab) r = [simpleNode + "()"];
-        else if (!isaction) r = [indent + "return " + simpleNode + "()"];
+        if (islab) r = ["$_" + simpleNode + "()"];
+        else if (!isaction) r = [indent + "return $_" + simpleNode + "()"];
         break;
       default:
         r = [indent + "// ? " + simpleNode.type];
@@ -253,7 +253,7 @@ function generate(ast, ...args) {
   Object.values(simplifiedRules).forEach((simpleRule: any) => {
     var outputType = (options && options.returnTypes) ? options.returnTypes[simpleRule.rule] : "";
     outputType = outputType?": "+outputType:"";
-    genclss.push("function " + simpleRule.rule + "()"+outputType+" {");
+    genclss.push("function $_" + simpleRule.rule + "()"+outputType+" {");
     genclss = genclss.concat(generateTmpClass(simpleRule, null, "    "));
     genclss.push("}");
   });
@@ -276,8 +276,9 @@ function generate(ast, ...args) {
   const checker = program.getTypeChecker();
   tsrc.statements.forEach(fun => {
     if (ts.isFunctionDeclaration(fun)) {
+      var fname = fun.name.text.substring(2);
       //var tp = checker.getTypeAtLocation(fun);
-      var outputType = (options && options.returnTypes) ? options.returnTypes[fun.name.text] : "";
+      var outputType = (options && options.returnTypes) ? options.returnTypes[fname] : "";
       if (!outputType) {
         var tp = checker.getReturnTypeOfSignature(checker.getSignatureFromDeclaration(fun));
         outputType = checker.typeToString(tp);
@@ -292,7 +293,7 @@ function generate(ast, ...args) {
 
       }
 
-      inferredTypes[fun.name.text] = outputType;
+      inferredTypes[fname] = outputType;
     }
   });
 

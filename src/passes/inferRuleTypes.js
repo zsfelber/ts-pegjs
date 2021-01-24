@@ -125,9 +125,9 @@ function generate(ast) {
             case undefined:
                 // it's a rule name
                 if (islab)
-                    r = [simpleNode + "()"];
+                    r = ["$_" + simpleNode + "()"];
                 else if (!isaction)
-                    r = [indent + "return " + simpleNode + "()"];
+                    r = [indent + "return $_" + simpleNode + "()"];
                 break;
             default:
                 r = [indent + "// ? " + simpleNode.type];
@@ -246,7 +246,7 @@ function generate(ast) {
     Object.values(simplifiedRules).forEach(function (simpleRule) {
         var outputType = (options && options.returnTypes) ? options.returnTypes[simpleRule.rule] : "";
         outputType = outputType ? ": " + outputType : "";
-        genclss.push("function " + simpleRule.rule + "()" + outputType + " {");
+        genclss.push("function $_" + simpleRule.rule + "()" + outputType + " {");
         genclss = genclss.concat(generateTmpClass(simpleRule, null, "    "));
         genclss.push("}");
     });
@@ -265,8 +265,9 @@ function generate(ast) {
     var checker = program.getTypeChecker();
     tsrc.statements.forEach(function (fun) {
         if (ts.isFunctionDeclaration(fun)) {
+            var fname = fun.name.text.substring(2);
             //var tp = checker.getTypeAtLocation(fun);
-            var outputType = (options && options.returnTypes) ? options.returnTypes[fun.name.text] : "";
+            var outputType = (options && options.returnTypes) ? options.returnTypes[fname] : "";
             if (!outputType) {
                 var tp = checker.getReturnTypeOfSignature(checker.getSignatureFromDeclaration(fun));
                 outputType = checker.typeToString(tp);
@@ -278,7 +279,7 @@ function generate(ast) {
                     }
                 }
             }
-            inferredTypes[fun.name.text] = outputType;
+            inferredTypes[fname] = outputType;
         }
     });
     Object.values(simplifiedRules).forEach(function (simpleRule) {
