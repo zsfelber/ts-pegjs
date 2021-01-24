@@ -198,7 +198,10 @@ function generate(ast, ...args) {
           simpleNode.elements.map(simpleElem => generateNodeClasses(simpleRule, simpleElem, simpleNode, indent)[0]).forEach(tp => {
             uniqtps[tp] = tp;
           });
-          r = [Object.keys(uniqtps).join(" | ")];
+          var tps = Object.keys(uniqtps);
+          var tpst = tps.join(" | ");
+          if (tps.length>1) tpst = "("+tpst+")";
+          r = [tpst];
 
         } else {
           simpleNode.elements.forEach(simpleElem => {
@@ -278,6 +281,15 @@ function generate(ast, ...args) {
       if (!outputType) {
         var tp = checker.getReturnTypeOfSignature(checker.getSignatureFromDeclaration(fun));
         outputType = checker.typeToString(tp);
+
+        if (tp.isUnionOrIntersection()) {
+          if (tp.types && tp.types.length>1) {
+            if (outputType.indexOf(" | ")!==-1||outputType.indexOf(" & ")!==-1) {
+              outputType = "("+outputType+")";
+            }
+          }
+        }
+
       }
 
       inferredTypes[fun.name.text] = outputType;
