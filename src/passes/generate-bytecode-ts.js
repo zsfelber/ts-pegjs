@@ -213,10 +213,14 @@ function generateBytecode(ast/*, ...args*/) {
     //storeRule(code, node);
 
     var result;
+    var ids = Object.keys(context.env);
+    if (node.checkIds !== ids) {
+      console.warn(currentRule+" check arg ids failed : "+(node.checkIds?node.checkIds.join(","):"-")+" vs "+ids.join(","));
+    }
     if (node.templateFunction) {
       result = node.templateFunction;
     } else {
-      result = "function(" + Object.keys(context.env).join(", ") + ") {" + code + "}";
+      result = "function(" + ids.join(", ") + ") {" + code + "}";
     }
 
     //console.log(info+" :  "+JSON.stringify(code, null, "  "));

@@ -144,7 +144,7 @@ function generate(ast) {
             if (node.code) {
                 var f = [];
                 f.push("function (");
-                f.push(generateNodeClasses(funs, node.element, node, indent).join(", "));
+                f.push(generateNodeClasses(funs, node.element, node, indent).filter(function (e) { return e ? e.length : false; }).join(", "));
                 f.push("): ");
                 f.push(inferredTypes[funs.rule]);
                 f.push(" {");
@@ -173,6 +173,9 @@ function generate(ast) {
                 var f = gf();
                 node.node.templateFunction = f;
                 generateNodeClasses(funs, node.element, node, indent);
+                node.node.checkids = node.element.checkids;
+                if (!node.node.checkids)
+                    node.node.checkids = [];
                 isaction = 0;
                 wasaction = 1;
                 break;
@@ -180,8 +183,12 @@ function generate(ast) {
                 if (node.parentAction) {
                     node.node.templateFunction = node.parentAction.node.templateFunction;
                 }
+                node.node.checkids = node.checkids = [];
                 return node.elements.map(function (elem) {
-                    return generateNodeClasses(funs, elem, node, indent)[0];
+                    var r = generateNodeClasses(funs, elem, node, indent)[0];
+                    if (elem.checkid)
+                        node.checkids.push(elem.checkid);
+                    return r;
                 });
                 break;
             case "choice":
@@ -211,12 +218,15 @@ function generate(ast) {
             case "labeled":
                 islab = 1;
                 r = [node.label + ": " + generateNodeClasses(funs, node.element, node, indent, true)[0]];
+                node.checkid = node.label;
                 islab = 0;
                 waslab = 0;
                 break;
             case undefined:
                 // it's a rule name
-                return [inferredTypes[node]];
+                if (islab)
+                    r = [inferredTypes[node]];
+                break;
             default:
                 r = ["/* ? " + node.type + "*/"];
                 break;
