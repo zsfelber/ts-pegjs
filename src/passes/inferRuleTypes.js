@@ -251,7 +251,7 @@ function generate(ast) {
         elem = elem.replace(/(\s|\n)+$/g, "");
         return elem;
     });
-    var fnm = options.dir + "/$$infer$tmp.ts";
+    var fnm = options.tmppref + "$$infer$tmp.ts";
     fs.writeFileSync(fnm, genclss.join("\n"));
     var program = ts.createProgram([fnm], {});
     var tsrc = program.getSourceFile(fnm);

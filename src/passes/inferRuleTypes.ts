@@ -260,7 +260,7 @@ function generate(ast, ...args) {
     return elem;
   });
 
-  const fnm = options.dir + "/$$infer$tmp.ts";
+  const fnm = options.tmppref + "$$infer$tmp.ts";
   fs.writeFileSync(fnm, genclss.join("\n"));
 
   var program = ts.createProgram([fnm], {});
