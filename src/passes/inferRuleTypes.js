@@ -14,6 +14,8 @@ function generate(ast) {
     var options = args[args.length - 1];
     // console.log("infer : "+JSON.stringify(ast.funcs, null, "  "));
     // console.log("ast : "+JSON.stringify(ast, null, "  "));
+    //console.log("infer : "+JSON.stringify(funcs, null, "  "));
+    //console.log("inferred types:"+JSON.stringify(inferredTypes, null, "   "));
     var inferredTypes = {};
     var funcs = {};
     ast.funcs = funcs;
@@ -274,7 +276,6 @@ function generate(ast) {
       }
     */
     //var lstfiles = glob.sync(srcd + "**/_all_here_root.ts", {});
-    //console.log("infer : "+JSON.stringify(funcs, null, "  "));
     var genclss = [];
     genclss.push("import {IFilePosition, IFileRange, ILiteralExpectation, IClassParts, IClassExpectation, IAnyExpectation, IEndExpectation, IOtherExpectation, Expectation, SyntaxError, ITraceEvent, DefaultTracer, ICached, IParseOptions, IPegjsParseStream, PegjsParseStream} from 'ts-pegjs/lib';");
     genclss.push("var input: IPegjsParseStream;");
@@ -312,11 +313,11 @@ function generate(ast) {
             inferredTypes[fun.name.text] = ttxt;
         }
     });
-    //console.log("inferred types:"+JSON.stringify(inferredTypes, null, "   "));
     Object.values(funcs).forEach(function (funs) {
         funs.funcs.forEach(function (fun) {
             generateNodeClasses(funs, fun, null, "    ");
         });
     });
+    console.log("ast : " + JSON.stringify(ast, null, "  "));
 }
 module.exports = generate;
