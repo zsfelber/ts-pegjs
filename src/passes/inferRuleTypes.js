@@ -240,7 +240,9 @@ function generate(ast) {
         genclss.push(options.tspegjs.customHeader + "");
     }
     Object.values(simplifiedRules).forEach(function (simpleRule) {
-        genclss.push("function " + simpleRule.rule + "() {");
+        var outputType = (options && options.returnTypes) ? options.returnTypes[simpleRule.rule] : "";
+        outputType = outputType ? ": " + outputType : "";
+        genclss.push("function " + simpleRule.rule + "()" + outputType + " {");
         genclss = genclss.concat(generateTmpClass(simpleRule, null, "    "));
         genclss.push("}");
     });

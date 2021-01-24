@@ -248,7 +248,9 @@ function generate(ast, ...args) {
   }
 
   Object.values(simplifiedRules).forEach((simpleRule: any) => {
-    genclss.push("function " + simpleRule.rule + "() {");
+    var outputType = (options && options.returnTypes) ? options.returnTypes[simpleRule.rule] : "";
+    outputType = outputType?": "+outputType:"";
+    genclss.push("function " + simpleRule.rule + "()"+outputType+" {");
     genclss = genclss.concat(generateTmpClass(simpleRule, null, "    "));
     genclss.push("}");
   });
