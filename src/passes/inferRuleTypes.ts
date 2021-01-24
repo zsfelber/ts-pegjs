@@ -120,7 +120,7 @@ function generate(ast, ...args) {
         break;
       case "labeled":
         islab = 1;
-        r = [indent + "var " + simpleNode.label + " = " + generateTmpClass(simpleNode.element, simpleNode, indent, true)[0] + ";"];
+        r = [indent + "let " + simpleNode.label + " = " + generateTmpClass(simpleNode.element, simpleNode, indent, true)[0] + ";"];
         islab = 0;
         waslab = 0;
         if (!isaction) {
