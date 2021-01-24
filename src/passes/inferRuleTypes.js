@@ -1,5 +1,5 @@
 "use strict";
-exports.__esModule = true;
+Object.defineProperty(exports, "__esModule", { value: true });
 var ts = require("typescript");
 var fs = require("fs");
 var visitor = require("pegjs/lib/compiler/visitor");
