@@ -18,6 +18,8 @@ function generate(ast, ...args) {
   var simplifiedRules = {};
   var inferredTypes = {};
 
+  ast.inferredTypes = inferredTypes;
+
   ast.rules.forEach(function (rule0) {
     var currentRule = rule0.name;
     simplifiedRules[currentRule] = simplifyStructure(rule0, rule0.expression, false);
@@ -270,11 +272,13 @@ function generate(ast, ...args) {
   tsrc.statements.forEach(fun => {
     if (ts.isFunctionDeclaration(fun)) {
       //var tp = checker.getTypeAtLocation(fun);
+      var outputType = (options && options.returnTypes) ? options.returnTypes[fun.name.text] : "";
+      if (!outputType) {
+        var tp = checker.getReturnTypeOfSignature(checker.getSignatureFromDeclaration(fun));
+        outputType = checker.typeToString(tp);
+      }
 
-      var tp = checker.getReturnTypeOfSignature(checker.getSignatureFromDeclaration(fun));
-      var ttxt = checker.typeToString(tp);
-
-      inferredTypes[fun.name.text] = ttxt;
+      inferredTypes[fun.name.text] = outputType;
     }
   });
 

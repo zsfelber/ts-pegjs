@@ -752,9 +752,9 @@ function generateTS(ast, ...args) {
 
     code = compile(rule.bytecode);
 
-    const outputType = (options && options.returnTypes && options.returnTypes[rule.name]) ?
-                       ": "+options.returnTypes[rule.name] : "";//": any";
-    
+    var outputType = ast.inferredTypes[rule.name];
+    outputType = outputType ? ": "+ outputType : "";
+
     parts.push("function peg$parse" + rule.name + "()" + outputType +" {");
 
     if (options.trace) {
