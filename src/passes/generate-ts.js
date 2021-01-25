@@ -67,12 +67,12 @@ function generateTS(ast, ...args) {
 
     if (options.cache) {
       parts.push([
-        "const key = input.currPos * " + ast.rules.length + " + " + ruleIndexCode + ";",
+        "const key = inputBuf.currPos * " + ast.rules.length + " + " + ruleIndexCode + ";",
         "const cached: ICached = peg$resultsCache[key];",
         "let position: number;",
         "",
         "if (cached) {",
-        "  input.currPos = cached.nextPos;",
+        "  inputBuf.currPos = cached.nextPos;",
         ""
       ].join("\n"));
 
@@ -83,7 +83,7 @@ function generateTS(ast, ...args) {
           "    type: \"rule.match\",",
           "    rule: " + ruleNameCode + ",",
           "    result: cached.result,",
-          "    location: peg$computeLocation(startPos, input.currPos)",
+          "    location: peg$computeLocation(startPos, inputBuf.currPos)",
           "  });",
           "} else {",
           "  peg$tracer.trace({",
@@ -112,7 +112,7 @@ function generateTS(ast, ...args) {
     if (options.cache) {
       parts.push([
         "",
-        "peg$resultsCache[key] = { nextPos: input.currPos, result: " + resultCode + " };"
+        "peg$resultsCache[key] = { nextPos: inputBuf.currPos, result: " + resultCode + " };"
       ].join("\n"));
     }
 
@@ -124,7 +124,7 @@ function generateTS(ast, ...args) {
         "    type: \"rule.match\",",
         "    rule: " + ruleNameCode + ",",
         "    result: " + resultCode + ",",
-        "    location: peg$computeLocation(startPos, input.currPos)",
+        "    location: peg$computeLocation(startPos, inputBuf.currPos)",
         "  });",
         "} else {",
         "  peg$tracer.trace({",
@@ -222,7 +222,7 @@ function generateTS(ast, ...args) {
         "  let end = bc.length;",
         "  const ends: any[] = [];",
         "  const stack: any[] = [];",
-        "  let startPos = input.currPos;",
+        "  let startPos = inputBuf.currPos;",
         "  let params;"
       ].join("\n"));
     } else {
@@ -277,7 +277,7 @@ function generateTS(ast, ...args) {
       "          break;",
       "",
       "        case " + op.PUSH_CURR_POS + ":", // PUSH_CURR_POS
-      "          stack.push(input.currPos);",
+      "          stack.push(inputBuf.currPos);",
       "          ip++;",
       "          break;",
       "",
@@ -287,7 +287,7 @@ function generateTS(ast, ...args) {
       "          break;",
       "",
       "        case " + op.POP_CURR_POS + ":", // POP_CURR_POS
-      "          input.currPos = stack.pop();",
+      "          inputBuf.currPos = stack.pop();",
       "          ip++;",
       "          break;",
       "",
@@ -312,7 +312,7 @@ function generateTS(ast, ...args) {
       "          break;",
       "",
       "        case " + op.TEXT + ":", // TEXT
-      "          stack.push(input.substring(stack.pop(), input.currPos));",
+      "          stack.push(input.substring(stack.pop(), inputBuf.currPos));",
       "          ip++;",
       "          break;",
       "",
@@ -335,8 +335,8 @@ function generateTS(ast, ...args) {
       indent10(generateLoop("stack[stack.length - 1] !== peg$FAILED")),
       "",
       "        case " + op.MATCH_ANY + ":", // MATCH_ANY a, f, ...
-      //indent10(generateCondition("input.length > input.currPos", 0)),
-      indent10(generateCondition("input.isAvailableAt(input.currPos)", 0)),
+      //indent10(generateCondition("input.length > inputBuf.currPos", 0)),
+      indent10(generateCondition("input.isAvailableAt(inputBuf.currPos)", 0)),
       "",
       "        case " + op.MATCH_STRING + ":", // MATCH_STRING s, a, f, ...
       indent10(generateCondition(
@@ -352,19 +352,19 @@ function generateTS(ast, ...args) {
       "",
       "        case " + op.MATCH_REGEXP + ":", // MATCH_REGEXP r, a, f, ...
       indent10(generateCondition(
-        "(peg$consts[bc[ip + 1]] as any as RegExp).test(input.charAt(input.currPos))",
+        "(peg$consts[bc[ip + 1]] as any as RegExp).test(input.charAt(inputBuf.currPos))",
         1
       )),
       "",
       "        case " + op.ACCEPT_N + ":", // ACCEPT_N n
       "          stack.push(input.readForward(index, bc[ip + 1]));",
-      "          input.currPos += bc[ip + 1];",
+      "          inputBuf.currPos += bc[ip + 1];",
       "          ip += 2;",
       "          break;",
       "",
       "        case " + op.ACCEPT_STRING + ":", // ACCEPT_STRING s
       "          stack.push(peg$consts[bc[ip + 1]]);",
-      "          input.currPos += (peg$consts[bc[ip + 1]] as string).length;",
+      "          inputBuf.currPos += (peg$consts[bc[ip + 1]] as string).length;",
       "          ip += 2;",
       "          break;",
       "",
@@ -377,12 +377,12 @@ function generateTS(ast, ...args) {
       "          break;",
       "",
       "        case " + op.LOAD_SAVED_POS + ":", // LOAD_SAVED_POS p
-      "          input.savedPos = stack[stack.length - 1 - bc[ip + 1]];",
+      "          inputBuf.savedPos = stack[stack.length - 1 - bc[ip + 1]];",
       "          ip += 2;",
       "          break;",
       "",
       "        case " + op.UPDATE_SAVED_POS + ":", // UPDATE_SAVED_POS
-      "          input.savedPos = input.currPos;",
+      "          inputBuf.savedPos = inputBuf.currPos;",
       "          ip++;",
       "          break;",
       "",
@@ -560,9 +560,9 @@ function generateTS(ast, ...args) {
             break;
 
           case op.PUSH_CURR_POS: // PUSH_CURR_POS
-            //parts.push(stack.push("input.currPos"));
-            stack.push("input.currPos");
-            parts.push("position = input.currPos;");
+            //parts.push(stack.push("inputBuf.currPos"));
+            stack.push("inputBuf.currPos");
+            parts.push("position = inputBuf.currPos;");
             ip++;
             break;
 
@@ -592,9 +592,9 @@ function generateTS(ast, ...args) {
             break;
 
           case op.POP_CURR_POS: // POP_CURR_POS
-            //parts.push("input.currPos = " + stack.pop() + ";");
+            //parts.push("inputBuf.currPos = " + stack.pop() + ";");
             stack.pop();
-            parts.push("input.currPos = position;");
+            parts.push("inputBuf.currPos = position;");
             ip++;
             break;
 
@@ -625,7 +625,7 @@ function generateTS(ast, ...args) {
 
           case op.TEXT: // TEXT
             parts.push(
-              stack.push("input.substring(" + stack.pop() + ", input.currPos)")
+              stack.push("input.substring(" + stack.pop() + ", inputBuf.currPos)")
             );
             ip++;
             break;
@@ -647,8 +647,8 @@ function generateTS(ast, ...args) {
             break;
 
           case op.MATCH_ANY: // MATCH_ANY a, f, ...
-            //compileCondition("input.length > input.currPos", 0);
-            compileCondition("input.isAvailableAt(input.currPos)", 0);
+            //compileCondition("input.length > inputBuf.currPos", 0);
+            compileCondition("input.isAvailableAt(inputBuf.currPos)", 0);
             break;
 
           case op.MATCH_STRING: // MATCH_STRING s, a, f, ...
@@ -658,7 +658,7 @@ function generateTS(ast, ...args) {
               eval(ast.consts[bc[ip + 1]]).length +
               ") === " +
               c(bc[ip + 1]) :
-              "input.charCodeAt(input.currPos) === " +
+              "input.charCodeAt(inputBuf.currPos) === " +
               eval(ast.consts[bc[ip + 1]]).charCodeAt(0),
               1
             );
@@ -676,7 +676,7 @@ function generateTS(ast, ...args) {
 
           case op.MATCH_REGEXP: // MATCH_REGEXP r, a, f, ...
             compileCondition(
-              c(bc[ip + 1]) + ".test(input.charAt(input.currPos))",
+              c(bc[ip + 1]) + ".test(input.charAt(inputBuf.currPos))",
               1
             );
             break;
@@ -686,12 +686,12 @@ function generateTS(ast, ...args) {
               bc[ip + 1] > 1 ?
               "input.readForward(RuleId." + rule.name+", "+
               bc[ip + 1] + ")" :
-              "input.charAt(input.currPos)"
+              "input.charAt(inputBuf.currPos)"
             ));
             parts.push(
               bc[ip + 1] > 1 ?
-              "input.currPos += " + bc[ip + 1] + ";" :
-              "input.currPos++;"
+              "inputBuf.currPos += " + bc[ip + 1] + ";" :
+              "inputBuf.currPos++;"
             );
             ip += 2;
             break;
@@ -700,8 +700,8 @@ function generateTS(ast, ...args) {
             parts.push(stack.push(c(bc[ip + 1])));
             parts.push(
               eval(ast.consts[bc[ip + 1]]).length > 1 ?
-              "input.currPos += " + eval(ast.consts[bc[ip + 1]]).length + ";" :
-              "input.currPos++;"
+              "inputBuf.currPos += " + eval(ast.consts[bc[ip + 1]]).length + ";" :
+              "inputBuf.currPos++;"
             );
             ip += 2;
             break;
@@ -713,13 +713,13 @@ function generateTS(ast, ...args) {
             break;
 
           case op.LOAD_SAVED_POS: // LOAD_SAVED_POS p
-            //parts.push("input.savedPos = " + stack.index(bc[ip + 1]) + ";");
-            parts.push("input.savedPos = position;");
+            //parts.push("inputBuf.savedPos = " + stack.index(bc[ip + 1]) + ";");
+            parts.push("inputBuf.savedPos = position;");
             ip += 2;
             break;
 
           case op.UPDATE_SAVED_POS: // UPDATE_SAVED_POS
-            parts.push("input.savedPos = input.currPos;");
+            parts.push("inputBuf.savedPos = inputBuf.currPos;");
             ip++;
             break;
 
@@ -758,7 +758,7 @@ function generateTS(ast, ...args) {
     parts.push("function peg$parse" + rule.name + "()" + outputType +" {");
 
     if (options.trace) {
-      parts.push("  const startPos = input.currPos;");
+      parts.push("  const startPos = inputBuf.currPos;");
     }
 
     for (let i = 0; i <= stack.maxSp; i++) {
@@ -794,6 +794,7 @@ function generateTS(ast, ...args) {
     parts.push([
       "function peg$parse<I extends ParseStream>("+param0+"input: I, options?: IParseOptions)"+startType+" {",
       "  options = options !== undefined ? options : {};",
+      "  var inputBuf = input.buffer;",
       "",
       "  const peg$FAILED: Readonly<any> = {};",
       ""
@@ -831,8 +832,8 @@ function generateTS(ast, ...args) {
 
     parts.push([
       "",
-      "  input.currPos = 0;",
-      "  input.savedPos = 0;",
+      "  inputBuf.currPos = 0;",
+      "  inputBuf.savedPos = 0;",
       "  const peg$posDetailsCache = [{ line: 1, column: 1 }];",
       "  let peg$maxFailPos = 0;",
       "  let peg$maxFailExpected: Expectation[] = [];",
@@ -942,10 +943,10 @@ function generateTS(ast, ...args) {
       "  }",
       "",
       "  function peg$fail(expected1: Expectation) {",
-      "    if (input.currPos < peg$maxFailPos) { return; }",
+      "    if (inputBuf.currPos < peg$maxFailPos) { return; }",
       "",
-      "    if (input.currPos > peg$maxFailPos) {",
-      "      peg$maxFailPos = input.currPos;",
+      "    if (inputBuf.currPos > peg$maxFailPos) {",
+      "      peg$maxFailPos = inputBuf.currPos;",
       "      peg$maxFailExpected = [];",
       "    }",
       "",
@@ -991,7 +992,7 @@ function generateTS(ast, ...args) {
     parts.push([
       "",
       "  if (peg$result !== peg$FAILED) {",
-      "    if (input.isAvailableAt(input.currPos)) {",
+      "    if (input.isAvailableAt(inputBuf.currPos)) {",
       "      peg$fail(peg$endExpectation());",
       "    } else {",
       "      return peg$result;",
@@ -1030,7 +1031,7 @@ function generateTS(ast, ...args) {
     function generateParserObject() {
       const streamTypeI = `export interface IParseStream extends IPegjsParseStream {
 
-  // should return this.substr(input.currPos, len)
+  // should return this.substr(inputBuf.currPos, len)
   readForward(rule: RuleId, len: number): string;
 
   //"input.readForward(rule, expectedText.length) === expectedText",
@@ -1049,10 +1050,10 @@ function generateTS(ast, ...args) {
   /** NOTE string also implements IPegjsParseStreamBuffer 
     * buffer initialized as "" if initialBuf is omitted
     */
-  constructor(initialBuf?: IPegjsParseStreamBuffer, initialPos = 0) {
-    super(initialBuf, RuleNames, initialPos);
+  constructor(initialBuf?: IPegjsParseStreamBuffer) {
+    super(initialBuf, RuleNames);
   }
-  // should return this.substr(input.currPos, len)
+  // should return this.substr(inputBuf.currPos, len)
   readForward(rule: RuleId, len: number): string {
     return super.readForward(rule, len);
   }
