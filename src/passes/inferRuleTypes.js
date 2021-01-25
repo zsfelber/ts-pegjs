@@ -243,6 +243,9 @@ function generate(ast) {
     if (options.tspegjs.customHeader) {
         genclss.push(options.tspegjs.customHeader + "");
     }
+    if (options.tspegjs.inferCustomHeader) {
+        genclss.push(options.tspegjs.inferCustomHeader + '');
+    }
     Object.values(simplifiedRules).forEach(function (simpleRule) {
         var outputType = (options && options.returnTypes) ? options.returnTypes[simpleRule.rule] : "";
         outputType = outputType ? ": " + outputType : "";

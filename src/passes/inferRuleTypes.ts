@@ -249,6 +249,9 @@ function generate(ast, ...args) {
   if (options.tspegjs.customHeader) {
     genclss.push(options.tspegjs.customHeader + "");
   }
+  if (options.tspegjs.inferCustomHeader) {
+    genclss.push(options.tspegjs.inferCustomHeader + '');
+}
 
   Object.values(simplifiedRules).forEach((simpleRule: any) => {
     var outputType = (options && options.returnTypes) ? options.returnTypes[simpleRule.rule] : "";
