@@ -228,13 +228,6 @@ export interface ICached {
   result: any;
 }
 
-export interface IParseOptions {
-  filename?: string;
-  startRule?: string;
-  tracer?: any;
-  [key: string]: any;
-}
-
 // !!!! string is ok !!!!
 export interface IPegjsParseStreamBuffer {
 

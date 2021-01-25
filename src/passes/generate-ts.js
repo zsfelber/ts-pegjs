@@ -791,6 +791,16 @@ function generateTS(ast, ...args) {
     var startType = ast.inferredTypes[r0];
     startType = startType ? ": "+startType : "";
 
+    
+    parts.push([
+      "export interface IParseOptions {",
+      "  filename?: string;",
+      "  startRule?: (string|RuleId);",
+      "  tracer?: any;",
+      "  [key: string]: any;",
+      "}"
+    ].join("\n"));
+      
     parts.push([
       "function peg$parse<I extends ParseStream>("+param0+"input: I, options?: IParseOptions)"+startType+" {",
       "  options = options !== undefined ? options : {};",
@@ -801,27 +811,27 @@ function generateTS(ast, ...args) {
     ].join("\n"));
 
     if (options.optimize === "size") {
-      let startRuleIndices = "{ " +
+      let startRuleIndices = "new Map<RuleId,number>(); " +
         options.allowedStartRules.map(
-          r => r + ": " + asts.indexOfRule(ast, r)
-        ).join(", ") +
-        " }";
+          r => "peg$startRuleIndices[RuleId."+r + "] = " + asts.indexOfRule(ast, r)
+        ).join("; ") +
+        "";
       let startRuleIndex = asts.indexOfRule(ast, options.allowedStartRules[0]);
 
       parts.push([
-        "  const peg$startRuleIndices: {[id: string]: number}  = " + startRuleIndices + ";",
+        "  const peg$startRuleIndices  = " + startRuleIndices + ";",
         "  let peg$startRuleIndex = " + startRuleIndex + ";"
       ].join("\n"));
     } else {
-      let startRuleFunctions = "{ " +
+      let startRuleFunctions = "new Map<RuleId,() => any>(); " +
         options.allowedStartRules.map(
-          r => r + ": peg$parse" + r
-        ).join(", ") +
-        " }";
+          r => "peg$startRuleFunctions[RuleId."+r + "] = peg$parse" + r
+        ).join("; ") +
+        "";
       let startRuleFunction = "peg$parse" + options.allowedStartRules[0];
 
       parts.push([
-        "  const peg$startRuleFunctions: {[id: string]: any} = " + startRuleFunctions + ";",
+        "  const peg$startRuleFunctions = " + startRuleFunctions + ";",
         "  let peg$startRuleFunction: () => any = " + startRuleFunction + ";"
       ].join("\n"));
     }
@@ -883,21 +893,23 @@ function generateTS(ast, ...args) {
     if (options.optimize === "size") {
       parts.push([
         "  if (options.startRule !== undefined) {",
-        "    if (!(options.startRule in peg$startRuleIndices)) {",
+        "    var ri = typeof options.startRule===\"string\"?eval(\"RuleId.\"+options.startRule):options.startRule;",
+        "    if (!(peg$startRuleIndices.get(ri))) {",
         "      throw new Error(\"Can't start parsing from rule \\\"\" + options.startRule + \"\\\".\");",
         "    }",
         "",
-        "    peg$startRuleIndex = peg$startRuleIndices[options.startRule];",
+        "    peg$startRuleIndex = peg$startRuleIndices[ri];",
         "  }"
       ].join("\n"));
     } else {
       parts.push([
         "  if (options.startRule !== undefined) {",
-        "    if (!(options.startRule in peg$startRuleFunctions)) {",
+        "    var ri = typeof options.startRule===\"string\"?eval(\"RuleId.\"+options.startRule):options.startRule;",
+        "    if (!(peg$startRuleFunctions.get(ri))) {",
         "      throw new Error(\"Can't start parsing from rule \\\"\" + options.startRule + \"\\\".\");",
         "    }",
         "",
-        "    peg$startRuleFunction = peg$startRuleFunctions[options.startRule];",
+        "    peg$startRuleFunction = peg$startRuleFunctions[ri];",
         "  }"
       ].join("\n"));
     }
