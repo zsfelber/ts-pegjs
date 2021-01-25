@@ -290,18 +290,21 @@ export interface IPegjsParseStream extends IPegjsParseStreamBuffer {
 
 export class PegjsParseStream implements IPegjsParseStream {
 
-  readonly ruleNames: string[] = [];
+  readonly ruleNames: string[];
 
   /* give read-write access to pegjs, do not manipulate them */
-  savedPos: number = 0;
-  currPos: number = 0;
+  savedPos: number;
+  currPos: number;
 
   readonly buffer: IPegjsParseStreamBuffer;
-  readonly posDetailsCache: IFilePosition[] = [];
+  readonly posDetailsCache: IFilePosition[];
 
-  constructor(buffer: IPegjsParseStreamBuffer, ruleNames?: string[]) {
+  constructor(buffer: IPegjsParseStreamBuffer, ruleNames?: string[], initialPos = 0) {
     this.buffer = buffer;
     this.ruleNames = ruleNames ? ruleNames : [];
+    this.savedPos = initialPos;
+    this.currPos = initialPos;
+    this.posDetailsCache = [];
   }
 
   get length(): number {
@@ -405,16 +408,16 @@ export class PegjsParseStreamBuffer implements IPegjsParseStreamBuffer {
   readonly buffer: string;
 
   constructor(src: IPegjsParseStreamBuffer, offset = 0) {
-    this.buffer = src ? src.substring(offset) : "";
+    this.buffer = src ? offset ? src.substring(offset) : src.toString() : "";
   }
 
   get length(): number {
-    this.seek(-1);
     return this.buffer.length;
   }
 
   seek(position: number, rule?: number) {
-    /*if (position >= this.buffer.length) {
+    /*
+    if (position >= this.buffer.length) {
         console.log("Attempt to overseek to " + position +
             " of len:" + this.buffer.length +
             (rule === undefined ? "" : "  in rule:" + this.ruleNames[rule]));
@@ -433,7 +436,7 @@ export class PegjsParseStreamBuffer implements IPegjsParseStreamBuffer {
   }
   substring(from: number, to?: number, rule?: number): string {
     if (to === undefined) to = -1;
-    if (to < 0) to += this.length;
+    if (to < 0) to += this.buffer.length;
     return this.buffer.substring(from, to);
   }
   substr(from: number, len?: number, rule?: number): string {
@@ -441,10 +444,48 @@ export class PegjsParseStreamBuffer implements IPegjsParseStreamBuffer {
   }
 
 
-
+  toString() {
+    return this.buffer;
+  }
   printTokens(tokenCodes: string): string {
     return tokenCodes;
   }
 
+}
+
+
+
+/**
+ * T token class
+ */
+export abstract class PegjsTknParseStreamBuffer<T> extends PegjsParseStreamBuffer {
+
+  readonly tokens: T[];
+
+  constructor(src: IPegjsParseStreamBuffer, offset?: number, initialTokens?: T[]) {
+      super(src, offset)
+      if (src instanceof PegjsTknParseStreamBuffer) {
+          this.tokens = offset ? src.tokens.slice(offset) : src.tokens;
+      } else {
+          this.tokens = offset ? initialTokens.slice(offset) : initialTokens;
+      }
+  }
+
+  replace(from: number, to: number, newConvertedTokens: T[]) {
+      var rem = this.tokens.slice(to);
+      this.tokens.length = from;
+      this.tokens.push.apply(newConvertedTokens);
+      this.tokens.push.apply(rem);
+      (this as any).buffer = this.buffer.substring(0, from) + this.generateTokenCodes(newConvertedTokens) + this.buffer.substring(to);
+  }
+
+  token(pos = -1) {
+      if (pos < 0) pos += this.tokens.length;
+      return this.tokens[pos];
+  }
+
+  abstract generateTokenCodes(tokens: T[]): string;
+
+  
 }
 

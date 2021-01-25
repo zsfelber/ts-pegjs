@@ -1049,8 +1049,8 @@ function generateTS(ast, ...args) {
   /** NOTE string also implements IPegjsParseStreamBuffer 
     * buffer initialized as "" if initialBuf is omitted
     */
-  constructor(initialBuf?: IPegjsParseStreamBuffer) {
-    super(initialBuf, RuleNames);
+  constructor(initialBuf?: IPegjsParseStreamBuffer, initialPos = 0) {
+    super(initialBuf, RuleNames, initialPos);
   }
   // should return this.substr(input.currPos, len)
   readForward(rule: RuleId, len: number): string {
