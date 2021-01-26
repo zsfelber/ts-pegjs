@@ -104,7 +104,7 @@ function generate(ast, ...args) {
         } else {
           var i = 0;
           simpleNode.elements.forEach(simpleElem => {
-            r.push(indent + "if (input['randomVar']===" + (i++) + ") {");
+            r.push(indent + "if (theVeryNothing['randomVar']===" + (i++) + ") {");
             r = r.concat(generateTmpClass(simpleElem, simpleNode, indent + "    "));
             r.push(indent + "}");
           });
@@ -130,8 +130,8 @@ function generate(ast, ...args) {
         break;
       case undefined:
         // it's a rule name
-        if (islab) r = ["$_" + simpleNode + "()"];
-        else if (!isaction) r = [indent + "return $_" + simpleNode + "()"];
+        if (islab) r = ["this.$_" + simpleNode + "()"];
+        else if (!isaction) r = [indent + "return this.$_" + simpleNode + "()"];
         break;
       default:
         r = [indent + "// ? " + simpleNode.type];
@@ -146,9 +146,9 @@ function generate(ast, ...args) {
   function addField(value) {
     let name = fieldCodes[value];
     if (!name) {
-      name = "function"+functIndex;
+      name = "function" + functIndex;
       fieldCodes[value] = name;
-      ast.fields.push(name+value);
+      ast.fields.push(name + value);
       functIndex++;
     }
     return name;
@@ -158,9 +158,9 @@ function generate(ast, ...args) {
     function gf() {
       if (simpleNode.code) {
         var f = [];
-        f.push("("+generateNodeClasses(simpleRule, simpleNode.element, simpleNode, indent).filter(e=>e?e.length:false).join(", ")+
-          "): "+inferredTypes[simpleRule.rule]+" {");
-        f = f.concat(simpleNode.code.trim().split(/\n/).map(line => "  "+line.trim()));
+        f.push("(" + generateNodeClasses(simpleRule, simpleNode.element, simpleNode, indent).filter(e => e ? e.length : false).join(", ") +
+          "): " + inferredTypes[simpleRule.rule] + " {");
+        f = f.concat(simpleNode.code.trim().split(/\n/).map(line => "  " + line.trim()));
         f.push("}");
         var genName = addField(f.join("\n"));
         return genName;
@@ -184,7 +184,7 @@ function generate(ast, ...args) {
         isaction = 1;
         simpleNode.parentAction = simpleNode;
         var f = gf();
-        simpleNode.node.templateFunction = "PegjsParser.prototype."+f;
+        simpleNode.node.templateFunction = "PegjsParser.prototype." + f;
         generateNodeClasses(simpleRule, simpleNode.element, simpleNode, indent);
         simpleNode.node.checkids = simpleNode.element.checkids;
         if (!simpleNode.node.checkids) simpleNode.node.checkids = [];
@@ -211,7 +211,7 @@ function generate(ast, ...args) {
           });
           var tps = Object.keys(uniqtps);
           var tpst = tps.join(" | ");
-          if (tps.length>1) tpst = "("+tpst+")";
+          if (tps.length > 1) tpst = "(" + tpst + ")";
           r = [tpst];
 
         } else {
@@ -250,27 +250,45 @@ function generate(ast, ...args) {
 
 
   var genclss = [];
-  genclss.push("import {IFilePosition, IFileRange, ILiteralExpectation, IClassParts, IClassExpectation, IAnyExpectation, IEndExpectation, IOtherExpectation, Expectation, SyntaxError, ITraceEvent, DefaultTracer, ICached, IPegjsParseStream, PegjsParseStream} from 'ts-pegjs/lib';");
+  genclss.push("import { IFilePosition, IFileRange, ILiteralExpectation, IClassParts, IClassExpectation, IAnyExpectation, IEndExpectation, IOtherExpectation, Expectation, SyntaxError, ITraceEvent, DefaultTracer, ICached, IPegjsParseStream, PegjsParseStream, IPegjsParseStreamBuffer, IPegjsParseStreamBuffer2 } from 'ts-pegjs/lib';");
 
-  genclss.push("var input: IPegjsParseStream;");
-
-  if (options.param0) {
-    genclss.push("var " + options.param0 + ";");
-  }
   if (options.tspegjs.customHeader) {
     genclss.push(options.tspegjs.customHeader + "");
   }
   if (options.tspegjs.inferCustomHeader) {
     genclss.push(options.tspegjs.inferCustomHeader + '');
-}
+  }
+
+  genclss.push("const theVeryNothing = new Object();");
+  genclss.push("");
+  genclss.push("class UselessClassJustToResolveTypes {");
+  genclss.push(["",
+  "input: IPegjsParseStream;",
+  "inputBuf: IPegjsParseStreamBuffer2;",
+  "",
+  "peg$maxFailPos = 0;",
+  "peg$maxFailExpected: Expectation[] = [];",
+  "peg$silentFails = 0;", // 0 = report failures, > 0 = silence failures
+  ""].join("\n"));
+  genclss.push("");
+  if (options.tspegjs.customFields) {
+    genclss.push([
+      options.tspegjs.customFields
+    ].join("\n"));
+    genclss.push("");
+  }
 
   Object.values(simplifiedRules).forEach((simpleRule: any) => {
     var outputType = (options && options.returnTypes) ? options.returnTypes[simpleRule.rule] : "";
-    outputType = outputType?": "+outputType:"";
-    genclss.push("function $_" + simpleRule.rule + "()"+outputType+" {");
+    outputType = outputType ? ": " + outputType : "";
+    genclss.push("$_" + simpleRule.rule + "()" + outputType + " {");
     genclss = genclss.concat(generateTmpClass(simpleRule, null, "    "));
+    genclss.push("  return undefined;");
     genclss.push("}");
   });
+
+  genclss.push("");
+  genclss.push("}");
 
   genclss = genclss.filter((elem: string) => {
     if (!elem) {
@@ -288,28 +306,33 @@ function generate(ast, ...args) {
   var tsrc = program.getSourceFile(fnm);
 
   const checker = program.getTypeChecker();
-  tsrc.statements.forEach(fun => {
-    if (ts.isFunctionDeclaration(fun)) {
-      var fname = fun.name.text.substring(2);
-      //var tp = checker.getTypeAtLocation(fun);
-      var outputType = (options && options.returnTypes) ? options.returnTypes[fname] : "";
-      if (!outputType) {
-        var tp = checker.getReturnTypeOfSignature(checker.getSignatureFromDeclaration(fun));
-        outputType = checker.typeToString(tp);
+  tsrc.statements.forEach(cl => {
+    if (ts.isClassDeclaration(cl)) {
+      cl.members.forEach(method => {
+        if (ts.isMethodDeclaration(method)) {
+          var fname = method.name.getText(tsrc).substring(2);
+          //var tp = checker.getTypeAtLocation(fun);
+          var outputType = (options && options.returnTypes) ? options.returnTypes[fname] : "";
+          if (!outputType) {
+            var tp = checker.getReturnTypeOfSignature(checker.getSignatureFromDeclaration(method));
+            outputType = checker.typeToString(tp);
 
-        if (tp.isUnionOrIntersection()) {
-          if (tp.types && tp.types.length>1) {
-            if (outputType.indexOf(" | ")!==-1||outputType.indexOf(" & ")!==-1) {
-              outputType = "("+outputType+")";
+            if (tp.isUnionOrIntersection()) {
+              if (tp.types && tp.types.length > 1) {
+                if (outputType.indexOf(" | ") !== -1 || outputType.indexOf(" & ") !== -1) {
+                  outputType = "(" + outputType + ")";
+                }
+              }
             }
+
           }
+
+          inferredTypes[fname] = outputType;
         }
-
-      }
-
-      inferredTypes[fname] = outputType;
+      });
     }
   });
+
 
 
   Object.values(simplifiedRules).forEach((simpleRule: any) => {

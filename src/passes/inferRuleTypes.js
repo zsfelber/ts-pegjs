@@ -98,7 +98,7 @@ function generate(ast) {
                 else {
                     var i = 0;
                     simpleNode.elements.forEach(function (simpleElem) {
-                        r.push(indent + "if (input['randomVar']===" + (i++) + ") {");
+                        r.push(indent + "if (theVeryNothing['randomVar']===" + (i++) + ") {");
                         r = r.concat(generateTmpClass(simpleElem, simpleNode, indent + "    "));
                         r.push(indent + "}");
                     });
@@ -126,9 +126,9 @@ function generate(ast) {
             case undefined:
                 // it's a rule name
                 if (islab)
-                    r = ["$_" + simpleNode + "()"];
+                    r = ["this.$_" + simpleNode + "()"];
                 else if (!isaction)
-                    r = [indent + "return $_" + simpleNode + "()"];
+                    r = [indent + "return this.$_" + simpleNode + "()"];
                 break;
             default:
                 r = [indent + "// ? " + simpleNode.type];
@@ -246,24 +246,41 @@ function generate(ast) {
         return r;
     }
     var genclss = [];
-    genclss.push("import {IFilePosition, IFileRange, ILiteralExpectation, IClassParts, IClassExpectation, IAnyExpectation, IEndExpectation, IOtherExpectation, Expectation, SyntaxError, ITraceEvent, DefaultTracer, ICached, IPegjsParseStream, PegjsParseStream} from 'ts-pegjs/lib';");
-    genclss.push("var input: IPegjsParseStream;");
-    if (options.param0) {
-        genclss.push("var " + options.param0 + ";");
-    }
+    genclss.push("import { IFilePosition, IFileRange, ILiteralExpectation, IClassParts, IClassExpectation, IAnyExpectation, IEndExpectation, IOtherExpectation, Expectation, SyntaxError, ITraceEvent, DefaultTracer, ICached, IPegjsParseStream, PegjsParseStream, IPegjsParseStreamBuffer, IPegjsParseStreamBuffer2 } from 'ts-pegjs/lib';");
     if (options.tspegjs.customHeader) {
         genclss.push(options.tspegjs.customHeader + "");
     }
     if (options.tspegjs.inferCustomHeader) {
         genclss.push(options.tspegjs.inferCustomHeader + '');
     }
+    genclss.push("const theVeryNothing = new Object();");
+    genclss.push("");
+    genclss.push("class UselessClassJustToResolveTypes {");
+    genclss.push(["",
+        "input: IPegjsParseStream;",
+        "inputBuf: IPegjsParseStreamBuffer2;",
+        "",
+        "peg$maxFailPos = 0;",
+        "peg$maxFailExpected: Expectation[] = [];",
+        "peg$silentFails = 0;",
+        ""].join("\n"));
+    genclss.push("");
+    if (options.tspegjs.customFields) {
+        genclss.push([
+            options.tspegjs.customFields
+        ].join("\n"));
+        genclss.push("");
+    }
     Object.values(simplifiedRules).forEach(function (simpleRule) {
         var outputType = (options && options.returnTypes) ? options.returnTypes[simpleRule.rule] : "";
         outputType = outputType ? ": " + outputType : "";
-        genclss.push("function $_" + simpleRule.rule + "()" + outputType + " {");
+        genclss.push("$_" + simpleRule.rule + "()" + outputType + " {");
         genclss = genclss.concat(generateTmpClass(simpleRule, null, "    "));
+        genclss.push("  return undefined;");
         genclss.push("}");
     });
+    genclss.push("");
+    genclss.push("}");
     genclss = genclss.filter(function (elem) {
         if (!elem) {
             return false;
@@ -277,23 +294,27 @@ function generate(ast) {
     var program = ts.createProgram([fnm], {});
     var tsrc = program.getSourceFile(fnm);
     var checker = program.getTypeChecker();
-    tsrc.statements.forEach(function (fun) {
-        if (ts.isFunctionDeclaration(fun)) {
-            var fname = fun.name.text.substring(2);
-            //var tp = checker.getTypeAtLocation(fun);
-            var outputType = (options && options.returnTypes) ? options.returnTypes[fname] : "";
-            if (!outputType) {
-                var tp = checker.getReturnTypeOfSignature(checker.getSignatureFromDeclaration(fun));
-                outputType = checker.typeToString(tp);
-                if (tp.isUnionOrIntersection()) {
-                    if (tp.types && tp.types.length > 1) {
-                        if (outputType.indexOf(" | ") !== -1 || outputType.indexOf(" & ") !== -1) {
-                            outputType = "(" + outputType + ")";
+    tsrc.statements.forEach(function (cl) {
+        if (ts.isClassDeclaration(cl)) {
+            cl.members.forEach(function (method) {
+                if (ts.isMethodDeclaration(method)) {
+                    var fname = method.name.getText(tsrc).substring(2);
+                    //var tp = checker.getTypeAtLocation(fun);
+                    var outputType = (options && options.returnTypes) ? options.returnTypes[fname] : "";
+                    if (!outputType) {
+                        var tp = checker.getReturnTypeOfSignature(checker.getSignatureFromDeclaration(method));
+                        outputType = checker.typeToString(tp);
+                        if (tp.isUnionOrIntersection()) {
+                            if (tp.types && tp.types.length > 1) {
+                                if (outputType.indexOf(" | ") !== -1 || outputType.indexOf(" & ") !== -1) {
+                                    outputType = "(" + outputType + ")";
+                                }
+                            }
                         }
                     }
+                    inferredTypes[fname] = outputType;
                 }
-            }
-            inferredTypes[fname] = outputType;
+            });
         }
     });
     Object.values(simplifiedRules).forEach(function (simpleRule) {
