@@ -29,14 +29,9 @@ function generateTS(ast, ...args) {
     return code.replace(/^(.+)$/gm, "            $1");
   }
 
-  function generateTables() {
+  function generateBytecode() {
     if (options.optimize === "size") {
       return [
-        ast.gfuncs?indent2(ast.gfuncs.join("\n")):"",
-        "const peg$consts = [",
-        indent2(ast.consts.join(",\n")),
-        "];",
-        "",
         "const peg$bytecode = [",
         indent2(ast.rules.map(rule =>
           "peg$decode(\"" +
@@ -46,6 +41,15 @@ function generateTS(ast, ...args) {
           "\")"
         ).join(",\n")),
         "];"
+      ].join("\n");
+    }
+  }
+  function generateConst() {
+    if (options.optimize === "size") {
+      return [
+        "readonly peg$consts = [",
+        indent2(ast.consts.join(",\n")),
+        "];",
       ].join("\n");
     } else {
       return ast.consts.map((c, i) => "const peg$c" + i + " = " + c + ";").join("\n");
@@ -211,10 +215,12 @@ function generateTS(ast, ...args) {
 
     parts.push([
       "  peg$parseRule(index: number): any {",
-      "    var input = this.input;",
-      "    var inputBuf = this.inputBuf;",
+      "    const input = this.input;",
+      "    const inputBuf = this.inputBuf;",
+      "    const peg$consts = this.peg$consts;",
       ].join("\n"));
 
+      
     if (options.trace) {
       parts.push([
         "    const bc = peg$bytecode[index];",
@@ -805,7 +811,7 @@ function generateTS(ast, ...args) {
       "",
     ].join("\n"));
 
-    parts.push(generateTables());
+    parts.push(generateBytecode());
 
     parts.push([
       "",
@@ -1050,8 +1056,15 @@ function generateTS(ast, ...args) {
         parts.push("");
       });
     }
+    parts.push([
+      "",
+      "",
+    ].join("\n"));
+
+    parts.push(indent2(generateConst()));
 
     parts.push([
+      "",
       "}",
       ""
     ].join("\n"));
