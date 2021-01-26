@@ -19,6 +19,7 @@ function generate(ast, ...args) {
   var inferredTypes = {};
 
   ast.inferredTypes = inferredTypes;
+  ast.fields = [];
 
   ast.rules.forEach(function (rule0) {
     var currentRule = rule0.name;
@@ -140,19 +141,29 @@ function generate(ast, ...args) {
     return r;
   }
 
+  var fieldCodes = {};
+  var functIndex = 0;
+  function addField(value) {
+    let name = fieldCodes[value];
+    if (!name) {
+      name = "function"+functIndex;
+      fieldCodes[value] = name;
+      ast.fields.push(name+value);
+      functIndex++;
+    }
+    return name;
+  }
 
   function generateNodeClasses(simpleRule, simpleNode, simpleParent, indent, lab?): string[] {
     function gf() {
       if (simpleNode.code) {
         var f = [];
-        f.push("function (");
-        f.push(generateNodeClasses(simpleRule, simpleNode.element, simpleNode, indent).filter(e=>e?e.length:false).join(", "));
-        f.push("): ");
-        f.push(inferredTypes[simpleRule.rule]);
-        f.push(" {");
-        f = f.concat(simpleNode.code.trim().split(/\n/).map(line => " "+line.trim()));
-        f.push(" }");
-        return f.join("");
+        f.push("("+generateNodeClasses(simpleRule, simpleNode.element, simpleNode, indent).filter(e=>e?e.length:false).join(", ")+
+          "): "+inferredTypes[simpleRule.rule]+" {");
+        f = f.concat(simpleNode.code.trim().split(/\n/).map(line => "  "+line.trim()));
+        f.push("}");
+        var genName = addField(f.join("\n"));
+        return genName;
       }
     }
 
@@ -173,7 +184,7 @@ function generate(ast, ...args) {
         isaction = 1;
         simpleNode.parentAction = simpleNode;
         var f = gf();
-        simpleNode.node.templateFunction = f;
+        simpleNode.node.templateFunction = "PegjsParser.prototype."+f;
         generateNodeClasses(simpleRule, simpleNode.element, simpleNode, indent);
         simpleNode.node.checkids = simpleNode.element.checkids;
         if (!simpleNode.node.checkids) simpleNode.node.checkids = [];

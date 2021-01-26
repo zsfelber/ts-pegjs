@@ -47,7 +47,9 @@ function generateTS(ast, ...args) {
   function generateConst() {
     if (options.optimize === "size") {
       return [
-        "readonly peg$consts = [",
+        ast.fields.join("\n"),
+        "",
+        "static readonly peg$consts = [",
         indent2(ast.consts.join(",\n")),
         "];",
       ].join("\n");
@@ -205,7 +207,7 @@ function generateTS(ast, ...args) {
         "stack.splice(",
         "  stack.length - bc[ip + 2],",
         "  bc[ip + 2],",
-        "  (peg$consts[bc[ip + 1]] as ((...args: any[]) => any)).apply(null, params)",
+        "  (peg$consts[bc[ip + 1]] as ((...args: any[]) => any)).apply(this, params)",
         ");",
         "",
         "ip += " + baseLength + " + " + paramsLengthCode + ";",
@@ -217,7 +219,7 @@ function generateTS(ast, ...args) {
       "  peg$parseRule(index: number): any {",
       "    const input = this.input;",
       "    const inputBuf = this.inputBuf;",
-      "    const peg$consts = this.peg$consts;",
+      "    const peg$consts = PegjsParser.peg$consts;",
       ].join("\n"));
 
       
@@ -879,6 +881,12 @@ function generateTS(ast, ...args) {
       "",
     ].join("\n"));
 
+    if (options.tspegjs.customFields) {
+      parts.push(indent2([
+        options.tspegjs.customFields
+      ].join("\n")));
+    }
+
     if (options.cache) {
       parts.push([
         "  readonly peg$resultsCache: {[id: number]: ICached} = {};",
@@ -893,6 +901,13 @@ function generateTS(ast, ...args) {
       "    options = options !== undefined ? options : {};",
       ""
     ].join("\n"));
+
+    if (options.tspegjs.customInit) {
+      parts.push(indent4([
+        options.tspegjs.customInit
+      ].join("\n")));
+    }
+
 
     
     if (options.optimize === "size") {
@@ -1075,10 +1090,6 @@ function generateTS(ast, ...args) {
   function generateWrapper(toplevelCode) {
     function generateGeneratedByComment() {
       let res = [];
-      if (options.tspegjs.customHeader) {
-        res.push(options.tspegjs.customHeader);
-      }
-
       
       var ruleNamesEtc = "";
       if (options.optimize === "size") {
@@ -1100,6 +1111,11 @@ function generateTS(ast, ...args) {
         ].join("\n");
       }
 
+      var customHeader = "";
+      if (options.tspegjs.customHeader) {
+        customHeader = options.tspegjs.customHeader;
+      }
+
       res = res.concat([
         "import { IFilePosition, IFileRange, ILiteralExpectation, IClassParts, IClassExpectation, IAnyExpectation, IEndExpectation, IOtherExpectation, Expectation, SyntaxError, ITraceEvent, DefaultTracer, ICached, IPegjsParseStream, PegjsParseStream, IPegjsParseStreamBuffer, IPegjsParseStreamBuffer2 } from 'ts-pegjs/lib';",
         "",
@@ -1109,6 +1125,7 @@ function generateTS(ast, ...args) {
         "//",
         "",
         ruleNamesEtc,
+        customHeader,
         "",
 
       ]);
