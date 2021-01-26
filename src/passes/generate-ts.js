@@ -878,6 +878,9 @@ function generateTS(ast, ...args) {
       "  peg$maxFailPos = 0;",
       "  peg$maxFailExpected: Expectation[] = [];",
       "  peg$silentFails = 0;", // 0 = report failures, > 0 = silence failures
+      "  peg$result;",
+      "",
+      "  get result"+startType+"() { return this.peg$result; }",
       "",
     ].join("\n"));
 
@@ -895,7 +898,7 @@ function generateTS(ast, ...args) {
     }
 
     parts.push([
-      "  constructor("+param0+"input: I, options?: IParseOptions)"+startType+" {",
+      "  constructor("+param0+"input: I, options?: IParseOptions) {",
       "    this.input = input;",
       "    this.inputBuf = input.buffer;",
       "    options = options !== undefined ? options : {};",
@@ -954,7 +957,6 @@ function generateTS(ast, ...args) {
     }
 
     parts.push([
-      "    let peg$result;",
       ""
     ].join("\n"));
 
@@ -991,18 +993,18 @@ function generateTS(ast, ...args) {
     parts.push("");
 
     if (options.optimize === "size") {
-      parts.push("    peg$result = this.peg$parseRule(peg$startRuleIndex);");
+      parts.push("    this.peg$result = this.peg$parseRule(peg$startRuleIndex);");
     } else {
-      parts.push("    peg$result = this.peg$startRuleFunction();");
+      parts.push("    this.peg$result = this.peg$startRuleFunction();");
     }
 
     parts.push([
       "",
-      "    if (peg$result !== peg$FAILED) {",
+      "    if (this.peg$result !== peg$FAILED) {",
       "      if (input.isAvailableAt(this.inputBuf.currPos)) {",
       "        this.peg$fail(peg$endExpectation());",
       "      } else {",
-      "        return peg$result;",
+      "        return;",
       "      }",
       "    }",
       "",
