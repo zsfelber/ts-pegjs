@@ -21,9 +21,12 @@ function generateTS(ast, ...args) {
   function indent2(code) {
     return code.replace(/^(.+)$/gm, "  $1");
   }
+  function indent4(code) {
+    return code.replace(/^(.+)$/gm, "    $1");
+  }
 
-  function indent10(code) {
-    return code.replace(/^(.+)$/gm, "          $1");
+  function indent12(code) {
+    return code.replace(/^(.+)$/gm, "            $1");
   }
 
   function generateTables() {
@@ -68,7 +71,7 @@ function generateTS(ast, ...args) {
     if (options.cache) {
       parts.push([
         "const key = inputBuf.currPos * " + ast.rules.length + " + " + ruleIndexCode + ";",
-        "const cached: ICached = peg$resultsCache[key];",
+        "const cached: ICached = this.peg$resultsCache[key];",
         "let position: number;",
         "",
         "if (cached) {",
@@ -112,7 +115,7 @@ function generateTS(ast, ...args) {
     if (options.cache) {
       parts.push([
         "",
-        "peg$resultsCache[key] = { nextPos: inputBuf.currPos, result: " + resultCode + " };"
+        "this.peg$resultsCache[key] = { nextPos: inputBuf.currPos, result: " + resultCode + " };"
       ].join("\n"));
     }
 
@@ -207,37 +210,35 @@ function generateTS(ast, ...args) {
     }
 
     parts.push([
-      "function peg$decode(s: string): number[] {",
-      "  return s.split(\"\").map((ch) =>  ch.charCodeAt(0) - 32 );",
-      "}",
-      "",
-      "function peg$parseRule(index: number): any {"
-    ].join("\n"));
+      "  peg$parseRule(index: number): any {",
+      "    var input = this.input;",
+      "    var inputBuf = this.inputBuf;",
+      ].join("\n"));
 
     if (options.trace) {
       parts.push([
-        "  const bc = peg$bytecode[index];",
-        "  let ip = 0;",
-        "  const ips: any[] = [];",
-        "  let end = bc.length;",
-        "  const ends: any[] = [];",
-        "  const stack: any[] = [];",
-        "  let startPos = inputBuf.currPos;",
-        "  let params;"
+        "    const bc = peg$bytecode[index];",
+        "    let ip = 0;",
+        "    const ips: any[] = [];",
+        "    let end = bc.length;",
+        "    const ends: any[] = [];",
+        "    const stack: any[] = [];",
+        "    let startPos = inputBuf.currPos;",
+        "    let params;"
       ].join("\n"));
     } else {
       parts.push([
-        "  const bc = peg$bytecode[index];",
-        "  let ip = 0;",
-        "  const ips: any[] = [];",
-        "  let end = bc.length;",
-        "  const ends: any[] = [];",
-        "  const stack: any[] = [];",
-        "  let params;"
+        "    const bc = peg$bytecode[index];",
+        "    let ip = 0;",
+        "    const ips: any[] = [];",
+        "    let end = bc.length;",
+        "    const ends: any[] = [];",
+        "    const stack: any[] = [];",
+        "    let params;"
       ].join("\n"));
     }
 
-    parts.push(indent2(generateRuleHeader("RuleNames[index]", "index")));
+    parts.push(indent4(generateRuleHeader("RuleNames[index]", "index")));
 
     // bc[ip]    statement code
     // bc[ip+1]  statement parameter index (used in [peg$/ast.] consts and ast.rules)
@@ -248,178 +249,178 @@ function generateTS(ast, ...args) {
       // implement the |interpret| operation of the abstract machine without
       // function calls. Such calls would likely slow the parser down and more
       // importantly cause stack overflows for complex grammars.
-      "  while (true) {",
-      "    while (ip < end) {",
-      "      switch (bc[ip]) {",
-      "        case " + op.PUSH + ":", // PUSH c
-      "          stack.push(peg$consts[bc[ip + 1]]);",
-      "          ip += 2;",
-      "          break;",
+      "    while (true) {",
+      "      while (ip < end) {",
+      "        switch (bc[ip]) {",
+      "          case " + op.PUSH + ":", // PUSH c
+      "            stack.push(peg$consts[bc[ip + 1]]);",
+      "            ip += 2;",
+      "            break;",
       "",
-      "        case " + op.PUSH_UNDEFINED + ":", // PUSH_UNDEFINED
-      "          stack.push(undefined);",
-      "          ip++;",
-      "          break;",
+      "          case " + op.PUSH_UNDEFINED + ":", // PUSH_UNDEFINED
+      "            stack.push(undefined);",
+      "            ip++;",
+      "            break;",
       "",
-      "        case " + op.PUSH_NULL + ":", // PUSH_NULL
-      "          stack.push(null);",
-      "          ip++;",
-      "          break;",
+      "          case " + op.PUSH_NULL + ":", // PUSH_NULL
+      "            stack.push(null);",
+      "            ip++;",
+      "            break;",
       "",
-      "        case " + op.PUSH_FAILED + ":", // PUSH_FAILED
-      "          stack.push(peg$FAILED);",
-      "          ip++;",
-      "          break;",
+      "          case " + op.PUSH_FAILED + ":", // PUSH_FAILED
+      "            stack.push(peg$FAILED);",
+      "            ip++;",
+      "            break;",
       "",
-      "        case " + op.PUSH_EMPTY_ARRAY + ":", // PUSH_EMPTY_ARRAY
-      "          stack.push([]);",
-      "          ip++;",
-      "          break;",
+      "          case " + op.PUSH_EMPTY_ARRAY + ":", // PUSH_EMPTY_ARRAY
+      "            stack.push([]);",
+      "            ip++;",
+      "            break;",
       "",
-      "        case " + op.PUSH_CURR_POS + ":", // PUSH_CURR_POS
-      "          stack.push(inputBuf.currPos);",
-      "          ip++;",
-      "          break;",
+      "          case " + op.PUSH_CURR_POS + ":", // PUSH_CURR_POS
+      "            stack.push(inputBuf.currPos);",
+      "            ip++;",
+      "            break;",
       "",
-      "        case " + op.POP + ":", // POP
-      "          stack.pop();",
-      "          ip++;",
-      "          break;",
+      "          case " + op.POP + ":", // POP
+      "            stack.pop();",
+      "            ip++;",
+      "            break;",
       "",
-      "        case " + op.POP_CURR_POS + ":", // POP_CURR_POS
-      "          inputBuf.currPos = stack.pop();",
-      "          ip++;",
-      "          break;",
+      "          case " + op.POP_CURR_POS + ":", // POP_CURR_POS
+      "            inputBuf.currPos = stack.pop();",
+      "            ip++;",
+      "            break;",
       "",
-      "        case " + op.POP_N + ":", // POP_N n
-      "          stack.length -= bc[ip + 1];",
-      "          ip += 2;",
-      "          break;",
+      "          case " + op.POP_N + ":", // POP_N n
+      "            stack.length -= bc[ip + 1];",
+      "            ip += 2;",
+      "            break;",
       "",
-      "        case " + op.NIP + ":", // NIP
-      "          stack.splice(-2, 1);",
-      "          ip++;",
-      "          break;",
+      "          case " + op.NIP + ":", // NIP
+      "            stack.splice(-2, 1);",
+      "            ip++;",
+      "            break;",
       "",
-      "        case " + op.APPEND + ":", // APPEND
-      "          stack[stack.length - 2].push(stack.pop());",
-      "          ip++;",
-      "          break;",
+      "          case " + op.APPEND + ":", // APPEND
+      "            stack[stack.length - 2].push(stack.pop());",
+      "            ip++;",
+      "            break;",
       "",
-      "        case " + op.WRAP + ":", // WRAP n
-      "          stack.push(stack.splice(stack.length - bc[ip + 1], bc[ip + 1]));",
-      "          ip += 2;",
-      "          break;",
+      "          case " + op.WRAP + ":", // WRAP n
+      "            stack.push(stack.splice(stack.length - bc[ip + 1], bc[ip + 1]));",
+      "            ip += 2;",
+      "            break;",
       "",
-      "        case " + op.TEXT + ":", // TEXT
-      "          stack.push(input.substring(stack.pop(), inputBuf.currPos));",
-      "          ip++;",
-      "          break;",
+      "          case " + op.TEXT + ":", // TEXT
+      "            stack.push(input.substring(stack.pop(), inputBuf.currPos));",
+      "            ip++;",
+      "            break;",
       "",
-      "        case " + op.IF + ":", // IF t, f
-      indent10(generateCondition("stack[stack.length - 1]", 0)),
+      "          case " + op.IF + ":", // IF t, f
+      indent12(generateCondition("stack[stack.length - 1]", 0)),
       "",
-      "        case " + op.IF_ERROR + ":", // IF_ERROR t, f
-      indent10(generateCondition(
+      "          case " + op.IF_ERROR + ":", // IF_ERROR t, f
+      indent12(generateCondition(
         "stack[stack.length - 1] === peg$FAILED",
         0
       )),
       "",
-      "        case " + op.IF_NOT_ERROR + ":", // IF_NOT_ERROR t, f
-      indent10(
+      "          case " + op.IF_NOT_ERROR + ":", // IF_NOT_ERROR t, f
+      indent12(
         generateCondition("stack[stack.length - 1] !== peg$FAILED",
           0
         )),
       "",
-      "        case " + op.WHILE_NOT_ERROR + ":", // WHILE_NOT_ERROR b
-      indent10(generateLoop("stack[stack.length - 1] !== peg$FAILED")),
+      "          case " + op.WHILE_NOT_ERROR + ":", // WHILE_NOT_ERROR b
+      indent12(generateLoop("stack[stack.length - 1] !== peg$FAILED")),
       "",
-      "        case " + op.MATCH_ANY + ":", // MATCH_ANY a, f, ...
+      "          case " + op.MATCH_ANY + ":", // MATCH_ANY a, f, ...
       //indent10(generateCondition("input.length > inputBuf.currPos", 0)),
-      indent10(generateCondition("input.isAvailableAt(inputBuf.currPos)", 0)),
+      indent12(generateCondition("input.isAvailableAt(inputBuf.currPos)", 0)),
       "",
-      "        case " + op.MATCH_STRING + ":", // MATCH_STRING s, a, f, ...
-      indent10(generateCondition(
+      "          case " + op.MATCH_STRING + ":", // MATCH_STRING s, a, f, ...
+      indent12(generateCondition(
         "input.expect(index, peg$consts[bc[ip + 1]] as string)",
         1
       )),
       "",
-      "        case " + op.MATCH_STRING_IC + ":", // MATCH_STRING_IC s, a, f, ...
-      indent10(generateCondition(
+      "          case " + op.MATCH_STRING_IC + ":", // MATCH_STRING_IC s, a, f, ...
+      indent12(generateCondition(
         "input.expectLowerCase(index, peg$consts[bc[ip + 1]] as string)",
         1
       )),
       "",
-      "        case " + op.MATCH_REGEXP + ":", // MATCH_REGEXP r, a, f, ...
-      indent10(generateCondition(
+      "          case " + op.MATCH_REGEXP + ":", // MATCH_REGEXP r, a, f, ...
+      indent12(generateCondition(
         "(peg$consts[bc[ip + 1]] as any as RegExp).test(input.charAt(inputBuf.currPos))",
         1
       )),
       "",
-      "        case " + op.ACCEPT_N + ":", // ACCEPT_N n
-      "          stack.push(input.readForward(index, bc[ip + 1]));",
-      "          inputBuf.currPos += bc[ip + 1];",
-      "          ip += 2;",
-      "          break;",
+      "          case " + op.ACCEPT_N + ":", // ACCEPT_N n
+      "            stack.push(input.readForward(index, bc[ip + 1]));",
+      "            inputBuf.currPos += bc[ip + 1];",
+      "            ip += 2;",
+      "            break;",
       "",
-      "        case " + op.ACCEPT_STRING + ":", // ACCEPT_STRING s
-      "          stack.push(peg$consts[bc[ip + 1]]);",
-      "          inputBuf.currPos += (peg$consts[bc[ip + 1]] as string).length;",
-      "          ip += 2;",
-      "          break;",
+      "          case " + op.ACCEPT_STRING + ":", // ACCEPT_STRING s
+      "            stack.push(peg$consts[bc[ip + 1]]);",
+      "            inputBuf.currPos += (peg$consts[bc[ip + 1]] as string).length;",
+      "            ip += 2;",
+      "            break;",
       "",
-      "        case " + op.FAIL + ":", // FAIL e
-      "          stack.push(peg$FAILED);",
-      "          if (peg$silentFails === 0) {",
-      "            peg$fail(peg$consts[bc[ip + 1]] as ILiteralExpectation);",
-      "          }",
-      "          ip += 2;",
-      "          break;",
+      "          case " + op.FAIL + ":", // FAIL e
+      "            stack.push(peg$FAILED);",
+      "            if (this.peg$silentFails === 0) {",
+      "              this.peg$fail(peg$consts[bc[ip + 1]] as ILiteralExpectation);",
+      "            }",
+      "            ip += 2;",
+      "            break;",
       "",
-      "        case " + op.LOAD_SAVED_POS + ":", // LOAD_SAVED_POS p
-      "          inputBuf.savedPos = stack[stack.length - 1 - bc[ip + 1]];",
-      "          ip += 2;",
-      "          break;",
+      "          case " + op.LOAD_SAVED_POS + ":", // LOAD_SAVED_POS p
+      "            inputBuf.savedPos = stack[stack.length - 1 - bc[ip + 1]];",
+      "            ip += 2;",
+      "            break;",
       "",
-      "        case " + op.UPDATE_SAVED_POS + ":", // UPDATE_SAVED_POS
-      "          inputBuf.savedPos = inputBuf.currPos;",
-      "          ip++;",
-      "          break;",
+      "          case " + op.UPDATE_SAVED_POS + ":", // UPDATE_SAVED_POS
+      "            inputBuf.savedPos = inputBuf.currPos;",
+      "            ip++;",
+      "            break;",
       "",
-      "        case " + op.CALL + ":", // CALL f, n, pc, p1, p2, ..., pN
-      indent10(generateCall()),
+      "          case " + op.CALL + ":", // CALL f, n, pc, p1, p2, ..., pN
+      indent12(generateCall()),
       "",
-      "        case " + op.RULE + ":", // RULE r
-      "          stack.push(peg$parseRule(bc[ip + 1]));",
-      "          ip += 2;",
-      "          break;",
+      "          case " + op.RULE + ":", // RULE r
+      "            stack.push(this.peg$parseRule(bc[ip + 1]));",
+      "            ip += 2;",
+      "            break;",
       "",
-      "        case " + op.SILENT_FAILS_ON + ":", // SILENT_FAILS_ON
-      "          peg$silentFails++;",
-      "          ip++;",
-      "          break;",
+      "          case " + op.SILENT_FAILS_ON + ":", // SILENT_FAILS_ON
+      "            this.peg$silentFails++;",
+      "            ip++;",
+      "            break;",
       "",
-      "        case " + op.SILENT_FAILS_OFF + ":", // SILENT_FAILS_OFF
-      "          peg$silentFails--;",
-      "          ip++;",
-      "          break;",
+      "          case " + op.SILENT_FAILS_OFF + ":", // SILENT_FAILS_OFF
+      "            this.peg$silentFails--;",
+      "            ip++;",
+      "            break;",
       "",
-      "        default:",
-      "          throw new Error(\"Invalid opcode: \" + bc[ip] + \".\");",
+      "          default:",
+      "            throw new Error(\"Invalid opcode: \" + bc[ip] + \".\");",
+      "        }",
       "      }",
-      "    }",
       "",
-      "    if (ends.length > 0) {",
-      "      end = ends.pop();",
-      "      ip = ips.pop();",
-      "    } else {",
-      "      break;",
-      "    }",
-      "  }"
+      "      if (ends.length > 0) {",
+      "        end = ends.pop();",
+      "        ip = ips.pop();",
+      "      } else {",
+      "        break;",
+      "      }",
+      "    }"
     ].join("\n"));
 
-    parts.push(indent2(generateRuleFooter("RuleNames[index]", "stack[0]")));
-    parts.push("}");
+    parts.push(indent4(generateRuleFooter("RuleNames[index]", "stack[0]")));
+    parts.push("  }");
 
     return parts.join("\n");
   }
@@ -507,10 +508,10 @@ function generateTS(ast, ...args) {
         }
 
         parts.push("if (" + cond + ") {");
-        parts.push(indent2(thenCode));
+        parts.push(indent4(thenCode));
         if (elseLength > 0) {
           parts.push("} else {");
-          parts.push(indent2(elseCode));
+          parts.push(indent4(elseCode));
         }
         parts.push("}");
       }
@@ -531,7 +532,7 @@ function generateTS(ast, ...args) {
         }
 
         parts.push("while (" + cond + ") {");
-        parts.push(indent2(bodyCode));
+        parts.push(indent4(bodyCode));
         parts.push("}");
       }
 
@@ -708,7 +709,7 @@ function generateTS(ast, ...args) {
 
           case op.FAIL: // FAIL e
             parts.push(stack.push("peg$FAILED"));
-            parts.push("if (peg$silentFails === 0) { peg$fail(" + c(bc[ip + 1]) + "); }");
+            parts.push("if (this.peg$silentFails === 0) { this.peg$fail(" + c(bc[ip + 1]) + "); }");
             ip += 2;
             break;
 
@@ -733,12 +734,12 @@ function generateTS(ast, ...args) {
             break;
 
           case op.SILENT_FAILS_ON: // SILENT_FAILS_ON
-            parts.push("peg$silentFails++;");
+            parts.push("this.peg$silentFails++;");
             ip++;
             break;
 
           case op.SILENT_FAILS_OFF: // SILENT_FAILS_OFF
-            parts.push("peg$silentFails--;");
+            parts.push("this.peg$silentFails--;");
             ip++;
             break;
 
@@ -767,12 +768,12 @@ function generateTS(ast, ...args) {
 
     parts.push("  let " + stackVars.join(", ") + ";");
 
-    parts.push(indent2(generateRuleHeader(
+    parts.push(indent4(generateRuleHeader(
       "\"" + js.stringEscape(rule.name) + "\"",
       asts.indexOfRule(ast, rule.name)
     )));
-    parts.push(indent2(code));
-    parts.push(indent2(generateRuleFooter(
+    parts.push(indent4(code));
+    parts.push(indent4(generateRuleFooter(
       "\"" + js.stringEscape(rule.name) + "\"",
       s(0)
     )));
@@ -795,68 +796,114 @@ function generateTS(ast, ...args) {
     parts.push([
       "export interface IParseOptions {",
       "  filename?: string;",
-      "  startRule?: (string|RuleId);",
+      "  startRule?: (string | RuleId);",
       "  tracer?: any;",
       "  [key: string]: any;",
-      "}"
-    ].join("\n"));
-      
-    parts.push([
-      "function peg$parse<I extends ParseStream>("+param0+"input: I, options?: IParseOptions)"+startType+" {",
-      "  options = options !== undefined ? options : {};",
-      "  var inputBuf = input.buffer;",
+      "}",
       "",
-      "  const peg$FAILED: Readonly<any> = {};",
-      ""
+      "const peg$FAILED: Readonly<any> = {};",
+      "",
     ].join("\n"));
 
-    if (options.optimize === "size") {
-      let startRuleIndices = "new Map<RuleId,number>(); " +
-        options.allowedStartRules.map(
-          r => "peg$startRuleIndices[RuleId."+r + "] = " + asts.indexOfRule(ast, r)
-        ).join("; ") +
-        "";
-      let startRuleIndex = asts.indexOfRule(ast, options.allowedStartRules[0]);
-
-      parts.push([
-        "  const peg$startRuleIndices  = " + startRuleIndices + ";",
-        "  let peg$startRuleIndex = " + startRuleIndex + ";"
-      ].join("\n"));
-    } else {
-      let startRuleFunctions = "new Map<RuleId,() => any>(); " +
-        options.allowedStartRules.map(
-          r => "peg$startRuleFunctions[RuleId."+r + "] = peg$parse" + r
-        ).join("; ") +
-        "";
-      let startRuleFunction = "peg$parse" + options.allowedStartRules[0];
-
-      parts.push([
-        "  const peg$startRuleFunctions = " + startRuleFunctions + ";",
-        "  let peg$startRuleFunction: () => any = " + startRuleFunction + ";"
-      ].join("\n"));
-    }
-
-    parts.push("");
-
-    parts.push(indent2(generateTables()));
+    parts.push(generateTables());
 
     parts.push([
       "",
-      "  inputBuf.currPos = 0;",
-      "  inputBuf.savedPos = 0;",
-      "  const peg$posDetailsCache = [{ line: 1, column: 1 }];",
-      "  let peg$maxFailPos = 0;",
-      "  let peg$maxFailExpected: Expectation[] = [];",
-      "  let peg$silentFails = 0;", // 0 = report failures, > 0 = silence failures
-      ""
+      "function peg$literalExpectation(text1: string, ignoreCase: boolean): ILiteralExpectation {",
+      "  return { type: \"literal\", text: text1, ignoreCase: ignoreCase };",
+      "}",
+      "",
+      "function peg$classExpectation(parts: IClassParts, inverted: boolean, ignoreCase: boolean): IClassExpectation {",
+      "  return { type: \"class\", parts: parts, inverted: inverted, ignoreCase: ignoreCase };",
+      "}",
+      "",
+      "function peg$anyExpectation(): IAnyExpectation {",
+      "  return { type: \"any\" };",
+      "}",
+      "",
+      "function peg$endExpectation(): IEndExpectation {",
+      "  return { type: \"end\" };",
+      "}",
+      "",
+      "function peg$otherExpectation(description: string): IOtherExpectation {",
+      "  return { type: \"other\", description: description };",
+      "}",
+      "",
+      "function peg$decode(s: string): number[] {",
+      "  return s.split(\"\").map((ch) =>  ch.charCodeAt(0) - 32 );",
+      "}",
+      "",
+      ].join("\n"));
+
+
+      if (options.optimize === "size") {
+        parts.push([
+          "const peg$startRuleIndices = new Map<RuleId,number>();;",
+        ].join("\n"));
+
+        parts.push(options.allowedStartRules.map(
+          r => "peg$startRuleIndices[RuleId."+r + "] = " + asts.indexOfRule(ast, r)+";"
+        ).join("\n"));
+
+      } else {
+        let startRuleFunctions = "new Map<RuleId,() => any>(); " +
+          options.allowedStartRules.map(
+            r => "peg$startRuleFunctions[RuleId."+r + "] = peg$parse" + r
+          ).join("; ") +
+          "";
+        let startRuleFunction = "peg$parse" + options.allowedStartRules[0];
+  
+        parts.push([
+          "  const peg$startRuleFunctions = " + startRuleFunctions + ";",
+          "  let peg$startRuleFunction: () => any = " + startRuleFunction + ";"
+        ].join("\n"));
+      }
+  
+      parts.push("");
+
+    parts.push([
+      "export class PegjsParser<I extends ParseStream> {",
+      "",
+      "  input: I;",
+      "  inputBuf: IPegjsParseStreamBuffer2;",
+      "",
+      "  peg$maxFailPos = 0;",
+      "  peg$maxFailExpected: Expectation[] = [];",
+      "  peg$silentFails = 0;", // 0 = report failures, > 0 = silence failures
+      "",
     ].join("\n"));
 
     if (options.cache) {
       parts.push([
-        "  const peg$resultsCache: {[id: number]: ICached} = {};",
+        "  readonly peg$resultsCache: {[id: number]: ICached} = {};",
         ""
       ].join("\n"));
     }
+
+    parts.push([
+      "  constructor("+param0+"input: I, options?: IParseOptions)"+startType+" {",
+      "    this.input = input;",
+      "    this.inputBuf = input.buffer;",
+      "    options = options !== undefined ? options : {};",
+      ""
+    ].join("\n"));
+
+    
+    if (options.optimize === "size") {
+      let startRuleIndex = asts.indexOfRule(ast, options.allowedStartRules[0]);
+
+      parts.push([
+        "    let peg$startRuleIndex = " + startRuleIndex + ";"
+      ].join("\n"));
+    }
+
+    parts.push([
+      "",
+      "    // inputBuf.currPos = 0;",
+      "    // inputBuf.savedPos = 0;",
+      ""
+    ].join("\n"));
+
 
     /*if (options.optimize === "size") {
       let ruleNames = "[" +
@@ -880,65 +927,79 @@ function generateTS(ast, ...args) {
       //}
 
       parts.push([
-        "  const peg$tracer = \"tracer\" in options ? options.tracer : new DefaultTracer();",
+        "    const peg$tracer = \"tracer\" in options ? options.tracer : new DefaultTracer();",
         ""
       ].join("\n"));
     }
 
     parts.push([
-      "  let peg$result;",
+      "    let peg$result;",
       ""
     ].join("\n"));
 
     if (options.optimize === "size") {
       parts.push([
-        "  if (options.startRule !== undefined) {",
-        "    var ri = typeof options.startRule===\"string\"?eval(\"RuleId.\"+options.startRule):options.startRule;",
-        "    if (!(peg$startRuleIndices.get(ri))) {",
-        "      throw new Error(\"Can't start parsing from rule \\\"\" + options.startRule + \"\\\".\");",
-        "    }",
+        "    if (options.startRule !== undefined) {",
+        "      var ri = typeof options.startRule === \"string\"?eval(\"RuleId.\"+options.startRule):options.startRule;",
+        "      if (!(peg$startRuleIndices.get(ri))) {",
+        "        throw new Error(\"Can't start parsing from rule \\\"\" + options.startRule + \"\\\".\");",
+        "      }",
         "",
-        "    peg$startRuleIndex = peg$startRuleIndices[ri];",
-        "  }"
+        "      peg$startRuleIndex = peg$startRuleIndices[ri];",
+        "    }"
       ].join("\n"));
     } else {
       parts.push([
-        "  if (options.startRule !== undefined) {",
-        "    var ri = typeof options.startRule===\"string\"?eval(\"RuleId.\"+options.startRule):options.startRule;",
-        "    if (!(peg$startRuleFunctions.get(ri))) {",
-        "      throw new Error(\"Can't start parsing from rule \\\"\" + options.startRule + \"\\\".\");",
-        "    }",
+        "    if (options.startRule !== undefined) {",
+        "      var ri = typeof options.startRule===\"string\"?eval(\"RuleId.\"+options.startRule):options.startRule;",
+        "      if (!(peg$startRuleFunctions.get(ri))) {",
+        "        throw new Error(\"Can't start parsing from rule \\\"\" + options.startRule + \"\\\".\");",
+        "      }",
         "",
-        "    peg$startRuleFunction = peg$startRuleFunctions[ri];",
-        "  }"
+        "      peg$startRuleFunction = peg$startRuleFunctions[ri];",
+        "    }"
       ].join("\n"));
+    }
+
+
+    if (ast.initializer) {
+      parts.push(indent4(ast.initializer.code));
+      parts.push("");
+    }
+    parts.push("");
+    parts.push("");
+
+    if (options.optimize === "size") {
+      parts.push("    peg$result = this.peg$parseRule(peg$startRuleIndex);");
+    } else {
+      parts.push("    peg$result = this.peg$startRuleFunction();");
     }
 
     parts.push([
       "",
-      "  function peg$literalExpectation(text1: string, ignoreCase: boolean): ILiteralExpectation {",
-      "    return { type: \"literal\", text: text1, ignoreCase: ignoreCase };",
-      "  }",
+      "    if (peg$result !== peg$FAILED) {",
+      "      if (input.isAvailableAt(this.inputBuf.currPos)) {",
+      "        this.peg$fail(peg$endExpectation());",
+      "      } else {",
+      "        return peg$result;",
+      "      }",
+      "    }",
       "",
-      "  function peg$classExpectation(parts: IClassParts, inverted: boolean, ignoreCase: boolean): IClassExpectation {",
-      "    return { type: \"class\", parts: parts, inverted: inverted, ignoreCase: ignoreCase };",
-      "  }",
+      "    throw this.peg$buildStructuredError(",
+      "      this.peg$maxFailExpected,",
+      "      input.isAvailableAt(this.peg$maxFailPos) ? input.charAt(this.peg$maxFailPos) : null,",
+      "      this.peg$maxFailPos",
+      "    );",
       "",
-      "  function peg$anyExpectation(): IAnyExpectation {",
-      "    return { type: \"any\" };",
-      "  }",
+      "  }"
+    ].join("\n"));
+
+
+    parts.push([
       "",
-      "  function peg$endExpectation(): IEndExpectation {",
-      "    return { type: \"end\" };",
-      "  }",
-      "",
-      "  function peg$otherExpectation(description: string): IOtherExpectation {",
-      "    return { type: \"other\", description: description };",
-      "  }",
-      "",
-      "  function peg$computeLocation(startPos: number, endPos: number): IFileRange {",
-      "    const startPosDetails = input.calculatePosition(startPos);",
-      "    const endPosDetails = input.calculatePosition(endPos);",
+      "  peg$computeLocation(startPos: number, endPos: number): IFileRange {",
+      "    const startPosDetails = this.input.calculatePosition(startPos);",
+      "    const endPosDetails = this.input.calculatePosition(endPos);",
       "",
       "    return {",
       "      start: {",
@@ -954,70 +1015,45 @@ function generateTS(ast, ...args) {
       "    };",
       "  }",
       "",
-      "  function peg$fail(expected1: Expectation) {",
-      "    if (inputBuf.currPos < peg$maxFailPos) { return; }",
+      "  peg$fail(expected1: Expectation) {",
+      "    if (this.inputBuf.currPos < this.peg$maxFailPos) { return; }",
       "",
-      "    if (inputBuf.currPos > peg$maxFailPos) {",
-      "      peg$maxFailPos = inputBuf.currPos;",
-      "      peg$maxFailExpected = [];",
+      "    if (this.inputBuf.currPos > this.peg$maxFailPos) {",
+      "      this.peg$maxFailPos = this.inputBuf.currPos;",
+      "      this.peg$maxFailExpected = [];",
       "    }",
       "",
-      "    peg$maxFailExpected.push(expected1);",
+      "    this.peg$maxFailExpected.push(expected1);",
       "  }",
       "",
       "  /*function peg$buildSimpleError(message: string, location1: IFileRange) {",
       "    return new SyntaxError(input, message, [], \"\", location1);",
       "  }*/",
       "",
-      "  function peg$buildStructuredError(expected1: Expectation[], found: string | null, offset: number) {",
+      "  peg$buildStructuredError(expected1: Expectation[], found: string | null, offset: number) {",
       "    return new SyntaxError(",
-      "      input, \"\",",
+      "      this.input, \"\",",
       "      expected1,",
       "      found,",
       "      offset",
       "    );",
       "  }",
-      ""
+      "",
     ].join("\n"));
 
     if (options.optimize === "size") {
-      parts.push(indent2(generateInterpreter()));
+      parts.push(generateInterpreter());
       parts.push("");
     } else {
       ast.rules.forEach(rule => {
-        parts.push(indent2(generateRuleFunction(rule)));
+        parts.push(generateRuleFunction(rule));
         parts.push("");
       });
     }
 
-    if (ast.initializer) {
-      parts.push(indent2(ast.initializer.code));
-      parts.push("");
-    }
-
-    if (options.optimize === "size") {
-      parts.push("  peg$result = peg$parseRule(peg$startRuleIndex);");
-    } else {
-      parts.push("  peg$result = peg$startRuleFunction();");
-    }
-
     parts.push([
-      "",
-      "  if (peg$result !== peg$FAILED) {",
-      "    if (input.isAvailableAt(inputBuf.currPos)) {",
-      "      peg$fail(peg$endExpectation());",
-      "    } else {",
-      "      return peg$result;",
-      "    }",
-      "  }",
-      "",
-      "  throw peg$buildStructuredError(",
-      "    peg$maxFailExpected,",
-      "    input.isAvailableAt(peg$maxFailPos) ? input.charAt(peg$maxFailPos) : null,",
-      "    peg$maxFailPos",
-      "  );",
-      "",
-      "}"
+      "}",
+      ""
     ].join("\n"));
 
     return parts.join("\n");
@@ -1029,12 +1065,39 @@ function generateTS(ast, ...args) {
       if (options.tspegjs.customHeader) {
         res.push(options.tspegjs.customHeader);
       }
+
+      
+      var ruleNamesEtc = "";
+      if (options.optimize === "size") {
+        let ruleIds = "{" +
+          ast.rules.map(
+            r => r.name
+          ).join(", ") +
+        "}";
+        let ruleNames = "[" +
+          ast.rules.map(
+            r => "\"" + js.stringEscape(r.name) + "\""
+          ).join(", ") +
+        "]";
+
+        ruleNamesEtc = [
+          "export enum RuleId " + ruleIds + ";",
+          "export var RuleNames = " + ruleNames + ";",
+          ""
+        ].join("\n");
+      }
+
       res = res.concat([
-        "import { IFilePosition, IFileRange, ILiteralExpectation, IClassParts, IClassExpectation, IAnyExpectation, IEndExpectation, IOtherExpectation, Expectation, SyntaxError, ITraceEvent, DefaultTracer, ICached, IPegjsParseStream, PegjsParseStream, IPegjsParseStreamBuffer } from 'ts-pegjs/lib';",
+        "import { IFilePosition, IFileRange, ILiteralExpectation, IClassParts, IClassExpectation, IAnyExpectation, IEndExpectation, IOtherExpectation, Expectation, SyntaxError, ITraceEvent, DefaultTracer, ICached, IPegjsParseStream, PegjsParseStream, IPegjsParseStreamBuffer, IPegjsParseStreamBuffer2 } from 'ts-pegjs/lib';",
         "",
         "// Generated by PEG.js v. " + pegJsVersion + " (ts-pegjs plugin v. " + pluginVersion + " )",
         "//",
-        "// https://pegjs.org/   https://github.com/metadevpro/ts-pegjs"
+        "// https://pegjs.org/   https://github.com/metadevpro/ts-pegjs",
+        "//",
+        "",
+        ruleNamesEtc,
+        "",
+
       ]);
 
       return res.join("\n");
@@ -1086,40 +1149,11 @@ function generateTS(ast, ...args) {
 
 }`;
 
-      var ruleNamesEtc = "";
-      if (options.optimize === "size") {
-        let ruleIds = "{" +
-          ast.rules.map(
-            r => r.name
-          ).join(", ") +
-        "}";
-        let ruleNames = "[" +
-          ast.rules.map(
-            r => "\"" + js.stringEscape(r.name) + "\""
-          ).join(", ") +
-        "]";
-
-        ruleNamesEtc = [
-          "export enum RuleId " + ruleIds + ";",
-          "export var RuleNames = " + ruleNames + ";",
-          ""
-        ].join("\n");
-      }
-
-      var r0 = options.allowedStartRules.length===1 ? options.allowedStartRules[0] : "";
-      var startTypePtr = ast.inferredTypes[r0];
-      startTypePtr = startTypePtr ? startTypePtr : "any";
-      const parseFunctionType = "export type ParseFunction = <I extends ParseStream>("+param0+"input: I, options?: IParseOptions) => "+startTypePtr+";";
-
-      const parseExport = "export const parse: ParseFunction = peg$parse;";
 
       return options.trace ?
         [
           streamTypeI,
           streamType,
-          parseFunctionType,
-          parseExport,
-          ruleNamesEtc,
           // "{",
           // "  SyntaxError: peg$SyntaxError,",
           // "  DefaultTracer: peg$DefaultTracer,",
@@ -1129,9 +1163,6 @@ function generateTS(ast, ...args) {
         [
           streamTypeI,
           streamType,
-          parseFunctionType,
-          parseExport,
-          ruleNamesEtc,
           // "{",
           // "  SyntaxError: peg$SyntaxError,",
           // "  parse: peg$parse",
@@ -1249,9 +1280,9 @@ function generateTS(ast, ...args) {
           "define(" + dependencies + ", function(" + params + ") {",
           "  \"use strict\";",
           "",
-          indent2(toplevelCode),
+          indent4(toplevelCode),
           "",
-          indent2("return " + generateParserObject() + ";"),
+          indent4("return " + generateParserObject() + ";"),
           "});",
           ""
         ].join("\n");
@@ -1263,9 +1294,9 @@ function generateTS(ast, ...args) {
           "(function(root) {",
           "  \"use strict\";",
           "",
-          indent2(toplevelCode),
+          indent4(toplevelCode),
           "",
-          indent2("root." + options.exportVar + " = " + generateParserObject() + ";"),
+          indent4("root." + options.exportVar + " = " + generateParserObject() + ";"),
           "})(this);",
           ""
         ].join("\n");
@@ -1306,9 +1337,9 @@ function generateTS(ast, ...args) {
           "})(this, function(" + params + ") {",
           "  \"use strict\";",
           "",
-          indent2(toplevelCode),
+          indent4(toplevelCode),
           "",
-          indent2("return " + generateParserObject() + ";"),
+          indent4("return " + generateParserObject() + ";"),
           "});",
           ""
         ].join("\n"));
