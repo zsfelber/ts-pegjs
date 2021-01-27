@@ -846,11 +846,11 @@ function generateTS(ast, ...args) {
 
       if (options.optimize === "size") {
         parts.push([
-          "const peg$startRuleIndices = new Map<RuleId,number>();;",
+          "const peg$startRuleIndices = new Map<RuleId,number>();",
         ].join("\n"));
 
         parts.push(options.allowedStartRules.map(
-          r => "peg$startRuleIndices[RuleId."+r + "] = " + asts.indexOfRule(ast, r)+";"
+          r => "peg$startRuleIndices.set(RuleId."+r + ", " + asts.indexOfRule(ast, r)+");"
         ).join("\n"));
 
       } else {
@@ -968,7 +968,7 @@ function generateTS(ast, ...args) {
         "        throw new Error(\"Can't start parsing from rule \\\"\" + options.startRule + \"\\\".\");",
         "      }",
         "",
-        "      peg$startRuleIndex = peg$startRuleIndices[ri];",
+        "      peg$startRuleIndex = ri;",
         "    }"
       ].join("\n"));
     } else {
