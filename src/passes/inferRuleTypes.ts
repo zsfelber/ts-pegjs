@@ -272,9 +272,9 @@ function generate(ast, ...args) {
   ""].join("\n"));
   genclss.push("");
   if (options.tspegjs.customFields) {
-    genclss.push([
+    genclss.push(
       options.tspegjs.customFields
-    ].join("\n"));
+    .join("\n"));
     genclss.push("");
   }
 

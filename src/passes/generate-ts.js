@@ -885,9 +885,9 @@ function generateTS(ast, ...args) {
     ].join("\n"));
 
     if (options.tspegjs.customFields) {
-      parts.push(indent2([
+      parts.push(indent2(
         options.tspegjs.customFields
-      ].join("\n")));
+      .join("\n")));
     }
 
     if (options.cache) {
@@ -906,9 +906,9 @@ function generateTS(ast, ...args) {
     ].join("\n"));
 
     if (options.tspegjs.customInit) {
-      parts.push(indent4([
+      parts.push(indent4(
         options.tspegjs.customInit
-      ].join("\n")));
+      .join("\n")));
     }
 
 

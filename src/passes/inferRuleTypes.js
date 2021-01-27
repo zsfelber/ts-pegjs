@@ -266,9 +266,8 @@ function generate(ast) {
         ""].join("\n"));
     genclss.push("");
     if (options.tspegjs.customFields) {
-        genclss.push([
-            options.tspegjs.customFields
-        ].join("\n"));
+        genclss.push(options.tspegjs.customFields
+            .join("\n"));
         genclss.push("");
     }
     Object.values(simplifiedRules).forEach(function (simpleRule) {
