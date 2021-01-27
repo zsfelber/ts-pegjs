@@ -250,9 +250,13 @@ export interface IPegjsParseStreamBuffer2 extends IPegjsParseStreamBuffer {
   // should return this.substr(input.currPos, len)
   readForward(rule: number, len: number): string;
 
+  calculatePosition(pos: number): IFilePosition;
+
+  printTokens(tokenCodes: string): string;
+
 }
 
-export interface IPegjsParseStream extends IPegjsParseStreamBuffer {
+export interface IPegjsParseStream extends IPegjsParseStreamBuffer2 {
 
   readonly ruleNames: string[];
 
@@ -292,16 +296,22 @@ export class PegjsParseStream implements IPegjsParseStream {
   readonly ruleNames: string[];
 
   readonly buffer: IPegjsParseStreamBuffer2;
-  readonly posDetailsCache: IFilePosition[];
 
   constructor(buffer: IPegjsParseStreamBuffer, ruleNames?: string[]) {
-    if (Object.hasOwnProperty("currPos")) {
+    if (buffer.hasOwnProperty("currPos")) {
       this.buffer = buffer as IPegjsParseStreamBuffer2;
     } else {
       this.buffer = new PegjsParseStreamBuffer(buffer);
     }
     this.ruleNames = ruleNames ? ruleNames : [];
-    this.posDetailsCache = [];
+  }
+
+  get currPos() {
+    return this.buffer.currPos;
+  }
+
+  get savedPos() {
+    return this.buffer.savedPos;
   }
 
   get length(): number {
@@ -342,12 +352,70 @@ export class PegjsParseStream implements IPegjsParseStream {
     return this.readForward(rule, expectedText.length).toLowerCase() === expectedText;
   }
 
+  calculatePosition(pos: number): IFilePosition {
+    return this.buffer.calculatePosition(pos);
+  }
+
   printTokens(tokenCodes: string): string {
-    return tokenCodes;
+    return this.buffer.printTokens(tokenCodes);
   }
 
 
-  
+}
+
+
+
+export class PegjsParseStreamBuffer implements IPegjsParseStreamBuffer2 {
+
+  readonly buffer: string;
+  /* give read-write access to pegjs, do not manipulate them */
+  savedPos: number;
+  currPos: number;
+  readonly posDetailsCache: IFilePosition[];
+
+  constructor(src: IPegjsParseStreamBuffer, initialPos = 0) {
+    this.buffer = src ? src.toString() : "";
+    this.savedPos = initialPos;
+    this.currPos = initialPos;
+    this.posDetailsCache = [];
+  }
+
+  get length(): number {
+    return this.buffer.length;
+  }
+
+  seek(position: number) {
+    /*
+    if (position >= this.buffer.length) {
+        console.log("Attempt to overseek to " + position +
+            " of len:" + this.buffer.length +
+            (rule === undefined ? "" : "  in rule:" + this.ruleNames[rule]));
+    }*/
+  }
+
+  /* these should read forward if requested position is in the future
+  * meaning lookahead tokens */
+  charAt(position: number): string {
+    this.seek(position);
+    return this.buffer.charAt(position);
+  }
+  charCodeAt(position: number): number {
+    this.seek(position);
+    return this.buffer.charCodeAt(position);
+  }
+  substring(from: number, to?: number): string {
+    this.seek(to);
+    return this.buffer.substring(from, to);
+  }
+  substr(from: number, len?: number): string {
+    this.seek(len<0?this.buffer.length-1:from+len);
+    return this.buffer.substr(from, len);
+  }
+  // should return this.substr(input.currPos, len)
+  readForward(rule: number, len: number): string {
+    return this.substr(this.currPos, len);
+  }
+
 
   calculatePosition(pos: number): IFilePosition {
     let details = this.posDetailsCache[pos];
@@ -396,59 +464,6 @@ export class PegjsParseStream implements IPegjsParseStream {
       return details;
     }
   }
-}
-
-
-
-export class PegjsParseStreamBuffer implements IPegjsParseStreamBuffer2 {
-
-  readonly buffer: string;
-  /* give read-write access to pegjs, do not manipulate them */
-  savedPos: number;
-  currPos: number;
-
-  constructor(src: IPegjsParseStreamBuffer, initialPos = 0) {
-    this.buffer = src ? src.toString() : "";
-    this.savedPos = initialPos;
-    this.currPos = initialPos;
-  }
-
-  get length(): number {
-    return this.buffer.length;
-  }
-
-  seek(position: number) {
-    /*
-    if (position >= this.buffer.length) {
-        console.log("Attempt to overseek to " + position +
-            " of len:" + this.buffer.length +
-            (rule === undefined ? "" : "  in rule:" + this.ruleNames[rule]));
-    }*/
-  }
-
-  /* these should read forward if requested position is in the future
-  * meaning lookahead tokens */
-  charAt(position: number): string {
-    this.seek(position);
-    return this.buffer.charAt(position);
-  }
-  charCodeAt(position: number): number {
-    this.seek(position);
-    return this.buffer.charCodeAt(position);
-  }
-  substring(from: number, to?: number): string {
-    this.seek(to);
-    return this.buffer.substring(from, to);
-  }
-  substr(from: number, len?: number): string {
-    this.seek(len<0?this.buffer.length-1:from+len);
-    return this.buffer.substr(from, len);
-  }
-  // should return this.substr(input.currPos, len)
-  readForward(rule: number, len: number): string {
-    return this.substr(this.currPos, len);
-  }
-
 
   toString() {
     return this.buffer;
@@ -468,7 +483,7 @@ export abstract class PegjsTknParseStreamBuffer<T> extends PegjsParseStreamBuffe
 
   readonly tokens: T[];
 
-  constructor(src: IPegjsParseStreamBuffer, initialPos?: number, initialTokens?: T[]) {
+  constructor(src: IPegjsParseStreamBuffer, initialPos = 0, initialTokens?: T[]) {
       super(src, initialPos)
       this.tokens = src && src["tokens"] ? src["tokens"] : initialTokens;
     }

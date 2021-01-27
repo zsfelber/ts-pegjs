@@ -322,3 +322,4 @@ function generate(ast) {
     //console.log("ast : "+JSON.stringify(ast, null, "  "));
 }
 module.exports = generate;
+//# sourceMappingURL=inferRuleTypes.js.map
