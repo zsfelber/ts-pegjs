@@ -169,8 +169,13 @@ export interface ITraceEvent {
 export class DefaultTracer {
   private indentLevel: number;
 
-  constructor() {
+  startTracingOnly: {};
+  started: {atindent: number};
+
+  constructor(startTracingOnly: {}) {
     this.indentLevel = 0;
+    this.startTracingOnly = startTracingOnly;
+    if (!this.startTracingOnly) this.started = {atindent: -1};
   }
 
   public trace(event: ITraceEvent) {
@@ -203,18 +208,31 @@ export class DefaultTracer {
 
     switch (event.type) {
       case "rule.enter":
-        log(event);
+        if (this.startTracingOnly && this.startTracingOnly[event.rule]) {
+          this.started = {atindent: this.indentLevel};
+        }
+        if (this.started) log(event);
         this.indentLevel++;
         break;
 
       case "rule.match":
         this.indentLevel--;
-        log(event);
+        if (this.started) {
+          log(event);
+          if (this.started.atindent === this.indentLevel) {
+            this.started = null;
+          }
+        }
         break;
 
       case "rule.fail":
         this.indentLevel--;
-        log(event);
+        if (this.started) {
+          log(event);
+          if (this.started.atindent === this.indentLevel) {
+            this.started = null;
+          }
+        }
         break;
 
       default:

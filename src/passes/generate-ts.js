@@ -68,7 +68,7 @@ function generateTS(ast, ...args) {
         "peg$tracer.trace({",
         "  type: \"rule.enter\",",
         "  rule: " + ruleNameCode + ",",
-        "  location: peg$computeLocation(startPos, startPos)",
+        "  location: this.peg$computeLocation(startPos, startPos)",
         "});",
         ""
       ].join("\n"));
@@ -92,13 +92,13 @@ function generateTS(ast, ...args) {
           "    type: \"rule.match\",",
           "    rule: " + ruleNameCode + ",",
           "    result: cached.result,",
-          "    location: peg$computeLocation(startPos, inputBuf.currPos)",
+          "    location: this.peg$computeLocation(startPos, inputBuf.currPos)",
           "  });",
           "} else {",
           "  peg$tracer.trace({",
           "    type: \"rule.fail\",",
           "    rule: " + ruleNameCode + ",",
-          "    location: peg$computeLocation(startPos, startPos)",
+          "    location: this.peg$computeLocation(startPos, startPos)",
           "  });",
           "}",
           ""
@@ -133,13 +133,13 @@ function generateTS(ast, ...args) {
         "    type: \"rule.match\",",
         "    rule: " + ruleNameCode + ",",
         "    result: " + resultCode + ",",
-        "    location: peg$computeLocation(startPos, inputBuf.currPos)",
+        "    location: this.peg$computeLocation(startPos, inputBuf.currPos)",
         "  });",
         "} else {",
         "  peg$tracer.trace({",
         "    type: \"rule.fail\",",
         "    rule: " + ruleNameCode + ",",
-        "    location: peg$computeLocation(startPos, startPos)",
+        "    location: this.peg$computeLocation(startPos, startPos)",
         "  });",
         "}"
       ].join("\n"));
@@ -815,6 +815,14 @@ function generateTS(ast, ...args) {
 
     parts.push(generateBytecode());
 
+    if (options.trace) {
+
+      parts.push([
+        "    const peg$tracer = new DefaultTracer();",
+        ""
+      ].join("\n"));
+    }
+
     parts.push([
       "",
       "function peg$literalExpectation(text1: string, ignoreCase: boolean): ILiteralExpectation {",
@@ -929,33 +937,6 @@ function generateTS(ast, ...args) {
     ].join("\n"));
 
 
-    /*if (options.optimize === "size") {
-      let ruleNames = "[" +
-        ast.rules.map(
-          r => "\"" + js.stringEscape(r.name) + "\""
-        ).join(", ") +
-      "]";
-
-      parts.push([
-        "  let Rules = " + ruleNames + ";",
-        ""
-      ].join("\n"));
-    }*/
-
-    //   ^
-    //   |
-    if (options.trace) {
-      // |<-------|
-      //          |
-      //if (options.optimize === "size") {
-      //}
-
-      parts.push([
-        "    const peg$tracer = \"tracer\" in options ? options.tracer : new DefaultTracer();",
-        ""
-      ].join("\n"));
-    }
-
     parts.push([
       ""
     ].join("\n"));
@@ -1022,7 +1003,7 @@ function generateTS(ast, ...args) {
       "",
       "  peg$computeLocation(startPos: number, endPos: number): IFileRange {",
       "    const startPosDetails = this.input.calculatePosition(startPos);",
-      "    const endPosDetails = this.input.calculatePosition(endPos);",
+      "    const endPosDetails = startPos===endPos ? startPosDetails : this.input.calculatePosition(endPos);",
       "",
       "    return {",
       "      start: {",
