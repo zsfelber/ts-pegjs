@@ -401,6 +401,7 @@ function generateTS(ast, ...args) {
       "",
       "          case " + op.RULE + ":", // RULE r
       "            stack.push(this.peg$parseRule(bc[ip + 1]));",
+      "            this.currentRule = index;",
       "            ip += 2;",
       "            break;",
       "",
