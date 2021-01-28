@@ -818,7 +818,7 @@ function generateTS(ast, ...args) {
     if (options.trace) {
 
       parts.push([
-        "    const peg$tracer = new DefaultTracer();",
+        "    const peg$tracer = new DefaultTracer("+options.trace+");",
         ""
       ].join("\n"));
     }
