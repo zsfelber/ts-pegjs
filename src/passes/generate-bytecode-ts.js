@@ -3,8 +3,8 @@
 //"use strict";
 
 // Base: (original file: generate-bycode.js for codegen JS)
-var arrays  = require("../../utils/arrays"),
-    objects = require("../../utils/objects");
+var arrays  = require("pegjs/lib/utils/arrays"),
+    objects = require("pegjs/lib/utils/objects");
     //asts    = require("../asts"),
     //visitor = require("../visitor"),
     //op      = require("../opcodes"),
