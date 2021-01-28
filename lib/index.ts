@@ -181,7 +181,7 @@ export class DefaultTracer {
   public trace(event: ITraceEvent) {
     const that = this;
 
-    function log(evt: ITraceEvent) {
+    function log(evt: ITraceEvent, blocktxt: string) {
       function repeat(text: string, n: number) {
         let result = "", i;
 
@@ -198,10 +198,11 @@ export class DefaultTracer {
 
       if (typeof console === "object") { // IE 8-10
         console.log(
-          evt.location.start.line + ":" + evt.location.start.column + "-"
+          "/* "+ pad(evt.location.start.line + ":" + evt.location.start.column + "-"
           + evt.location.end.line + ":" + evt.location.end.column + " "
-          + pad(evt.type, 10) + " "
-          + repeat("  ", that.indentLevel) + evt.rule
+          + evt.type
+          , 20) + " "
+          + repeat("  ", that.indentLevel) + evt.rule + blocktxt
         );
       }
     }
@@ -211,14 +212,14 @@ export class DefaultTracer {
         if (this.startTracingOnly && this.startTracingOnly[event.rule]) {
           this.started = {atindent: this.indentLevel};
         }
-        if (this.started) log(event);
+        if (this.started) log(event, "*/   {");
         this.indentLevel++;
         break;
 
       case "rule.match":
         this.indentLevel--;
         if (this.started) {
-          log(event);
+          log(event, "*/   } //    +");
           if (this.started.atindent === this.indentLevel) {
             this.started = null;
           }
@@ -228,7 +229,7 @@ export class DefaultTracer {
       case "rule.fail":
         this.indentLevel--;
         if (this.started) {
-          log(event);
+          log(event, "*/   } //    -");
           if (this.started.atindent === this.indentLevel) {
             this.started = null;
           }
