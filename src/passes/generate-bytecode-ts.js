@@ -1,208 +1,214 @@
+/* eslint-disable no-unused-vars */
+/* eslint-disable quotes */
+//"use strict";
 
 // Base: (original file: generate-bycode.js for codegen JS)
+var arrays  = require("../../utils/arrays"),
+    objects = require("../../utils/objects");
+    //asts    = require("../asts"),
+    //visitor = require("../visitor"),
+    //op      = require("../opcodes"),
+    //js      = require("../js");
 
 var asts = require("pegjs/lib/compiler/asts");
 var js = require("pegjs/lib/compiler/js");
 var op = require("pegjs/lib/compiler/opcodes");
 var visitor = require("pegjs/lib/compiler/visitor");
 
-// Generates bytecode.
-//
-// Instructions
-// ============
-//
-// Stack Manipulation
-// ------------------
-//
-//  [0] PUSH c
-//
-//        stack.push(consts[c]);
-//
-//  [1] PUSH_UNDEFINED
-//
-//        stack.push(undefined);
-//
-//  [2] PUSH_NULL
-//
-//        stack.push(null);
-//
-//  [3] PUSH_FAILED
-//
-//        stack.push(FAILED);
-//
-//  [4] PUSH_EMPTY_ARRAY
-//
-//        stack.push([]);
-//
-//  [5] PUSH_CURR_POS
-//
-//        stack.push(currPos);
-//
-//  [6] POP
-//
-//        stack.pop();
-//
-//  [7] POP_CURR_POS
-//
-//        currPos = stack.pop();
-//
-//  [8] POP_N n
-//
-//        stack.pop(n);
-//
-//  [9] NIP
-//
-//        value = stack.pop();
-//        stack.pop();
-//        stack.push(value);
-//
-// [10] APPEND
-//
-//        value = stack.pop();
-//        array = stack.pop();
-//        array.push(value);
-//        stack.push(array);
-//
-// [11] WRAP n
-//
-//        stack.push(stack.pop(n));
-//
-// [12] TEXT
-//
-//        stack.push(input.substring(stack.pop(), currPos));
-//
-// Conditions and Loops
-// --------------------
-//
-// [13] IF t, f
-//
-//        if (stack.top()) {
-//          interpret(ip + 3, ip + 3 + t);
-//        } else {
-//          interpret(ip + 3 + t, ip + 3 + t + f);
-//        }
-//
-// [14] IF_ERROR t, f
-//
-//        if (stack.top() === FAILED) {
-//          interpret(ip + 3, ip + 3 + t);
-//        } else {
-//          interpret(ip + 3 + t, ip + 3 + t + f);
-//        }
-//
-// [15] IF_NOT_ERROR t, f
-//
-//        if (stack.top() !== FAILED) {
-//          interpret(ip + 3, ip + 3 + t);
-//        } else {
-//          interpret(ip + 3 + t, ip + 3 + t + f);
-//        }
-//
-// [16] WHILE_NOT_ERROR b
-//
-//        while(stack.top() !== FAILED) {
-//          interpret(ip + 2, ip + 2 + b);
-//        }
-//
-// Matching
-// --------
-//
-// [17] MATCH_ANY a, f, ...
-//
-//        if (input.length > currPos) {
-//          interpret(ip + 3, ip + 3 + a);
-//        } else {
-//          interpret(ip + 3 + a, ip + 3 + a + f);
-//        }
-//
-// [18] MATCH_STRING s, a, f, ...
-//
-//        if (input.substr(currPos, consts[s].length) === consts[s]) {
-//          interpret(ip + 4, ip + 4 + a);
-//        } else {
-//          interpret(ip + 4 + a, ip + 4 + a + f);
-//        }
-//
-// [19] MATCH_STRING_IC s, a, f, ...
-//
-//        if (input.substr(currPos, consts[s].length).toLowerCase() === consts[s]) {
-//          interpret(ip + 4, ip + 4 + a);
-//        } else {
-//          interpret(ip + 4 + a, ip + 4 + a + f);
-//        }
-//
-// [20] MATCH_REGEXP r, a, f, ...
-//
-//        if (consts[r].test(input.charAt(currPos))) {
-//          interpret(ip + 4, ip + 4 + a);
-//        } else {
-//          interpret(ip + 4 + a, ip + 4 + a + f);
-//        }
-//
-// [21] ACCEPT_N n
-//
-//        stack.push(input.substring(currPos, n));
-//        currPos += n;
-//
-// [22] ACCEPT_STRING s
-//
-//        stack.push(consts[s]);
-//        currPos += consts[s].length;
-//
-// [23] FAIL e
-//
-//        stack.push(FAILED);
-//        fail(consts[e]);
-//
-// Calls
-// -----
-//
-// [24] LOAD_SAVED_POS p
-//
-//        savedPos = stack[p];
-//
-// [25] UPDATE_SAVED_POS
-//
-//        savedPos = currPos;
-//
-// [26] CALL f, n, pc, p1, p2, ..., pN
-//
-//        value = consts[f](stack[p1], ..., stack[pN]);
-//        stack.pop(n);
-//        stack.push(value);
-//
-// Rules
-// -----
-//
-// [27] RULE r
-//
-//        stack.push(parseRule(r));
-//
-// Failure Reporting
-// -----------------
-//
-// [28] SILENT_FAILS_ON
-//
-//        silentFails++;
-//
-// [29] SILENT_FAILS_OFF
-//
-//        silentFails--;
-function generateBytecode(ast/*, ...args*/) {
-  // pegjs 0.10  api pass(ast, options)
-  // pegjs 0.11+ api pass(ast, config, options);
-  //const options = args[args.length -1];
-
-  let consts = [];
+/* Generates bytecode.
+ *
+ * Instructions
+ * ============
+ *
+ * Stack Manipulation
+ * ------------------
+ *
+ *  [0] PUSH c
+ *
+ *        stack.push(consts[c]);
+ *
+ *  [1] PUSH_UNDEFINED
+ *
+ *        stack.push(undefined);
+ *
+ *  [2] PUSH_NULL
+ *
+ *        stack.push(null);
+ *
+ *  [3] PUSH_FAILED
+ *
+ *        stack.push(FAILED);
+ *
+ *  [4] PUSH_EMPTY_ARRAY
+ *
+ *        stack.push([]);
+ *
+ *  [5] PUSH_CURR_POS
+ *
+ *        stack.push(currPos);
+ *
+ *  [6] POP
+ *
+ *        stack.pop();
+ *
+ *  [7] POP_CURR_POS
+ *
+ *        currPos = stack.pop();
+ *
+ *  [8] POP_N n
+ *
+ *        stack.pop(n);
+ *
+ *  [9] NIP
+ *
+ *        value = stack.pop();
+ *        stack.pop();
+ *        stack.push(value);
+ *
+ * [10] APPEND
+ *
+ *        value = stack.pop();
+ *        array = stack.pop();
+ *        array.push(value);
+ *        stack.push(array);
+ *
+ * [11] WRAP n
+ *
+ *        stack.push(stack.pop(n));
+ *
+ * [12] TEXT
+ *
+ *        stack.push(input.substring(stack.pop(), currPos));
+ *
+ * Conditions and Loops
+ * --------------------
+ *
+ * [13] IF t, f
+ *
+ *        if (stack.top()) {
+ *          interpret(ip + 3, ip + 3 + t);
+ *        } else {
+ *          interpret(ip + 3 + t, ip + 3 + t + f);
+ *        }
+ *
+ * [14] IF_ERROR t, f
+ *
+ *        if (stack.top() === FAILED) {
+ *          interpret(ip + 3, ip + 3 + t);
+ *        } else {
+ *          interpret(ip + 3 + t, ip + 3 + t + f);
+ *        }
+ *
+ * [15] IF_NOT_ERROR t, f
+ *
+ *        if (stack.top() !== FAILED) {
+ *          interpret(ip + 3, ip + 3 + t);
+ *        } else {
+ *          interpret(ip + 3 + t, ip + 3 + t + f);
+ *        }
+ *
+ * [16] WHILE_NOT_ERROR b
+ *
+ *        while(stack.top() !== FAILED) {
+ *          interpret(ip + 2, ip + 2 + b);
+ *        }
+ *
+ * Matching
+ * --------
+ *
+ * [17] MATCH_ANY a, f, ...
+ *
+ *        if (input.length > currPos) {
+ *          interpret(ip + 3, ip + 3 + a);
+ *        } else {
+ *          interpret(ip + 3 + a, ip + 3 + a + f);
+ *        }
+ *
+ * [18] MATCH_STRING s, a, f, ...
+ *
+ *        if (input.substr(currPos, consts[s].length) === consts[s]) {
+ *          interpret(ip + 4, ip + 4 + a);
+ *        } else {
+ *          interpret(ip + 4 + a, ip + 4 + a + f);
+ *        }
+ *
+ * [19] MATCH_STRING_IC s, a, f, ...
+ *
+ *        if (input.substr(currPos, consts[s].length).toLowerCase() === consts[s]) {
+ *          interpret(ip + 4, ip + 4 + a);
+ *        } else {
+ *          interpret(ip + 4 + a, ip + 4 + a + f);
+ *        }
+ *
+ * [20] MATCH_REGEXP r, a, f, ...
+ *
+ *        if (consts[r].test(input.charAt(currPos))) {
+ *          interpret(ip + 4, ip + 4 + a);
+ *        } else {
+ *          interpret(ip + 4 + a, ip + 4 + a + f);
+ *        }
+ *
+ * [21] ACCEPT_N n
+ *
+ *        stack.push(input.substring(currPos, n));
+ *        currPos += n;
+ *
+ * [22] ACCEPT_STRING s
+ *
+ *        stack.push(consts[s]);
+ *        currPos += consts[s].length;
+ *
+ * [23] FAIL e
+ *
+ *        stack.push(FAILED);
+ *        fail(consts[e]);
+ *
+ * Calls
+ * -----
+ *
+ * [24] LOAD_SAVED_POS p
+ *
+ *        savedPos = stack[p];
+ *
+ * [25] UPDATE_SAVED_POS
+ *
+ *        savedPos = currPos;
+ *
+ * [26] CALL f, n, pc, p1, p2, ..., pN
+ *
+ *        value = consts[f](stack[p1], ..., stack[pN]);
+ *        stack.pop(n);
+ *        stack.push(value);
+ *
+ * Rules
+ * -----
+ *
+ * [27] RULE r
+ *
+ *        stack.push(parseRule(r));
+ *
+ * Failure Reporting
+ * -----------------
+ *
+ * [28] SILENT_FAILS_ON
+ *
+ *        silentFails++;
+ *
+ * [29] SILENT_FAILS_OFF
+ *
+ *        silentFails--;
+ */
+function generateBytecode(ast) {
+  var consts = [];
   var currentRule;
 
   function addConst(value) {
-    let index = consts.indexOf(value);
+    var index = arrays.indexOf(consts, value);
 
     return index === -1 ? consts.push(value) - 1 : index;
   }
 
-  function addFunctionConst(context, code, node) {
+  function addFunctionConst(params, node) {
 
     //console.log("context:"+JSON.stringify(context, null, "  "));
     //console.log("code:"+JSON.stringify(code, null, "  "));
@@ -211,18 +217,18 @@ function generateBytecode(ast/*, ...args*/) {
     //}
 
     //storeRule(code, node);
+    var code = node.code;
 
     var result;
-    var ids = Object.keys(context.env);
     var i1 = node.checkids?node.checkids.join():"";
-    var i2 = ids?ids.join():"";
+    var i2 = params?params.join():"";
     if (i1 !== i2) {
       console.warn(currentRule+" check arg ids failed : "+i1+" vs "+i2);
     }
     if (node.templateFunction) {
       result = node.templateFunction;
     } else {
-      result = "function(" + ids.join(", ") + ") {" + code + "}";
+      result = "function(" + params.join(", ") + ") {" + code + "}";
     }
 
     //console.log(info+" :  "+JSON.stringify(code, null, "  "));
@@ -239,7 +245,6 @@ function generateBytecode(ast/*, ...args*/) {
 
     return clone;
   }
-
   function buildSequence() {
     return Array.prototype.concat.apply([], arguments);
   }
@@ -257,7 +262,7 @@ function generateBytecode(ast/*, ...args*/) {
   }
 
   function buildCall(functionIndex, delta, env, sp) {
-    let params = Object.keys(env).map(name => sp - env[name]);
+    var params = arrays.map(objects.values(env), function(p) { return sp - p; });
 
     return [op.CALL, functionIndex, delta, params.length].concat(params);
   }
@@ -267,8 +272,8 @@ function generateBytecode(ast/*, ...args*/) {
       [op.PUSH_CURR_POS],
       [op.SILENT_FAILS_ON],
       generate(expression, {
-        sp: context.sp + 1,
-        env: cloneEnv(context.env),
+        sp:     context.sp + 1,
+        env:    objects.clone(context.env),
         action: null
       }),
       [op.SILENT_FAILS_OFF],
@@ -288,8 +293,8 @@ function generateBytecode(ast/*, ...args*/) {
     );
   }
 
-  function buildSemanticPredicate(code, negative, context, node) {
-    let functionIndex = addFunctionConst(context, code, node);
+  function buildSemanticPredicate(node, negative, context) {
+    var functionIndex = addFunctionConst(objects.keys(context.env), node);
 
     return buildSequence(
       [op.UPDATE_SAVED_POS],
@@ -315,35 +320,34 @@ function generateBytecode(ast/*, ...args*/) {
     );
   }
 
-  let generate = visitor.build({
-    grammar(node) {
-      node.rules.forEach(generate);
+  var generate = visitor.build({
+    grammar: function(node) {
+      arrays.each(node.rules, generate);
 
       node.consts = consts;
     },
 
-    rule(node) {
+    rule: function(node) {
       currentRule = node.name;
-      //storeRule(null, node);
 
       node.bytecode = generate(node.expression, {
-        sp: -1,        // stack pointer
-        env: { },      // mapping of label names to stack positions
+        sp:     -1,    // stack pointer
+        env:    { },   // mapping of label names to stack positions
         action: null   // action nodes pass themselves to children here
       });
     },
 
-    named(node, context) {
-      //storeRule(null, node)
-
-      let nameIndex = addConst(
-        "peg$otherExpectation(\"" + js.stringEscape(node.name) + "\")"
+    named: function(node, context) {
+      var nameIndex = addConst(
+        'peg$otherExpectation("' + js.stringEscape(node.name) + '")'
       );
 
-      // The code generated below is slightly suboptimal because |FAIL| pushes
-      // to the stack, so we need to stick a |POP| in front of it. We lack a
-      // dedicated instruction that would just report the failure and not touch
-      // the stack.
+      /*
+       * The code generated below is slightly suboptimal because |FAIL| pushes
+       * to the stack, so we need to stick a |POP| in front of it. We lack a
+       * dedicated instruction that would just report the failure and not touch
+       * the stack.
+       */
       return buildSequence(
         [op.SILENT_FAILS_ON],
         generate(node.expression, context),
@@ -352,14 +356,12 @@ function generateBytecode(ast/*, ...args*/) {
       );
     },
 
-    choice(node, context) {
-      //storeRule(null, node)
-
+    choice: function(node, context) {
       function buildAlternativesCode(alternatives, context) {
         return buildSequence(
           generate(alternatives[0], {
-            sp: context.sp,
-            env: cloneEnv(context.env),
+            sp:     context.sp,
+            env:    objects.clone(context.env),
             action: null
           }),
           alternatives.length > 1
@@ -378,16 +380,16 @@ function generateBytecode(ast/*, ...args*/) {
       return buildAlternativesCode(node.alternatives, context);
     },
 
-    action(node, context) {
-      let env = cloneEnv(context.env);
-      let emitCall = node.expression.type !== "sequence"
-                  || node.expression.elements.length === 0;
-      let expressionCode = generate(node.expression, {
-        sp: context.sp + (emitCall ? 1 : 0),
-        env: env,
-        action: node
-      });
-      let functionIndex = addFunctionConst({env:env}, node.code, node);
+    action: function(node, context) {
+      var env            = objects.clone(context.env),
+          emitCall       = node.expression.type !== "sequence"
+                        || node.expression.elements.length === 0,
+          expressionCode = generate(node.expression, {
+            sp:     context.sp + (emitCall ? 1 : 0),
+            env:    env,
+            action: node
+          }),
+          functionIndex  = addFunctionConst(objects.keys(env), node);
 
       return emitCall
         ? buildSequence(
@@ -406,24 +408,24 @@ function generateBytecode(ast/*, ...args*/) {
         : expressionCode;
     },
 
-    sequence(node, context) {
+    sequence: function(node, context) {
       function buildElementsCode(elements, context) {
-        if (elements.length > 0) {
-          //storeRule(null, node)
+        var processedCount, functionIndex;
 
-          let processedCount = node.elements.length - elements.slice(1).length;
+        if (elements.length > 0) {
+          processedCount = node.elements.length - elements.slice(1).length;
 
           return buildSequence(
             generate(elements[0], {
-              sp: context.sp,
-              env: context.env,
+              sp:     context.sp,
+              env:    context.env,
               action: null
             }),
             buildCondition(
               [op.IF_NOT_ERROR],
               buildElementsCode(elements.slice(1), {
-                sp: context.sp + 1,
-                env: context.env,
+                sp:     context.sp + 1,
+                env:    context.env,
                 action: context.action
               }),
               buildSequence(
@@ -435,10 +437,9 @@ function generateBytecode(ast/*, ...args*/) {
           );
         } else {
           if (context.action) {
-            let functionIndex = addFunctionConst(
-              context,
-              context.action.code,
-              node
+            functionIndex = addFunctionConst(
+              objects.keys(context.env),
+              context.action
             );
 
             return buildSequence(
@@ -452,8 +453,6 @@ function generateBytecode(ast/*, ...args*/) {
               [op.NIP]
             );
           } else {
-            //storeRule(null, node)
-
             return buildSequence([op.WRAP, node.elements.length], [op.NIP]);
           }
         }
@@ -462,34 +461,31 @@ function generateBytecode(ast/*, ...args*/) {
       return buildSequence(
         [op.PUSH_CURR_POS],
         buildElementsCode(node.elements, {
-          sp: context.sp + 1,
-          env: context.env,
+          sp:     context.sp + 1,
+          env:    context.env,
           action: context.action
         })
       );
     },
 
-    labeled(node, context) {
-      //storeRule(null, node)
-      let env = cloneEnv(context.env);
+    labeled: function(node, context) {
+      var env = objects.clone(context.env);
 
       context.env[node.label] = context.sp + 1;
 
       return generate(node.expression, {
-        sp: context.sp,
-        env: env,
+        sp:     context.sp,
+        env:    env,
         action: null
       });
     },
 
-    text(node, context) {
-      //storeRule(null, node)
-
+    text: function(node, context) {
       return buildSequence(
         [op.PUSH_CURR_POS],
         generate(node.expression, {
-          sp: context.sp + 1,
-          env: cloneEnv(context.env),
+          sp:     context.sp + 1,
+          env:    objects.clone(context.env),
           action: null
         }),
         buildCondition(
@@ -500,23 +496,19 @@ function generateBytecode(ast/*, ...args*/) {
       );
     },
 
-    simple_and(node, context) {
-      //storeRule(null, node)
+    simple_and: function(node, context) {
       return buildSimplePredicate(node.expression, false, context);
     },
 
-    simple_not(node, context) {
-      //storeRule(null, node)
+    simple_not: function(node, context) {
       return buildSimplePredicate(node.expression, true, context);
     },
 
-    optional(node, context) {
-      //storeRule(null, node)
-
+    optional: function(node, context) {
       return buildSequence(
         generate(node.expression, {
-          sp: context.sp,
-          env: cloneEnv(context.env),
+          sp:     context.sp,
+          env:    objects.clone(context.env),
           action: null
         }),
         buildCondition(
@@ -527,14 +519,12 @@ function generateBytecode(ast/*, ...args*/) {
       );
     },
 
-    zero_or_more(node, context) {
-      //storeRule(null, node)
-
-      let expressionCode = generate(node.expression, {
-        sp: context.sp + 1,
-        env: cloneEnv(context.env),
-        action: null
-      });
+    zero_or_more: function(node, context) {
+      var expressionCode = generate(node.expression, {
+            sp:     context.sp + 1,
+            env:    objects.clone(context.env),
+            action: null
+          });
 
       return buildSequence(
         [op.PUSH_EMPTY_ARRAY],
@@ -544,14 +534,12 @@ function generateBytecode(ast/*, ...args*/) {
       );
     },
 
-    one_or_more(node, context) {
-      //storeRule(null, node)
-
-      let expressionCode = generate(node.expression, {
-        sp: context.sp + 1,
-        env: cloneEnv(context.env),
-        action: null
-      });
+    one_or_more: function(node, context) {
+      var expressionCode = generate(node.expression, {
+            sp:     context.sp + 1,
+            env:    objects.clone(context.env),
+            action: null
+          });
 
       return buildSequence(
         [op.PUSH_EMPTY_ARRAY],
@@ -564,50 +552,48 @@ function generateBytecode(ast/*, ...args*/) {
       );
     },
 
-    group(node, context) {
-      //storeRule(null, node)
-
+    group: function(node, context) {
       return generate(node.expression, {
-        sp: context.sp,
-        env: cloneEnv(context.env),
+        sp:     context.sp,
+        env:    objects.clone(context.env),
         action: null
       });
     },
 
-    semantic_and(node, context) {
-      return buildSemanticPredicate(node.code, false, context, node);
+    semantic_and: function(node, context) {
+      return buildSemanticPredicate(node, false, context);
     },
 
-    semantic_not(node, context) {
-      return buildSemanticPredicate(node.code, true, context, node);
+    semantic_not: function(node, context) {
+      return buildSemanticPredicate(node, true, context);
     },
 
-    rule_ref(node) {
-      //storeRule(null, node)
-
+    rule_ref: function(node) {
       return [op.RULE, asts.indexOfRule(ast, node.name)];
     },
 
-    literal(node) {
-      //storeRule(null, node)
+    literal: function(node) {
+      var stringIndex, expectedIndex;
 
       if (node.value.length > 0) {
-        let stringIndex = addConst("\""
+        stringIndex = addConst('"'
           + js.stringEscape(
               node.ignoreCase ? node.value.toLowerCase() : node.value
             )
-          + "\""
+          + '"'
         );
-        let expectedIndex = addConst(
-          "peg$literalExpectation("
-            + "\"" + js.stringEscape(node.value) + "\", "
+        expectedIndex = addConst(
+          'peg$literalExpectation('
+            + '"' + js.stringEscape(node.value) + '", '
             + node.ignoreCase
-            + ")"
+            + ')'
         );
 
-        // For case-sensitive strings the value must match the beginning of the
-        // remaining input exactly. As a result, we can use |ACCEPT_STRING| and
-        // save one |substr| call that would be needed if we used |ACCEPT_N|.
+        /*
+         * For case-sensitive strings the value must match the beginning of the
+         * remaining input exactly. As a result, we can use |ACCEPT_STRING| and
+         * save one |substr| call that would be needed if we used |ACCEPT_N|.
+         */
         return buildCondition(
           node.ignoreCase
             ? [op.MATCH_STRING_IC, stringIndex]
@@ -618,39 +604,49 @@ function generateBytecode(ast/*, ...args*/) {
           [op.FAIL, expectedIndex]
         );
       } else {
-        let stringIndex = addConst("\"\"");
+        stringIndex = addConst('""');
 
         return [op.PUSH, stringIndex];
       }
     },
 
-    class(node) {
-      //storeRule(null, node)
+    "class": function(node) {
+      var regexp, parts, regexpIndex, expectedIndex;
 
-      let regexp = "/^["
-        + (node.inverted ? "^" : "")
-        + node.parts.map(part =>
-            Array.isArray(part)
-              ? js.regexpClassEscape(part[0])
-                + "-"
-                + js.regexpClassEscape(part[1])
-              : js.regexpClassEscape(part)
-          ).join("")
-        + "]/" + (node.ignoreCase ? "i" : "");
-      let parts = "["
-        + node.parts.map(part =>
-            Array.isArray(part)
-              ? "[\"" + js.stringEscape(part[0]) + "\", \"" + js.stringEscape(part[1]) + "\"]"
-              : "\"" + js.stringEscape(part) + "\""
-          ).join(", ")
-        + "]";
-      let regexpIndex = addConst(regexp);
-      let expectedIndex = addConst(
-        "peg$classExpectation("
-          + parts + ", "
-          + node.inverted + ", "
+      if (node.parts.length > 0) {
+        regexp = '/^['
+          + (node.inverted ? '^' : '')
+          + arrays.map(node.parts, function(part) {
+              return part instanceof Array
+                ? js.regexpClassEscape(part[0])
+                  + '-'
+                  + js.regexpClassEscape(part[1])
+                : js.regexpClassEscape(part);
+            }).join('')
+          + ']/' + (node.ignoreCase ? 'i' : '');
+      } else {
+        /*
+         * IE considers regexps /[]/ and /[^]/ as syntactically invalid, so we
+         * translate them into equivalents it can handle.
+         */
+        regexp = node.inverted ? '/^[\\S\\s]/' : '/^(?!)/';
+      }
+
+      parts = '['
+        + arrays.map(node.parts, function(part) {
+            return part instanceof Array
+              ? '["' + js.stringEscape(part[0]) + '", "' + js.stringEscape(part[1]) + '"]'
+              : '"' + js.stringEscape(part) + '"';
+          }).join(', ')
+        + ']';
+
+      regexpIndex   = addConst(regexp);
+      expectedIndex = addConst(
+        'peg$classExpectation('
+          + parts + ', '
+          + node.inverted + ', '
           + node.ignoreCase
-          + ")"
+          + ')'
       );
 
       return buildCondition(
@@ -660,8 +656,8 @@ function generateBytecode(ast/*, ...args*/) {
       );
     },
 
-    any() {
-      let expectedIndex = addConst("peg$anyExpectation()");
+    any: function() {
+      var expectedIndex = addConst('peg$anyExpectation()');
 
       return buildCondition(
         [op.MATCH_ANY],

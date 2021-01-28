@@ -17,18 +17,6 @@ function generateTS(ast, ...args) {
   //options.returnTypes = {};
   const param0 = options.param0 ? options.param0+", " : "";
 
-  /* Features that should be generated in the parser. */
-  const features = options.features || {};
-  function use( feature, use ) {
-
-      return feature in features
-          ? !! features[ feature ]
-          : use == null
-          ? true
-          : !! use;
-
-  }
-
   // These only indent non-empty lines to avoid trailing whitespace.
   function indent2(code) {
     return code.replace(/^(.+)$/gm, "  $1");
@@ -41,269 +29,137 @@ function generateTS(ast, ...args) {
     return code.replace(/^(.+)$/gm, "            $1");
   }
 
-  const l = i => "peg$c" + i; // |literals[i]| of the abstract machine
-  const r = i => "peg$r" + i; // |classes[i]| of the abstract machine
-  const e = i => "peg$e" + i; // |expectations[i]| of the abstract machine
-  const f = i => "peg$f" + i; // |actions[i]| of the abstract machine
-
-  function generateTables() {
-
-    function buildLiteral( literal ) {
-
-        return `"${ util.stringEscape( literal ) }"`;
-
+  function generateBytecode() {
+    if (options.optimize === "size") {
+      return [
+        "const peg$bytecode = [",
+        indent2(ast.rules.map(rule =>
+          "peg$decode(\"" +
+          js.stringEscape(rule.bytecode.map(
+            b => String.fromCharCode(b + 32)
+          ).join("")) +
+          "\")"
+        ).join(",\n")),
+        "];"
+      ].join("\n");
     }
-
-    function buildRegexp( cls ) {
-
-        return "/^["
-            + ( cls.inverted ? "^" : "" )
-            + cls.value
-                .map( part => (
-
-                    Array.isArray( part )
-                        ? util.regexpEscape( part[ 0 ] )
-                            + "-"
-                            + util.regexpEscape( part[ 1 ] )
-                        : util.regexpEscape( part )
-
-                ) )
-                .join( "" )
-            + "]/"
-            + ( cls.ignoreCase ? "i" : "" );
-
+  }
+  function generateConst() {
+    if (options.optimize === "size") {
+      return [
+        ast.fields.join("\n"),
+        "",
+        "static readonly peg$consts = [",
+        indent2(ast.consts.join(",\n")),
+        "];",
+      ].join("\n");
+    } else {
+      return ast.consts.map((c, i) => "const peg$c" + i + " = " + c + ";").join("\n");
     }
-
-    function buildExpectation( e ) {
-
-        switch ( e.type ) {
-
-            case "rule":
-                return `peg$otherExpectation("${ util.stringEscape( e.value ) }")`;
-
-            case "literal":
-                return "peg$literalExpectation(\""
-                       + util.stringEscape( e.value )
-                       + "\", "
-                       + e.ignoreCase
-                       + ")";
-
-            case "class": {
-
-                const parts = e.value.map( part =>
-                    ( Array.isArray( part )
-                        ? `["${ util.stringEscape( part[ 0 ] ) }", "${ util.stringEscape( part[ 1 ] ) }"]`
-                        : `"${ util.stringEscape( part ) }"` ) );
-
-                return "peg$classExpectation(["
-                       + parts.join( ", " ) + "], "
-                       + e.inverted + ", "
-                       + e.ignoreCase
-                       + ")";
-
-            }
-
-            case "any":
-                return "peg$anyExpectation()";
-
-            // istanbul ignore next
-            default:
-                session.fatal( `Unknown expectation type (${ JSON.stringify( e ) })` );
-
-        }
-
-    }
-
-    function buildFunc( f ) {
-
-        return f.ts ? "PegjsParser.prototype."+f.ts : `function(${ f.params.join( ", " ) }) {${ f.body }}`;
-
-    }
-
-    if ( options.optimize === "size" ) {
-
-        return [
-            "static readonly peg$literals = [",
-            indent2( ast.literals.map( buildLiteral ).join( ",\n" ) ),
-            "];",
-            "static readonly peg$regexps = [",
-            indent2( ast.classes.map( buildRegexp ).join( ",\n" ) ),
-            "];",
-            "static readonly peg$expectations = [",
-            indent2( ast.expectations.map( buildExpectation ).join( ",\n" ) ),
-            "];",
-            "static readonly peg$functions = [",
-            indent2( ast.functions.map( buildFunc ).join( ",\n" ) ),
-            "];",
-            "",
-            "static readonly peg$bytecode = [",
-            indent2( ast.rules
-                .map( rule =>
-                    `peg$decode("${
-                        util.stringEscape( rule.bytecode
-                            .map( b => String.fromCharCode( b + 32 ) )
-                            .join( "" ) )
-                    }")` )
-                .join( ",\n" ) ),
-            "];",
-        ].join( "\n" );
-
-    }
-
-    return ast.literals
-        .map( ( c, i ) => "var " + l( i ) + " = " + buildLiteral( c ) + ";" )
-        .concat( "", ast.classes.map(
-            ( c, i ) => "var " + r( i ) + " = " + buildRegexp( c ) + ";",
-        ) )
-        .concat( "", ast.expectations.map(
-            ( c, i ) => "var " + e( i ) + " = " + buildExpectation( c ) + ";",
-        ) )
-        .concat( "", ast.functions.map(
-            ( c, i ) => "var " + f( i ) + " = " + buildFunc( c ) + ";",
-        ) )
-        .join( "\n" );
-
   }
 
+  function generateRuleHeader(ruleNameCode, ruleIndexCode) {
+    let parts = [];
 
-  function generateRuleHeader( ruleNameCode, ruleIndexCode ) {
+    parts.push("");
 
-      const parts = [];
+    if (options.trace) {
+      parts.push([
+        "peg$tracer.trace({",
+        "  type: \"rule.enter\",",
+        "  rule: " + ruleNameCode + ",",
+        "  location: peg$computeLocation(startPos, startPos)",
+        "});",
+        ""
+      ].join("\n"));
+    }
 
-      parts.push( [
-          "",
-          "var rule$expects = function (expected) {",
-          "  if (peg$silentFails === 0) peg$expect(expected);",
+    if (options.cache) {
+      parts.push([
+        "const key = inputBuf.currPos * " + ast.rules.length + " + " + ruleIndexCode + ";",
+        "const cached: ICached = this.peg$resultsCache[key];",
+        "let position: number;",
+        "",
+        "if (cached) {",
+        "  inputBuf.currPos = cached.nextPos;",
+        ""
+      ].join("\n"));
+
+      if (options.trace) {
+        parts.push([
+          "if (cached.result !== peg$FAILED) {",
+          "  peg$tracer.trace({",
+          "    type: \"rule.match\",",
+          "    rule: " + ruleNameCode + ",",
+          "    result: cached.result,",
+          "    location: peg$computeLocation(startPos, inputBuf.currPos)",
+          "  });",
+          "} else {",
+          "  peg$tracer.trace({",
+          "    type: \"rule.fail\",",
+          "    rule: " + ruleNameCode + ",",
+          "    location: peg$computeLocation(startPos, startPos)",
+          "  });",
           "}",
-          "",
-      ].join( "\n" ) );
-
-      if ( options.trace ) {
-
-          parts.push( [
-              "peg$tracer.trace({",
-              "  type: \"rule.enter\",",
-              "  rule: " + ruleNameCode + ",",
-              "  location: peg$computeLocation(startPos, startPos)",
-              "});",
-              "",
-          ].join( "\n" ) );
-
+          ""
+        ].join("\n"));
       }
 
-      if ( options.cache ) {
+      parts.push([
+        "  return cached.result;",
+        "}",
+        ""
+      ].join("\n"));
+    }
 
-          parts.push( [
-              "var key = this.inputBuf.currPos * " + ast.rules.length + " + " + ruleIndexCode + ";",
-              "var cached = peg$resultsCache[key];",
-              "var rule$expectations = [];",
-              "",
-              "rule$expects = function (expected) {",
-              "  if (peg$silentFails === 0) peg$expect(expected);",
-              "  rule$expectations.push(expected);",
-              "}",
-              "",
-              "if (cached) {",
-              "  this.inputBuf.currPos = cached.nextPos;",
-              "",
-              "  rule$expectations = cached.expectations;",
-              "  if (peg$silentFails === 0) {",
-              "    rule$expectations.forEach(peg$expect);",
-              "  }",
-              "",
-          ].join( "\n" ) );
-
-          if ( options.trace ) {
-
-              parts.push( [
-                  "if (cached.result !== peg$FAILED) {",
-                  "  peg$tracer.trace({",
-                  "    type: \"rule.match\",",
-                  "    rule: " + ruleNameCode + ",",
-                  "    result: cached.result,",
-                  "    location: peg$computeLocation(startPos, this.inputBuf.currPos)",
-                  "  });",
-                  "} else {",
-                  "  peg$tracer.trace({",
-                  "    type: \"rule.fail\",",
-                  "    rule: " + ruleNameCode + ",",
-                  "    location: peg$computeLocation(startPos, startPos)",
-                  "  });",
-                  "}",
-                  "",
-              ].join( "\n" ) );
-
-          }
-
-          parts.push( [
-              "  return cached.result;",
-              "}",
-              "",
-          ].join( "\n" ) );
-
-      }
-
-      return parts.join( "\n" );
-
+    return parts.join("\n");
   }
 
-  function generateRuleFooter( ruleNameCode, resultCode ) {
+  function generateRuleFooter(ruleNameCode, resultCode) {
+    let parts = [];
 
-      const parts = [];
+    if (options.cache) {
+      parts.push([
+        "",
+        "this.peg$resultsCache[key] = { nextPos: inputBuf.currPos, result: " + resultCode + " };"
+      ].join("\n"));
+    }
 
-      if ( options.cache ) {
+    if (options.trace) {
+      parts.push([
+        "",
+        "if (" + resultCode + " !== peg$FAILED) {",
+        "  peg$tracer.trace({",
+        "    type: \"rule.match\",",
+        "    rule: " + ruleNameCode + ",",
+        "    result: " + resultCode + ",",
+        "    location: peg$computeLocation(startPos, inputBuf.currPos)",
+        "  });",
+        "} else {",
+        "  peg$tracer.trace({",
+        "    type: \"rule.fail\",",
+        "    rule: " + ruleNameCode + ",",
+        "    location: peg$computeLocation(startPos, startPos)",
+        "  });",
+        "}"
+      ].join("\n"));
+    }
 
-          parts.push( [
-              "",
-              "peg$resultsCache[key] = {",
-              "  nextPos: this.inputBuf.currPos,",
-              "  result: " + resultCode + ",",
-              "  expectations: rule$expectations",
-              "};",
-          ].join( "\n" ) );
+    parts.push([
+      "",
+      "return " + resultCode + ";"
+    ].join("\n"));
 
-      }
-
-      if ( options.trace ) {
-
-          parts.push( [
-              "",
-              "if (" + resultCode + " !== peg$FAILED) {",
-              "  peg$tracer.trace({",
-              "    type: \"rule.match\",",
-              "    rule: " + ruleNameCode + ",",
-              "    result: " + resultCode + ",",
-              "    location: peg$computeLocation(startPos, this.inputBuf.currPos)",
-              "  });",
-              "} else {",
-              "  peg$tracer.trace({",
-              "    type: \"rule.fail\",",
-              "    rule: " + ruleNameCode + ",",
-              "    location: peg$computeLocation(startPos, startPos)",
-              "  });",
-              "}",
-          ].join( "\n" ) );
-
-      }
-
-      parts.push( [
-          "",
-          "return " + resultCode + ";",
-      ].join( "\n" ) );
-
-      return parts.join( "\n" );
-
+    return parts.join("\n");
   }
 
-    
   function generateInterpreter() {
+    let parts = [];
 
-    const parts = [];
-
-    function generateCondition( cond, argsLength ) {
-      const baseLength = argsLength + 3;
-      const thenLengthCode = "bc[ip + " + ( baseLength - 2 ) + "]";
-      const elseLengthCode = "bc[ip + " + ( baseLength - 1 ) + "]";
+    function generateCondition(cond, argsLength) {
+      let baseLength = argsLength + 3;
+      let thenLengthCode = "bc[ip + " + (baseLength - 2) + "]";
+      let elseLengthCode = "bc[ip + " + (baseLength - 1) + "]";
 
       return [
         "ends.push(end);",
@@ -317,14 +173,13 @@ function generateTS(ast, ...args) {
         "  ip += " + baseLength + " + " + thenLengthCode + ";",
         "}",
         "",
-        "break;",
-      ].join( "\n" );
-
+        "break;"
+      ].join("\n");
     }
 
-    function generateLoop( cond ) {
-      const baseLength = 2;
-      const bodyLengthCode = "bc[ip + " + ( baseLength - 1 ) + "]";
+    function generateLoop(cond) {
+      let baseLength = 2;
+      let bodyLengthCode = "bc[ip + " + (baseLength - 1) + "]";
 
       return [
         "if (" + cond + ") {",
@@ -337,14 +192,13 @@ function generateTS(ast, ...args) {
         "  ip += " + baseLength + " + " + bodyLengthCode + ";",
         "}",
         "",
-        "break;",
-      ].join( "\n" );
-
+        "break;"
+      ].join("\n");
     }
 
     function generateCall() {
-      const baseLength = 4;
-      const paramsLengthCode = "bc[ip + " + ( baseLength - 1 ) + "]";
+      let baseLength = 4;
+      let paramsLengthCode = "bc[ip + " + (baseLength - 1) + "]";
 
       return [
         "params = bc.slice(ip + " + baseLength + ", ip + " + baseLength + " + " + paramsLengthCode + ")",
@@ -353,12 +207,12 @@ function generateTS(ast, ...args) {
         "stack.splice(",
         "  stack.length - bc[ip + 2],",
         "  bc[ip + 2],",
-        "  peg$functions[bc[ip + 1]].apply(this, params)",
+        "  (peg$consts[bc[ip + 1]] as ((...args: any[]) => any)).apply(this, params)",
         ");",
         "",
         "ip += " + baseLength + " + " + paramsLengthCode + ";",
-        "break;",
-      ].join( "\n" );
+        "break;"
+      ].join("\n");
     }
 
     parts.push([
@@ -368,36 +222,37 @@ function generateTS(ast, ...args) {
       "    const peg$consts = PegjsParser.peg$consts;",
       ].join("\n"));
 
-
-    if ( options.trace ) {
-      parts.push( [
+      
+    if (options.trace) {
+      parts.push([
         "    const bc = peg$bytecode[index];",
-        "    const ip = 0;",
-        "    const ips = [];",
-        "    const end = bc.length;",
-        "    const ends = [];",
-        "    const stack = [];",
-        "    const startPos = this.inputBuf.currPos;",
-        "    const params, paramsLength, paramsN;",
-      ].join( "\n"));
+        "    let ip = 0;",
+        "    const ips: any[] = [];",
+        "    let end = bc.length;",
+        "    const ends: any[] = [];",
+        "    const stack: any[] = [];",
+        "    let startPos = inputBuf.currPos;",
+        "    let params;"
+      ].join("\n"));
     } else {
-      parts.push( [
+      parts.push([
         "    const bc = peg$bytecode[index];",
-        "    const ip = 0;",
-        "    const ips = [];",
-        "    const end = bc.length;",
-        "    const ends = [];",
-        "    const stack = [];",
-        "    var params, paramsLength, paramsN;",
-      ].join( "\n"));
+        "    let ip = 0;",
+        "    const ips: any[] = [];",
+        "    let end = bc.length;",
+        "    const ends: any[] = [];",
+        "    const stack: any[] = [];",
+        "    let params;"
+      ].join("\n"));
     }
 
-    parts.push( indent4( generateRuleHeader( "RuleNames[index]", "index")) );
+    parts.push(indent4(generateRuleHeader("RuleNames[index]", "index")));
+
     // bc[ip]    statement code
     // bc[ip+1]  statement parameter index (used in [peg$/ast.] consts and ast.rules)
 
-    parts.push( [
-        // The point of the outer loop and the |ips| & |ends| stacks is to avoid
+    parts.push([
+      // The point of the outer loop and the |ips| & |ends| stacks is to avoid
       // recursive calls for interpreting parts of bytecode. In other words, we
       // implement the |interpret| operation of the abstract machine without
       // function calls. Such calls would likely slow the parser down and more
@@ -405,189 +260,161 @@ function generateTS(ast, ...args) {
       "    while (true) {",
       "      while (ip < end) {",
       "        switch (bc[ip]) {",
-      "          case " + op.PUSH_EMPTY_STRING + ":",  // PUSH_EMPTY_STRING
-      "            stack.push('');",
-      "            ip++;",
+      "          case " + op.PUSH + ":", // PUSH c
+      "            stack.push(peg$consts[bc[ip + 1]]);",
+      "            ip += 2;",
       "            break;",
       "",
-      "          case " + op.PUSH_UNDEFINED + ":",     // PUSH_UNDEFINED
+      "          case " + op.PUSH_UNDEFINED + ":", // PUSH_UNDEFINED
       "            stack.push(undefined);",
       "            ip++;",
       "            break;",
       "",
-      "          case " + op.PUSH_NULL + ":",          // PUSH_NULL
+      "          case " + op.PUSH_NULL + ":", // PUSH_NULL
       "            stack.push(null);",
       "            ip++;",
       "            break;",
       "",
-      "          case " + op.PUSH_FAILED + ":",        // PUSH_FAILED
+      "          case " + op.PUSH_FAILED + ":", // PUSH_FAILED
       "            stack.push(peg$FAILED);",
       "            ip++;",
       "            break;",
       "",
-      "          case " + op.PUSH_EMPTY_ARRAY + ":",   // PUSH_EMPTY_ARRAY
+      "          case " + op.PUSH_EMPTY_ARRAY + ":", // PUSH_EMPTY_ARRAY
       "            stack.push([]);",
       "            ip++;",
       "            break;",
       "",
-      "          case " + op.PUSH_CURR_POS + ":",      // PUSH_CURR_POS
+      "          case " + op.PUSH_CURR_POS + ":", // PUSH_CURR_POS
       "            stack.push(inputBuf.currPos);",
       "            ip++;",
       "            break;",
       "",
-      "          case " + op.POP + ":",                // POP
+      "          case " + op.POP + ":", // POP
       "            stack.pop();",
       "            ip++;",
       "            break;",
       "",
-      "          case " + op.POP_CURR_POS + ":",       // POP_CURR_POS
+      "          case " + op.POP_CURR_POS + ":", // POP_CURR_POS
       "            inputBuf.currPos = stack.pop();",
       "            ip++;",
       "            break;",
       "",
-      "          case " + op.POP_N + ":",              // POP_N n
+      "          case " + op.POP_N + ":", // POP_N n
       "            stack.length -= bc[ip + 1];",
       "            ip += 2;",
       "            break;",
       "",
-      "          case " + op.NIP + ":",                // NIP
+      "          case " + op.NIP + ":", // NIP
       "            stack.splice(-2, 1);",
       "            ip++;",
       "            break;",
       "",
-      "          case " + op.APPEND + ":",             // APPEND
+      "          case " + op.APPEND + ":", // APPEND
       "            stack[stack.length - 2].push(stack.pop());",
       "            ip++;",
       "            break;",
       "",
-      "          case " + op.WRAP + ":",               // WRAP n
+      "          case " + op.WRAP + ":", // WRAP n
       "            stack.push(stack.splice(stack.length - bc[ip + 1], bc[ip + 1]));",
       "            ip += 2;",
       "            break;",
       "",
-      "          case " + op.TEXT + ":",               // TEXT
+      "          case " + op.TEXT + ":", // TEXT
       "            stack.push(input.substring(stack.pop(), inputBuf.currPos));",
       "            ip++;",
       "            break;",
       "",
-      "          case " + op.PLUCK + ":",               // PLUCK n, k, p1, ..., pK
-      "            paramsLength = bc[ip + 2];",
-      "            paramsN = 3 + paramsLength",
-      "",
-      "            params = bc.slice(ip + 3, ip + paramsN);",
-      "            params = paramsLength === 1",
-      "              ? stack[stack.length - 1 - params[ 0 ]]",
-      "              : params.map(function(p) { return stack[stack.length - 1 - p]; });",
-      "",
-      "            stack.splice(",
-      "              stack.length - bc[ip + 1],",
-      "              bc[ip + 1],",
-      "              params",
-      "            );",
-      "",
-      "            ip += paramsN;",
-      "            break;",
-      "",
-      "          case " + op.IF + ":",                 // IF t, f
+      "          case " + op.IF + ":", // IF t, f
       indent12(generateCondition("stack[stack.length - 1]", 0)),
       "",
-      "          case " + op.IF_ERROR + ":",           // IF_ERROR t, f
+      "          case " + op.IF_ERROR + ":", // IF_ERROR t, f
       indent12(generateCondition(
         "stack[stack.length - 1] === peg$FAILED",
         0
-     )),
+      )),
       "",
-      "          case " + op.IF_NOT_ERROR + ":",       // IF_NOT_ERROR t, f
+      "          case " + op.IF_NOT_ERROR + ":", // IF_NOT_ERROR t, f
       indent12(
         generateCondition("stack[stack.length - 1] !== peg$FAILED",
           0
         )),
       "",
-      "          case " + op.WHILE_NOT_ERROR + ":",    // WHILE_NOT_ERROR b
+      "          case " + op.WHILE_NOT_ERROR + ":", // WHILE_NOT_ERROR b
       indent12(generateLoop("stack[stack.length - 1] !== peg$FAILED")),
       "",
-      "          case " + op.MATCH_ANY + ":",          // MATCH_ANY a, f, ...
+      "          case " + op.MATCH_ANY + ":", // MATCH_ANY a, f, ...
+      //indent10(generateCondition("input.length > inputBuf.currPos", 0)),
       indent12(generateCondition("input.isAvailableAt(inputBuf.currPos)", 0)),
       "",
-      "          case " + op.MATCH_STRING + ":",       // MATCH_STRING s, a, f, ...
+      "          case " + op.MATCH_STRING + ":", // MATCH_STRING s, a, f, ...
       indent12(generateCondition(
-        "input.expect(index, peg$literals[bc[ip + 1]] as string)",
+        "input.expect(index, peg$consts[bc[ip + 1]] as string)",
         1
       )),
       "",
-      "          case " + op.MATCH_STRING_IC + ":",    // MATCH_STRING_IC s, a, f, ...
+      "          case " + op.MATCH_STRING_IC + ":", // MATCH_STRING_IC s, a, f, ...
       indent12(generateCondition(
-        "input.expectLowerCase(index, peg$literals[bc[ip + 1]] as string)",
+        "input.expectLowerCase(index, peg$consts[bc[ip + 1]] as string)",
         1
       )),
       "",
-      "          case " + op.MATCH_CLASS + ":",        // MATCH_CLASS c, a, f, ...
+      "          case " + op.MATCH_REGEXP + ":", // MATCH_REGEXP r, a, f, ...
       indent12(generateCondition(
-        "peg$regexps[bc[ip + 1]].test(input.charAt(inputBuf.currPos))",
+        "(peg$consts[bc[ip + 1]] as any as RegExp).test(input.charAt(inputBuf.currPos))",
         1
       )),
       "",
-      "          case " + op.ACCEPT_N + ":",           // ACCEPT_N n
+      "          case " + op.ACCEPT_N + ":", // ACCEPT_N n
       "            stack.push(input.readForward(index, bc[ip + 1]));",
       "            inputBuf.currPos += bc[ip + 1];",
       "            ip += 2;",
       "            break;",
       "",
-      "          case " + op.ACCEPT_STRING + ":",      // ACCEPT_STRING s
-      "            stack.push(peg$literals[bc[ip + 1]]);",
-      "            inputBuf.currPos += peg$literals[bc[ip + 1]].length;",
+      "          case " + op.ACCEPT_STRING + ":", // ACCEPT_STRING s
+      "            stack.push(peg$consts[bc[ip + 1]]);",
+      "            inputBuf.currPos += (peg$consts[bc[ip + 1]] as string).length;",
       "            ip += 2;",
       "            break;",
       "",
-      "          case " + op.EXPECT + ":",             // EXPECT e
-      "            rule$expects(peg$expectations[bc[ip + 1]]);",
+      "          case " + op.FAIL + ":", // FAIL e
+      "            stack.push(peg$FAILED);",
+      "            if (this.peg$silentFails === 0) {",
+      "              this.peg$fail(peg$consts[bc[ip + 1]] as ILiteralExpectation);",
+      "            }",
       "            ip += 2;",
       "            break;",
       "",
-      "          case " + op.LOAD_SAVED_POS + ":",     // LOAD_SAVED_POS p
+      "          case " + op.LOAD_SAVED_POS + ":", // LOAD_SAVED_POS p
       "            inputBuf.savedPos = stack[stack.length - 1 - bc[ip + 1]];",
       "            ip += 2;",
       "            break;",
       "",
-      "          case " + op.UPDATE_SAVED_POS + ":",   // UPDATE_SAVED_POS
+      "          case " + op.UPDATE_SAVED_POS + ":", // UPDATE_SAVED_POS
       "            inputBuf.savedPos = inputBuf.currPos;",
       "            ip++;",
       "            break;",
       "",
-      "          case " + op.CALL + ":",               // CALL f, n, pc, p1, p2, ..., pN
+      "          case " + op.CALL + ":", // CALL f, n, pc, p1, p2, ..., pN
       indent12(generateCall()),
       "",
-      "          case " + op.RULE + ":",               // RULE r
+      "          case " + op.RULE + ":", // RULE r
       "            stack.push(this.peg$parseRule(bc[ip + 1]));",
       "            ip += 2;",
       "            break;",
       "",
-      "          case " + op.SILENT_FAILS_ON + ":",    // SILENT_FAILS_ON
+      "          case " + op.SILENT_FAILS_ON + ":", // SILENT_FAILS_ON
       "            this.peg$silentFails++;",
       "            ip++;",
       "            break;",
       "",
-      "          case " + op.SILENT_FAILS_OFF + ":",   // SILENT_FAILS_OFF
+      "          case " + op.SILENT_FAILS_OFF + ":", // SILENT_FAILS_OFF
       "            this.peg$silentFails--;",
       "            ip++;",
       "            break;",
       "",
-      "          case " + op.EXPECT_NS_BEGIN + ":",    // EXPECT_NS_BEGIN
-      "            peg$begin();",
-      "            ip++;",
-      "            break;",
-      "",
-      "          case " + op.EXPECT_NS_END + ":",      // EXPECT_NS_END invert
-      "            peg$end(bc[ip + 1]);",
-      "            ip += 2;",
-      "            break;",
-      "",
-      "          // istanbul ignore next",
       "          default:",
-      "            throw new Error(",
-      "              \"Rule #\" + index + \"" + " ('\" + RuleNames[ index ] + \"')" + ", position \" + ip + \": \"",
-      "              + \"Invalid opcode \" + bc[ip] + \".\"",
-      "            );",
+      "            throw new Error(\"Invalid opcode: \" + bc[ip] + \".\");",
       "        }",
       "      }",
       "",
@@ -606,406 +433,362 @@ function generateTS(ast, ...args) {
     return parts.join("\n");
   }
 
-  function generateRuleFunction( rule ) {
-    const parts = [];
-    const stackVars = [];
+  function generateRuleFunction(rule) {
+    let parts = [];
+    let stackVars = [];
+    let code;
 
-    function s( i ) {
-      // istanbul ignore next
-      if ( i < 0 ) session.fatal( "Rule '" + rule.name + "': Var stack underflow: attempt to use var at index " + i );
-
+    function c(i) {
+      return "peg$c" + i;
+    } // |consts[i]| of the abstract machine
+    function s(i) {
       return "s" + i;
     } // |stack[i]| of the abstract machine
 
-    const stack = {
+    let stack = {
       sp: -1,
       maxSp: -1,
 
-      push( exprCode ) {
-        const code = s( ++this.sp ) + " = " + exprCode + ";";
+      push(exprCode) {
+        let code = s(++this.sp) + " = " + exprCode + ";";
 
-        if ( this.sp > this.maxSp ) this.maxSp = this.sp;
-
-        return code;
-
-      },
-
-      pop( n ) {
-        if ( typeof n === "undefined" ) return s( this.sp-- );
-        const values = Array( n );
-
-        for ( let i = 0; i < n; i++ ) {
-          values[ i ] = s( this.sp - n + 1 + i );
+        if (this.sp > this.maxSp) {
+          this.maxSp = this.sp;
         }
 
-        this.sp -= n;
+        return code;
+      },
 
-        return values;
+      pop(n) {
+        if (n === undefined) {
+          return s(this.sp--);
+        } else {
+          let values = Array(n);
+
+          for (let i = 0; i < n; i++) {
+            values[i] = s(this.sp - n + 1 + i);
+          }
+
+          this.sp -= n;
+
+          return values;
+        }
       },
 
       top() {
-        return s( this.sp );
+        return s(this.sp);
       },
 
-      index( i ) {
-        return s( this.sp - i );
-      },
+      index(i) {
+        return s(this.sp - i);
+      }
     };
 
-    function compile( bc ) {
-
+    function compile(bc) {
       let ip = 0;
-      const end = bc.length;
-      const parts = [];
+      let end = bc.length;
+      let parts = [];
       let value;
 
-      function compileCondition( cond, argCount ) {
-
-        const pos = ip;
-        const baseLength = argCount + 3;
-        const thenLength = bc[ ip + baseLength - 2 ];
-        const elseLength = bc[ ip + baseLength - 1 ];
-        const baseSp = stack.sp;
+      function compileCondition(cond, argCount) {
+        let baseLength = argCount + 3;
+        let thenLength = bc[ip + baseLength - 2];
+        let elseLength = bc[ip + baseLength - 1];
+        let baseSp = stack.sp;
         let thenCode, elseCode, thenSp, elseSp;
 
         ip += baseLength;
-        thenCode = compile( bc.slice( ip, ip + thenLength ) );
+        thenCode = compile(bc.slice(ip, ip + thenLength));
         thenSp = stack.sp;
         ip += thenLength;
 
-        if ( elseLength > 0 ) {
-
+        if (elseLength > 0) {
           stack.sp = baseSp;
-          elseCode = compile( bc.slice( ip, ip + elseLength ) );
+          elseCode = compile(bc.slice(ip, ip + elseLength));
           elseSp = stack.sp;
           ip += elseLength;
 
-          // istanbul ignore if
-          if ( thenSp !== elseSp ) {
-
-            session.fatal(
-                "Rule '" + rule.name + "', position " + pos + ": "
-                + "Branches of a condition can't move the stack pointer differently "
-                + "(before: " + baseSp + ", after then: " + thenSp + ", after else: " + elseSp + ")."
+          if (thenSp !== elseSp) {
+            throw new Error(
+              "Branches of a condition must move the stack pointer in the same way."
             );
-
           }
-
         }
 
-        parts.push( "if (" + cond + ") {" );
-        parts.push( indent2( thenCode ) );
-        if ( elseLength > 0 ) {
-          parts.push( "} else {" );
-          parts.push( indent2( elseCode ) );
+        parts.push("if (" + cond + ") {");
+        parts.push(indent4(thenCode));
+        if (elseLength > 0) {
+          parts.push("} else {");
+          parts.push(indent4(elseCode));
         }
-        parts.push( "}" );
-
+        parts.push("}");
       }
 
-      function compileLoop( cond ) {
+      function compileLoop(cond) {
+        let baseLength = 2;
+        let bodyLength = bc[ip + baseLength - 1];
+        let baseSp = stack.sp;
+        let bodyCode, bodySp;
 
-          const pos = ip;
-          const baseLength = 2;
-          const bodyLength = bc[ ip + baseLength - 1 ];
-          const baseSp = stack.sp;
-          let bodyCode, bodySp;
+        ip += baseLength;
+        bodyCode = compile(bc.slice(ip, ip + bodyLength));
+        bodySp = stack.sp;
+        ip += bodyLength;
 
-          ip += baseLength;
-          bodyCode = compile( bc.slice( ip, ip + bodyLength ) );
-          bodySp = stack.sp;
-          ip += bodyLength;
+        if (bodySp !== baseSp) {
+          throw new Error("Body of a loop can't move the stack pointer.");
+        }
 
-          // istanbul ignore if
-          if ( bodySp !== baseSp ) {
-
-              session.fatal(
-                  "Rule '" + rule.name + "', position " + pos + ": "
-                  + "Body of a loop can't move the stack pointer "
-                  + "(before: " + baseSp + ", after: " + bodySp + ")."
-              );
-
-          }
-
-          parts.push( "while (" + cond + ") {" );
-          parts.push( indent2( bodyCode ) );
-          parts.push( "}" );
-
+        parts.push("while (" + cond + ") {");
+        parts.push(indent4(bodyCode));
+        parts.push("}");
       }
 
       function compileCall() {
+        let baseLength = 4;
+        let paramsLength = bc[ip + baseLength - 1];
 
-          const baseLength = 4;
-          const paramsLength = bc[ ip + baseLength - 1 ];
-
-          const value = f( bc[ ip + 1 ] )
-              + "("
-              + bc
-                  .slice( ip + baseLength, ip + baseLength + paramsLength )
-                  .map( p => stack.index( p ) )
-                  .join( ", " )
-              + ")";
-
-          stack.pop( bc[ ip + 2 ] );
-          parts.push( stack.push( value ) );
-          ip += baseLength + paramsLength;
-
+        let value = c(bc[ip + 1]) + "(" +
+          bc.slice(ip + baseLength, ip + baseLength + paramsLength).map(
+            p => stack.index(p)
+          ).join(", ") +
+          ")";
+        stack.pop(bc[ip + 2]);
+        parts.push(stack.push(value));
+        ip += baseLength + paramsLength;
       }
 
-      while ( ip < end ) {
+      // bc[ip]    statement code
+      // bc[ip+1]  statement parameter index (used in [peg$/ast.] consts and ast.rules)
 
-          switch ( bc[ ip ] ) {
+      while (ip < end) {
+        switch (bc[ip]) {
+          case op.PUSH: // PUSH c
+            parts.push(stack.push(c(bc[ip + 1])));
+            ip += 2;
+            break;
 
-              case op.PUSH_EMPTY_STRING:  // PUSH_EMPTY_STRING
-                  parts.push( stack.push( "''" ) );
-                  ip++;
-                  break;
+          case op.PUSH_CURR_POS: // PUSH_CURR_POS
+            //parts.push(stack.push("inputBuf.currPos"));
+            stack.push("inputBuf.currPos");
+            parts.push("position = inputBuf.currPos;");
+            ip++;
+            break;
 
-              case op.PUSH_CURR_POS:      // PUSH_CURR_POS
-                  parts.push( stack.push( "this.inputBuf.currPos" ) );
-                  ip++;
-                  break;
+          case op.PUSH_UNDEFINED: // PUSH_UNDEFINED
+            parts.push(stack.push("undefined"));
+            ip++;
+            break;
 
-              case op.PUSH_UNDEFINED:     // PUSH_UNDEFINED
-                  parts.push( stack.push( "undefined" ) );
-                  ip++;
-                  break;
+          case op.PUSH_NULL: // PUSH_NULL
+            parts.push(stack.push("null"));
+            ip++;
+            break;
 
-              case op.PUSH_NULL:          // PUSH_NULL
-                  parts.push( stack.push( "null" ) );
-                  ip++;
-                  break;
+          case op.PUSH_FAILED: // PUSH_FAILED
+            parts.push(stack.push("peg$FAILED"));
+            ip++;
+            break;
 
-              case op.PUSH_FAILED:        // PUSH_FAILED
-                  parts.push( stack.push( "peg$FAILED" ) );
-                  ip++;
-                  break;
+          case op.PUSH_EMPTY_ARRAY: // PUSH_EMPTY_ARRAY
+            parts.push(stack.push("[]"));
+            ip++;
+            break;
 
-              case op.PUSH_EMPTY_ARRAY:   // PUSH_EMPTY_ARRAY
-                  parts.push( stack.push( "[]" ) );
-                  ip++;
-                  break;
+          case op.POP: // POP
+            stack.pop();
+            ip++;
+            break;
 
-              case op.POP:                // POP
-                  stack.pop();
-                  ip++;
-                  break;
+          case op.POP_CURR_POS: // POP_CURR_POS
+            //parts.push("inputBuf.currPos = " + stack.pop() + ";");
+            stack.pop();
+            parts.push("inputBuf.currPos = position;");
+            ip++;
+            break;
 
-              case op.POP_CURR_POS:       // POP_CURR_POS
-                  parts.push( "this.inputBuf.currPos = " + stack.pop() + ";" );
-                  ip++;
-                  break;
+          case op.POP_N: // POP_N n
+            stack.pop(bc[ip + 1]);
+            ip += 2;
+            break;
 
-              case op.POP_N:              // POP_N n
-                  stack.pop( bc[ ip + 1 ] );
-                  ip += 2;
-                  break;
+          case op.NIP: // NIP
+            value = stack.pop();
+            stack.pop();
+            parts.push(stack.push(value));
+            ip++;
+            break;
 
-              case op.NIP:                // NIP
-                  value = stack.pop();
-                  stack.pop();
-                  parts.push( stack.push( value ) );
-                  ip++;
-                  break;
+          case op.APPEND: // APPEND
+            value = stack.pop();
+            parts.push(stack.top() + ".push(" + value + ");");
+            ip++;
+            break;
 
-              case op.APPEND:             // APPEND
-                  value = stack.pop();
-                  parts.push( stack.top() + ".push(" + value + ");" );
-                  ip++;
-                  break;
+          case op.WRAP: // WRAP n
+            parts.push(
+              stack.push("[" + stack.pop(bc[ip + 1]).join(", ") + "]")
+            );
+            ip += 2;
+            break;
 
-              case op.WRAP:               // WRAP n
-                  parts.push(
-                      stack.push( "[" + stack.pop( bc[ ip + 1 ] ).join( ", " ) + "]" )
-                  );
-                  ip += 2;
-                  break;
+          case op.TEXT: // TEXT
+            parts.push(
+              stack.push("input.substring(" + stack.pop() + ", inputBuf.currPos)")
+            );
+            ip++;
+            break;
 
-              case op.TEXT:               // TEXT
-                  parts.push(
-                      stack.push( "input.substring(" + stack.pop() + ", this.inputBuf.currPos)" )
-                  );
-                  ip++;
-                  break;
+          case op.IF: // IF t, f
+            compileCondition(stack.top(), 0);
+            break;
 
-              case op.PLUCK:               // PLUCK n, k, p1, ..., pK
-                  const baseLength = 3;
-                  const paramsLength = bc[ ip + baseLength - 1 ];
-                  const n = baseLength + paramsLength;
-                  value = bc.slice( ip + baseLength, ip + n );
-                  value = paramsLength === 1
-                      ? stack.index( value[ 0 ] )
-                      : `[ ${
-                          value.map( p => stack.index( p ) )
-                              .join( ", " )
-                      } ]`;
-                  stack.pop( bc[ ip + 1 ] );
-                  parts.push( stack.push( value ) );
-                  ip += n;
-                  break;
+          case op.IF_ERROR: // IF_ERROR t, f
+            compileCondition(stack.top() + " === peg$FAILED", 0);
+            break;
 
-              case op.IF:                 // IF t, f
-                  compileCondition( stack.top(), 0 );
-                  break;
+          case op.IF_NOT_ERROR: // IF_NOT_ERROR t, f
+            compileCondition(stack.top() + " !== peg$FAILED", 0);
+            break;
 
-              case op.IF_ERROR:           // IF_ERROR t, f
-                  compileCondition( stack.top() + " === peg$FAILED", 0 );
-                  break;
+          case op.WHILE_NOT_ERROR: // WHILE_NOT_ERROR b
+            compileLoop(stack.top() + " !== peg$FAILED", 0);
+            break;
 
-              case op.IF_NOT_ERROR:       // IF_NOT_ERROR t, f
-                  compileCondition( stack.top() + " !== peg$FAILED", 0 );
-                  break;
+          case op.MATCH_ANY: // MATCH_ANY a, f, ...
+            //compileCondition("input.length > inputBuf.currPos", 0);
+            compileCondition("input.isAvailableAt(inputBuf.currPos)", 0);
+            break;
 
-              case op.WHILE_NOT_ERROR:    // WHILE_NOT_ERROR b
-                  compileLoop( stack.top() + " !== peg$FAILED", 0 );
-                  break;
+          case op.MATCH_STRING: // MATCH_STRING s, a, f, ...
+            compileCondition(
+              eval(ast.consts[bc[ip + 1]]).length > 1 ?
+              "input.readForward(RuleId." + rule.name + ", "+
+              eval(ast.consts[bc[ip + 1]]).length +
+              ") === " +
+              c(bc[ip + 1]) :
+              "input.charCodeAt(inputBuf.currPos) === " +
+              eval(ast.consts[bc[ip + 1]]).charCodeAt(0),
+              1
+            );
+            break;
 
-              case op.MATCH_ANY:          // MATCH_ANY a, f, ...
-                  compileCondition( "input.length > this.inputBuf.currPos", 0 );
-                  break;
+          case op.MATCH_STRING_IC: // MATCH_STRING_IC s, a, f, ...
+            compileCondition(
+              "input.readForward(RuleId." + rule.name+", "+
+              eval(ast.consts[bc[ip + 1]]).length +
+              ").toLowerCase() === " +
+              c(bc[ip + 1]),
+              1
+            );
+            break;
 
-              case op.MATCH_STRING:       // MATCH_STRING s, a, f, ...
-                  compileCondition(
-                      ast.literals[ bc[ ip + 1 ] ].length > 1
-                          ? "input.substr(this.inputBuf.currPos, "
-                              + ast.literals[ bc[ ip + 1 ] ].length
-                              + ") === "
-                              + l( bc[ ip + 1 ] )
-                          : "input.charCodeAt(this.inputBuf.currPos) === "
-                              + ast.literals[ bc[ ip + 1 ] ].charCodeAt( 0 )
-                      , 1
-                  );
-                  break;
+          case op.MATCH_REGEXP: // MATCH_REGEXP r, a, f, ...
+            compileCondition(
+              c(bc[ip + 1]) + ".test(input.charAt(inputBuf.currPos))",
+              1
+            );
+            break;
 
-              case op.MATCH_STRING_IC:    // MATCH_STRING_IC s, a, f, ...
-                  compileCondition(
-                      "input.substr(this.inputBuf.currPos, "
-                          + ast.literals[ bc[ ip + 1 ] ].length
-                          + ").toLowerCase() === "
-                          + l( bc[ ip + 1 ] )
-                      , 1
-                  );
-                  break;
+          case op.ACCEPT_N: // ACCEPT_N n
+            parts.push(stack.push(
+              bc[ip + 1] > 1 ?
+              "input.readForward(RuleId." + rule.name+", "+
+              bc[ip + 1] + ")" :
+              "input.charAt(inputBuf.currPos)"
+            ));
+            parts.push(
+              bc[ip + 1] > 1 ?
+              "inputBuf.currPos += " + bc[ip + 1] + ";" :
+              "inputBuf.currPos++;"
+            );
+            ip += 2;
+            break;
 
-              case op.MATCH_CLASS:        // MATCH_CLASS c, a, f, ...
-                  compileCondition( r( bc[ ip + 1 ] ) + ".test(input.charAt(this.inputBuf.currPos))", 1 );
-                  break;
+          case op.ACCEPT_STRING: // ACCEPT_STRING s
+            parts.push(stack.push(c(bc[ip + 1])));
+            parts.push(
+              eval(ast.consts[bc[ip + 1]]).length > 1 ?
+              "inputBuf.currPos += " + eval(ast.consts[bc[ip + 1]]).length + ";" :
+              "inputBuf.currPos++;"
+            );
+            ip += 2;
+            break;
 
-              case op.ACCEPT_N:           // ACCEPT_N n
-                  parts.push( stack.push(
-                      bc[ ip + 1 ] > 1
-                          ? "input.substr(this.inputBuf.currPos, " + bc[ ip + 1 ] + ")"
-                          : "input.charAt(this.inputBuf.currPos)"
-                  ) );
-                  parts.push(
-                      bc[ ip + 1 ] > 1
-                          ? "this.inputBuf.currPos += " + bc[ ip + 1 ] + ";"
-                          : "this.inputBuf.currPos++;"
-                  );
-                  ip += 2;
-                  break;
+          case op.FAIL: // FAIL e
+            parts.push(stack.push("peg$FAILED"));
+            parts.push("if (this.peg$silentFails === 0) { this.peg$fail(" + c(bc[ip + 1]) + "); }");
+            ip += 2;
+            break;
 
-              case op.ACCEPT_STRING:      // ACCEPT_STRING s
-                  parts.push( stack.push( l( bc[ ip + 1 ] ) ) );
-                  parts.push(
-                      ast.literals[ bc[ ip + 1 ] ].length > 1
-                          ? "this.inputBuf.currPos += " + ast.literals[ bc[ ip + 1 ] ].length + ";"
-                          : "this.inputBuf.currPos++;"
-                  );
-                  ip += 2;
-                  break;
+          case op.LOAD_SAVED_POS: // LOAD_SAVED_POS p
+            //parts.push("inputBuf.savedPos = " + stack.index(bc[ip + 1]) + ";");
+            parts.push("inputBuf.savedPos = position;");
+            ip += 2;
+            break;
 
-              case op.EXPECT:             // EXPECT e
-                  parts.push( "rule$expects(" + e( bc[ ip + 1 ] ) + ");" );
-                  ip += 2;
-                  break;
+          case op.UPDATE_SAVED_POS: // UPDATE_SAVED_POS
+            parts.push("inputBuf.savedPos = inputBuf.currPos;");
+            ip++;
+            break;
 
-              case op.LOAD_SAVED_POS:     // LOAD_SAVED_POS p
-                  parts.push( "this.inputBuf.savedPos = " + stack.index( bc[ ip + 1 ] ) + ";" );
-                  ip += 2;
-                  break;
+          case op.CALL: // CALL f, n, pc, p1, p2, ..., pN
+            compileCall();
+            break;
 
-              case op.UPDATE_SAVED_POS:   // UPDATE_SAVED_POS
-                  parts.push( "this.inputBuf.savedPos = this.inputBuf.currPos;" );
-                  ip++;
-                  break;
+          case op.RULE: // RULE r
+            parts.push(stack.push("peg$parse" + ast.rules[bc[ip + 1]].name + "()"));
+            ip += 2;
+            break;
 
-              case op.CALL:               // CALL f, n, pc, p1, p2, ..., pN
-                  compileCall();
-                  break;
+          case op.SILENT_FAILS_ON: // SILENT_FAILS_ON
+            parts.push("this.peg$silentFails++;");
+            ip++;
+            break;
 
-              case op.RULE:               // RULE r
-                  parts.push( stack.push( "peg$parse" + ast.rules[ bc[ ip + 1 ] ].name + "()" ) );
-                  ip += 2;
-                  break;
+          case op.SILENT_FAILS_OFF: // SILENT_FAILS_OFF
+            parts.push("this.peg$silentFails--;");
+            ip++;
+            break;
 
-              case op.SILENT_FAILS_ON:    // SILENT_FAILS_ON
-                  parts.push( "peg$silentFails++;" );
-                  ip++;
-                  break;
-
-              case op.SILENT_FAILS_OFF:   // SILENT_FAILS_OFF
-                  parts.push( "peg$silentFails--;" );
-                  ip++;
-                  break;
-
-              case op.EXPECT_NS_BEGIN:    // EXPECT_NS_BEGIN
-                  parts.push( "peg$begin();" );
-                  ip++;
-                  break;
-
-              case op.EXPECT_NS_END:      // EXPECT_NS_END invert
-                  parts.push( "peg$end(" + ( bc[ ip + 1 ] !== 0 ) + ");" );
-                  ip += 2;
-                  break;
-
-              // istanbul ignore next
-              default:
-                session.fatal(
-                    "Rule '" + rule.name + "', position " + ip + ": "
-                    + "Invalid opcode " + bc[ ip ] + ".",
-                );
-
-            }
-
+          default:
+            throw new Error("Invalid opcode: " + bc[ip] + ".");
         }
+      }
 
-        return parts.join( "\n" );
-
+      return parts.join("\n");
     }
 
-    const code = compile( rule.bytecode );
+    code = compile(rule.bytecode);
 
-    parts.push( "function peg$parse" + rule.name + "() {" );
+    var outputType = ast.inferredTypes[rule.name];
+    outputType = outputType ? ": "+ outputType : "";
 
-    if ( options.trace ) {
+    parts.push("function peg$parse" + rule.name + "()" + outputType +" {");
 
-        parts.push( "  var startPos = this.inputBuf.currPos;" );
-
+    if (options.trace) {
+      parts.push("  const startPos = inputBuf.currPos;");
     }
 
-    for ( let i = 0; i <= stack.maxSp; i++ ) {
-
-        stackVars[ i ] = s( i );
-
+    for (let i = 0; i <= stack.maxSp; i++) {
+      stackVars[i] = s(i);
     }
 
-    parts.push( "  var " + stackVars.join( ", " ) + ";" );
+    parts.push("  let " + stackVars.join(", ") + ";");
 
-    parts.push( indent2( generateRuleHeader(
-        "\"" + util.stringEscape( rule.name ) + "\"",
-        ast.indexOfRule( rule.name ),
-    ) ) );
-    parts.push( indent2( code ) );
-    parts.push( indent2( generateRuleFooter(
-        "\"" + util.stringEscape( rule.name ) + "\"",
-        s( 0 ),
-    ) ) );
+    parts.push(indent4(generateRuleHeader(
+      "\"" + js.stringEscape(rule.name) + "\"",
+      asts.indexOfRule(ast, rule.name)
+    )));
+    parts.push(indent4(code));
+    parts.push(indent4(generateRuleFooter(
+      "\"" + js.stringEscape(rule.name) + "\"",
+      s(0)
+    )));
 
-    parts.push( "}" );
+    parts.push("}");
 
-    return parts.join( "\n" );
-
+    return parts.join("\n");
   }
 
   function generateToplevel() {
@@ -1029,6 +812,8 @@ function generateTS(ast, ...args) {
       "const peg$FAILED: Readonly<any> = {};",
       "",
     ].join("\n"));
+
+    parts.push(generateBytecode());
 
     parts.push([
       "",
@@ -1057,8 +842,6 @@ function generateTS(ast, ...args) {
       "}",
       "",
       ].join("\n"));
-
-
 
 
       if (options.optimize === "size") {
@@ -1094,7 +877,6 @@ function generateTS(ast, ...args) {
       "",
       "  peg$maxFailPos = 0;",
       "  peg$maxFailExpected: Expectation[] = [];",
-      "  peg$expected = [];",
       "  peg$silentFails = 0;", // 0 = report failures, > 0 = silence failures
       "  peg$result;",
       "",
@@ -1147,17 +929,31 @@ function generateTS(ast, ...args) {
     ].join("\n"));
 
 
+    /*if (options.optimize === "size") {
+      let ruleNames = "[" +
+        ast.rules.map(
+          r => "\"" + js.stringEscape(r.name) + "\""
+        ).join(", ") +
+      "]";
+
+      parts.push([
+        "  let Rules = " + ruleNames + ";",
+        ""
+      ].join("\n"));
+    }*/
+
+    //   ^
+    //   |
     if (options.trace) {
-        if ( use( "DefaultTracer" ) )
-            parts.push( [
-                "  var peg$tracer = \"tracer\" in options ? options.tracer : new peg$DefaultTracer();",
-                "",
-            ].join( "\n" ) );
-        else
-            parts.push( [
-                "  var peg$tracer = \"tracer\" in options ? options.tracer : peg$FauxTracer;",
-                "",
-            ].join( "\n" ) );
+      // |<-------|
+      //          |
+      //if (options.optimize === "size") {
+      //}
+
+      parts.push([
+        "    const peg$tracer = \"tracer\" in options ? options.tracer : new DefaultTracer();",
+        ""
+      ].join("\n"));
     }
 
     parts.push([
@@ -1188,84 +984,6 @@ function generateTS(ast, ...args) {
       ].join("\n"));
     }
 
-    if ( use( "text" ) ) {
-
-        parts.push( [
-            "",
-            "  function text() {",
-            "    return input.substring(peg$savedPos, peg$currPos);",
-            "  }",
-        ].join( "\n" ) );
-
-    }
-
-    if ( use( "offset" ) ) {
-
-        parts.push( [
-            "",
-            "  function offset() {",
-            "    return peg$savedPos;",
-            "  }",
-        ].join( "\n" ) );
-
-    }
-
-    if ( use( "range" ) ) {
-
-        parts.push( [
-            "",
-            "  function range() {",
-            "    return [peg$savedPos, peg$currPos];",
-            "  }",
-        ].join( "\n" ) );
-
-    }
-
-    if ( use( "location" ) ) {
-
-        parts.push( [
-            "",
-            "  function location() {",
-            "    return peg$computeLocation(peg$savedPos, peg$currPos);",
-            "  }",
-        ].join( "\n" ) );
-
-    }
-
-    if ( use( "expected" ) ) {
-
-        parts.push( [
-            "",
-            "  function expected(description, location) {",
-            "    location = location !== undefined",
-            "      ? location",
-            "      : peg$computeLocation(peg$savedPos, peg$currPos);",
-            "",
-            "    throw peg$buildStructuredError(",
-            "      [peg$otherExpectation(description)],",
-            "      input.substring(peg$savedPos, peg$currPos),",
-            "      location",
-            "    );",
-            "  }",
-        ].join( "\n" ) );
-
-    }
-
-    if ( use( "error" ) ) {
-
-        parts.push( [
-            "",
-            "  function error(message, location) {",
-            "    location = location !== undefined",
-            "      ? location",
-            "      : peg$computeLocation(peg$savedPos, peg$currPos);",
-            "",
-            "    throw peg$buildSimpleError(message, location);",
-            "  }",
-        ].join( "\n" ) );
-
-    }
-
 
     if (ast.initializer) {
       parts.push(indent4(ast.initializer.code));
@@ -1273,8 +991,6 @@ function generateTS(ast, ...args) {
     }
     parts.push("");
     parts.push("");
-
-    parts.push("    peg$begin();");
 
     if (options.optimize === "size") {
       parts.push("    this.peg$result = this.peg$parseRule(peg$startRuleIndex);");
@@ -1286,13 +1002,17 @@ function generateTS(ast, ...args) {
       "",
       "    if (this.peg$result !== peg$FAILED) {",
       "      if (input.isAvailableAt(this.inputBuf.currPos)) {",
-      "        this.peg$expect(peg$endExpectation());",
+      "        this.peg$fail(peg$endExpectation());",
       "      } else {",
       "        return;",
       "      }",
       "    }",
       "",
-      "    throw peg$buildError();",
+      "    throw this.peg$buildStructuredError(",
+      "      this.peg$maxFailExpected,",
+      "      input.isAvailableAt(this.peg$maxFailPos) ? input.charAt(this.peg$maxFailPos) : null,",
+      "      this.peg$maxFailPos",
+      "    );",
       "",
       "  }"
     ].join("\n"));
@@ -1318,64 +1038,31 @@ function generateTS(ast, ...args) {
       "    };",
       "  }",
       "",
-      "  peg$begin() {",
-      "    this.peg$expected.push({ pos: this.inputBuf.currPos, variants: [] });",
-      "  }",
+      "  peg$fail(expected1: Expectation) {",
+      "    if (this.inputBuf.currPos < this.peg$maxFailPos) { return; }",
       "",
-      "  peg$expect(expected) {",
-      "    var top = this.peg$expected[this.peg$expected.length - 1];",
-      "",
-      "    if (this.inputBuf.currPos < top.pos) { return; }",
-      "",
-      "    if (this.inputBuf.currPos > top.pos) {",
-      "      top.pos = this.inputBuf.currPos;",
-      "      top.variants = [];",
+      "    if (this.inputBuf.currPos > this.peg$maxFailPos) {",
+      "      this.peg$maxFailPos = this.inputBuf.currPos;",
+      "      this.peg$maxFailExpected = [];",
       "    }",
       "",
-      "    top.variants.push(expected);",
+      "    this.peg$maxFailExpected.push(expected1);",
       "  }",
       "",
-      "  peg$end(invert) {",
-      "    var expected = peg$expected.pop();",
-      "    var top = peg$expected[peg$expected.length - 1];",
-      "    var variants = expected.variants;",
+      "  /*function peg$buildSimpleError(message: string, location1: IFileRange) {",
+      "    return new SyntaxError(input, message, [], \"\", location1);",
+      "  }*/",
       "",
-      "    if (top.pos !== expected.pos) { return; }",
-      "",
-      "    if (invert) {",
-      "      variants = variants.map(function(e) {",
-      "        return e.type === \"not\" ? e.expected : { type: \"not\", expected: e };",
-      "      });",
-      "    }",
-      "",
-      "    Array.prototype.push.apply(top.variants, variants);",
-      "  }",
-      "",
-      "  peg$buildSimpleError(message, location) {",
-      "    return new peg$SyntaxError(message, null, null, location);",
-      "  }",
-      "",
-      "  peg$buildStructuredError(expected, found, location) {",
-      "    return new peg$SyntaxError(",
-      "      peg$SyntaxError.buildMessage(expected, found, location),",
-      "      expected,",
+      "  peg$buildStructuredError(expected1: Expectation[], found: string | null, offset: number) {",
+      "    return new SyntaxError(",
+      "      this.input, \"\",",
+      "      expected1,",
       "      found,",
-      "      location",
+      "      offset",
       "    );",
       "  }",
       "",
-      "  peg$buildError() {",
-      "    var expected = peg$expected[0];",
-      "    var failPos = expected.pos;",
-      "",
-      "    throw this.peg$buildStructuredError(",
-      "      expected.variants,",
-      "      input.isAvailableAt(failPos) ? input.charAt(failPos) : null,",
-      "      failPos",
-      "    );",
-      "  }",
-      ""
-      ].join("\n"));
+    ].join("\n"));
 
     if (options.optimize === "size") {
       parts.push(generateInterpreter());
@@ -1391,7 +1078,7 @@ function generateTS(ast, ...args) {
       "",
     ].join("\n"));
 
-    parts.push(indent2(generateTables()));
+    parts.push(indent2(generateConst()));
 
     parts.push([
       "",
