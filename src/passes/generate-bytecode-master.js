@@ -1,6 +1,12 @@
 "use strict";
 
-const util = require( "pegjs/lib/util" );
+const util = require( "../../util" );
+//++
+var asts = require("pegjs/lib/compiler/asts");
+var js = require("pegjs/lib/compiler/js");
+var op = require("pegjs/lib/compiler/opcodes");
+var visitor = require("pegjs/lib/compiler/visitor");
+
 
 // Generates bytecode.
 //
@@ -199,13 +205,16 @@ const util = require( "pegjs/lib/util" );
 //        }
 function generateBytecode( ast, session ) {
 
-    const op = session.opcodes;
+    //--
+    //const op = session.opcodes;
 
     const literals = [];
     const classes = [];
     const expectations = [];
     const functions = [];
     let generate;
+    // ++
+    let currentRule;
 
     function addLiteralConst( value ) {
 
@@ -235,14 +244,36 @@ function generateBytecode( ast, session ) {
 
     }
 
-    function addFunctionConst( predicate, params, code ) {
+    function addFunctionConst( predicate, params, /*code->*/node ) {
 
-        const func = { predicate: predicate, params: params, body: code };
+        // changes / pegjs/generate-bytecode.js
+        // --
+
+        //const func = { predicate: predicate, params: params, body: code };
+        //const pattern = JSON.stringify( func );
+        //const index = util.findIndex( functions, f => JSON.stringify( f ) === pattern );
+        //return index === -1 ? functions.push( func ) - 1 : index;
+
+        // ++
+
+        var result;
+        if (node.templateFunction) {
+          result = node.templateFunction;
+
+          var i1 = node.checkids?node.checkids.join():"";
+          var i2 = params?params.join():"";
+          if (i1 !== i2) {
+            console.warn(currentRule+" check arg ids failed : "+i1+" vs "+i2);
+          }
+        }
+
+        const func = { predicate: predicate, params: params, body: code, ts: node.templateFunction };
         const pattern = JSON.stringify( func );
         const index = util.findIndex( functions, f => JSON.stringify( f ) === pattern );
         return index === -1 ? functions.push( func ) - 1 : index;
 
-    }
+        // ..changes / pegjs/generate-bytecode.js
+      }
 
     const buildSequence = ( ...parts ) => [].concat( ...parts );
 
@@ -305,7 +336,7 @@ function generateBytecode( ast, session ) {
 
     function buildSemanticPredicate( node, negative, context ) {
 
-        const functionIndex = addFunctionConst( true, Object.keys( context.env ), node.code );
+        const functionIndex = addFunctionConst( true, Object.keys( context.env ), node/*.code*/ );
 
         return buildSequence(
             [ op.UPDATE_SAVED_POS ],
@@ -329,8 +360,10 @@ function generateBytecode( ast, session ) {
 
     }
 
-    generate = session.buildVisitor( {
-        grammar( node ) {
+    //--generate = session.buildVisitor( {
+    //++
+    generate = visitor.build({
+      grammar( node ) {
 
             node.rules.forEach( generate );
             node.literals = literals;
@@ -341,6 +374,8 @@ function generateBytecode( ast, session ) {
         },
 
         rule( node ) {
+            // ++
+            currentRule = node.name;
 
             node.bytecode = generate( node.expression, {
                 sp: -1,                             // stack pointer
@@ -417,7 +452,7 @@ function generateBytecode( ast, session ) {
             } );
             const match = node.expression.match|0;
             const functionIndex = emitCall && match >= 0
-                ? addFunctionConst( false, Object.keys( env ), node.code )
+                ? addFunctionConst( false, Object.keys( env ), node/*.code*/ )
                 : null;
 
             return emitCall === false
@@ -492,7 +527,7 @@ function generateBytecode( ast, session ) {
                             addFunctionConst( // functionIndex
                                 false,
                                 Object.keys( context.env ),
-                                context.action.code,
+                                context.action/*.code*/,
                             ),
                             TOTAL_ELEMENTS + 1,
                             context.env,

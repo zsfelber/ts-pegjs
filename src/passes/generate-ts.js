@@ -116,7 +116,7 @@ function generateTS(ast, ...args) {
 
     function buildFunc( f ) {
 
-        return `function(${ f.params.join( ", " ) }) {${ f.body }}`;
+        return f.ts ? "PegjsParser.prototype."+f.ts : `function(${ f.params.join( ", " ) }) {${ f.body }}`;
 
     }
 
