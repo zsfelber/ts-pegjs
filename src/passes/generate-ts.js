@@ -220,6 +220,7 @@ function generateTS(ast, ...args) {
       "    const input = this.input;",
       "    const inputBuf = this.inputBuf;",
       "    const peg$consts = PegjsParser.peg$consts;",
+      "    this.currentRule = index;",
       ].join("\n"));
 
       
@@ -880,6 +881,7 @@ function generateTS(ast, ...args) {
     parts.push([
       "export class PegjsParser<I extends ParseStream> {",
       "",
+      "  options: IParseOptions;",
       "  input: I;",
       "  inputBuf: IPegjsParseStreamBuffer2;",
       "",
@@ -887,6 +889,7 @@ function generateTS(ast, ...args) {
       "  peg$maxFailExpected: Expectation[] = [];",
       "  peg$silentFails = 0;", // 0 = report failures, > 0 = silence failures
       "  peg$result;",
+      "  currentRule: RuleId;",
       "",
       "  get result"+startType+"() { return this.peg$result; }",
       "",
@@ -906,11 +909,11 @@ function generateTS(ast, ...args) {
     }
 
     parts.push([
+      "",
       "  constructor("+param0+"input: I, options?: IParseOptions) {",
       "    this.input = input;",
       "    this.inputBuf = input.buffer;",
-      "    options = options !== undefined ? options : {};",
-      ""
+      "    this.options = options !== undefined ? options : {};",
     ].join("\n"));
 
     if (options.tspegjs.customInit) {
@@ -919,6 +922,14 @@ function generateTS(ast, ...args) {
       .join("\n")));
     }
 
+    parts.push([
+      "  }",
+      "",
+      "  parse() {",
+      "    const input = this.input;",
+      "    const inputBuf = this.inputBuf;",
+      "",
+      ].join("\n"));
 
     
     if (options.optimize === "size") {
@@ -943,10 +954,10 @@ function generateTS(ast, ...args) {
 
     if (options.optimize === "size") {
       parts.push([
-        "    if (options.startRule !== undefined) {",
-        "      var ri = typeof options.startRule === \"string\"?eval(\"RuleId.\"+options.startRule):options.startRule;",
+        "    if (this.options.startRule !== undefined) {",
+        "      var ri = typeof this.options.startRule === \"string\"?eval(\"RuleId.\"+this.options.startRule):this.options.startRule;",
         "      if (!(peg$startRuleIndices.get(ri))) {",
-        "        throw new Error(\"Can't start parsing from rule \\\"\" + options.startRule + \"\\\".\");",
+        "        throw new Error(\"Can't start parsing from rule \\\"\" + this.options.startRule + \"\\\".\");",
         "      }",
         "",
         "      peg$startRuleIndex = ri;",
@@ -954,10 +965,10 @@ function generateTS(ast, ...args) {
       ].join("\n"));
     } else {
       parts.push([
-        "    if (options.startRule !== undefined) {",
-        "      var ri = typeof options.startRule===\"string\"?eval(\"RuleId.\"+options.startRule):options.startRule;",
+        "    if (this.options.startRule !== undefined) {",
+        "      var ri = typeof this.options.startRule===\"string\"?eval(\"RuleId.\"+this.options.startRule):this.options.startRule;",
         "      if (!(peg$startRuleFunctions.get(ri))) {",
-        "        throw new Error(\"Can't start parsing from rule \\\"\" + options.startRule + \"\\\".\");",
+        "        throw new Error(\"Can't start parsing from rule \\\"\" + this.options.startRule + \"\\\".\");",
         "      }",
         "",
         "      peg$startRuleFunction = peg$startRuleFunctions[ri];",
