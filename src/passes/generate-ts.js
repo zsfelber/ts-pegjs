@@ -29,7 +29,7 @@ function generateTS(ast, ...args) {
     return code.replace(/^(.+)$/gm, "            $1");
   }
 
-  function generateBytecode() {
+  function generateTables() {
     if (options.optimize === "size") {
       return [
         "const peg$bytecode = [",
@@ -40,16 +40,9 @@ function generateTS(ast, ...args) {
           ).join("")) +
           "\")"
         ).join(",\n")),
-        "];"
-      ].join("\n");
-    }
-  }
-  function generateConst() {
-    if (options.optimize === "size") {
-      return [
-        ast.fields.join("\n"),
+        "];",
         "",
-        "static readonly peg$consts = [",
+        "const peg$consts = [",
         indent2(ast.consts.join(",\n")),
         "];",
       ].join("\n");
@@ -219,7 +212,6 @@ function generateTS(ast, ...args) {
       "  peg$parseRule(index: number): any {",
       "    const input = this.input;",
       "    const inputBuf = this.inputBuf;",
-      "    const peg$consts = PegjsParser.peg$consts;",
       "    this.currentRule = index;",
       ].join("\n"));
 
@@ -815,7 +807,7 @@ function generateTS(ast, ...args) {
       "",
     ].join("\n"));
 
-    parts.push(generateBytecode());
+    parts.push(generateTables());
 
     if (options.trace) {
 
@@ -1059,18 +1051,13 @@ function generateTS(ast, ...args) {
         parts.push("");
       });
     }
+
     parts.push([
+      ast.fields.join("\n"),
       "",
       "",
     ].join("\n"));
 
-    parts.push(indent2(generateConst()));
-
-    parts.push([
-      "",
-      "}",
-      ""
-    ].join("\n"));
 
     return parts.join("\n");
   }
