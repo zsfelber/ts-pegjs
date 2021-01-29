@@ -841,48 +841,48 @@ function generateTS(ast, ...args) {
 
         const streamTypeI = `export interface IParseStream extends IPegjsParseStream {
 
-      // should return this.substr(inputBuf.currPos, len)
-      readForward(rule: RuleId, len: number): string;
+  // should return this.substr(inputBuf.currPos, len)
+  readForward(rule: RuleId, len: number): string;
+
+  //"input.readForward(rule, expectedText.length) === expectedText",
+  //=
+  //"input.expect(rule, expectedText)",
+  expect(rule: RuleId, expectedText: string): boolean;
+
+  //"input.readForward(rule, expectedText.length).toLowerCase() === expectedText",
+  //=
+  //"input.expectLowerCase(rule, expectedText)",
+  expectLowerCase(rule: RuleId, expectedText: string): boolean;
     
-      //"input.readForward(rule, expectedText.length) === expectedText",
-      //=
-      //"input.expect(rule, expectedText)",
-      expect(rule: RuleId, expectedText: string): boolean;
-    
-      //"input.readForward(rule, expectedText.length).toLowerCase() === expectedText",
-      //=
-      //"input.expectLowerCase(rule, expectedText)",
-      expectLowerCase(rule: RuleId, expectedText: string): boolean;
-    
-    }`;
+}`;
         const streamType = `export class ParseStream extends PegjsParseStream {
     
-      /** NOTE string also implements IPegjsParseStreamBuffer 
-        * buffer initialized as "" if initialBuf is omitted
-        */
-      constructor(initialBuf?: IPegjsParseStreamBuffer) {
-        super(initialBuf, RuleNames);
-      }
-      // should return this.substr(inputBuf.currPos, len)
-      readForward(rule: RuleId, len: number): string {
-        return super.readForward(rule, len);
-      }
-    
-      //"input.readForward(rule, expectedText.length) === expectedText",
-      //=
-      //"input.expect(rule, expectedText)",
-      expect(rule: RuleId, expectedText: string): boolean {
-        return super.expect(rule, expectedText);
-      }
-    
-      //"input.readForward(rule, expectedText.length).toLowerCase() === expectedText",
-      //=
-      //"input.expectLowerCase(rule, expectedText)",
-      expectLowerCase(rule: RuleId, expectedText: string): boolean {
-        return super.expectLowerCase(rule, expectedText);
-      }
-    
-    }`;
+  /** NOTE string also implements IPegjsParseStreamBuffer 
+    * buffer initialized as "" if initialBuf is omitted
+    */
+  constructor(initialBuf?: IPegjsParseStreamBuffer) {
+    super(initialBuf, RuleNames);
+  }
+  // should return this.substr(inputBuf.currPos, len)
+  readForward(rule: RuleId, len: number): string {
+    return super.readForward(rule, len);
+  }
+
+  //"input.readForward(rule, expectedText.length) === expectedText",
+  //=
+  //"input.expect(rule, expectedText)",
+  expect(rule: RuleId, expectedText: string): boolean {
+    return super.expect(rule, expectedText);
+  }
+
+  //"input.readForward(rule, expectedText.length).toLowerCase() === expectedText",
+  //=
+  //"input.expectLowerCase(rule, expectedText)",
+  expectLowerCase(rule: RuleId, expectedText: string): boolean {
+    return super.expectLowerCase(rule, expectedText);
+  }
+
+}`;
 
         parts.push(
             [
@@ -942,18 +942,6 @@ function generateTS(ast, ...args) {
 
         parts.push(
             [
-                '',
-                '',
-                '',
-                '',
-                '',
-                '',
-                '',
-                '',
-                '',
-                '',
-                '',
-                '',
                 '',
                 '',
                 'export class PegjsParser<I extends ParseStream> {',
@@ -1231,6 +1219,10 @@ function generateTS(ast, ...args) {
         // "  \"use strict\";",
         '',
         generateToplevel(),
+        '',
+        '',
+        '',
+        '',
         '',
         //indent2("return " + generateParserObject() + ";"),
         generateTables()
