@@ -884,40 +884,7 @@ function generateTS(ast, ...args) {
 
 }`;
 
-        parts.push(
-            [
-                '',
-                streamTypeI,
-                '',
-                streamType,
-                '',
-                '',
-                'function peg$literalExpectation(text1: string, ignoreCase: boolean): ILiteralExpectation {',
-                '  return { type: "literal", text: text1, ignoreCase: ignoreCase };',
-                '}',
-                '',
-                'function peg$classExpectation(parts: IClassParts, inverted: boolean, ignoreCase: boolean): IClassExpectation {',
-                '  return { type: "class", parts: parts, inverted: inverted, ignoreCase: ignoreCase };',
-                '}',
-                '',
-                'function peg$anyExpectation(): IAnyExpectation {',
-                '  return { type: "any" };',
-                '}',
-                '',
-                'function peg$endExpectation(): IEndExpectation {',
-                '  return { type: "end" };',
-                '}',
-                '',
-                'function peg$otherExpectation(description: string): IOtherExpectation {',
-                '  return { type: "other", description: description };',
-                '}',
-                '',
-                'function peg$decode(s: string): number[] {',
-                '  return s.split("").map((ch) =>  ch.charCodeAt(0) - 32 );',
-                '}',
-                ''
-            ].join('\n')
-        );
+        parts.push(['', streamTypeI, '', streamType, '', ''].join('\n'));
 
         if (options.optimize === 'size') {
             parts.push('');
@@ -1187,8 +1154,36 @@ function generateTS(ast, ...args) {
     }
 
     function generateTables() {
+        var tables = [
+            '',
+            'function peg$literalExpectation(text1: string, ignoreCase: boolean): ILiteralExpectation {',
+            '  return { type: "literal", text: text1, ignoreCase: ignoreCase };',
+            '}',
+            '',
+            'function peg$classExpectation(parts: IClassParts, inverted: boolean, ignoreCase: boolean): IClassExpectation {',
+            '  return { type: "class", parts: parts, inverted: inverted, ignoreCase: ignoreCase };',
+            '}',
+            '',
+            'function peg$anyExpectation(): IAnyExpectation {',
+            '  return { type: "any" };',
+            '}',
+            '',
+            'function peg$endExpectation(): IEndExpectation {',
+            '  return { type: "end" };',
+            '}',
+            '',
+            'function peg$otherExpectation(description: string): IOtherExpectation {',
+            '  return { type: "other", description: description };',
+            '}',
+            '',
+            'function peg$decode(s: string): number[] {',
+            '  return s.split("").map((ch) =>  ch.charCodeAt(0) - 32 );',
+            '}',
+            ''
+        ];
+
         if (options.optimize === 'size') {
-            return [
+            tables = tables.concat([
                 'const peg$bytecode = [',
                 indent2(
                     ast.rules
@@ -1207,10 +1202,12 @@ function generateTS(ast, ...args) {
                 'const peg$consts = [',
                 indent2(ast.consts.join(',\n')),
                 '];'
-            ].join('\n');
+            ]);
         } else {
-            return ast.consts.map((c, i) => 'const peg$c' + i + ' = ' + c + ';').join('\n');
+            tables = tables.concat(ast.consts.map((c, i) => 'const peg$c' + i + ' = ' + c + ';'));
         }
+
+        return tables.join('\n');
     }
 
     ast.code = [
