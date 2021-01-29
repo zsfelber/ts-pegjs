@@ -853,15 +853,8 @@ function generateTS(ast, ...args) {
       "",
       ].join("\n"));
 
-
       if (options.optimize === "size") {
-        parts.push([
-          "const peg$startRuleIndices = new Map<RuleId,number>();",
-        ].join("\n"));
-
-        parts.push(options.allowedStartRules.map(
-          r => "peg$startRuleIndices.set(RuleId."+r + ", " + asts.indexOfRule(ast, r)+");"
-        ).join("\n"));
+        parts.push("");
 
       } else {
         let startRuleFunctions = "new Map<RuleId,() => any>(); " +
@@ -957,7 +950,7 @@ function generateTS(ast, ...args) {
       parts.push([
         "    if (this.options.startRule !== undefined) {",
         "      var ri = typeof this.options.startRule === \"string\"?eval(\"RuleId.\"+this.options.startRule):this.options.startRule;",
-        "      if (!(peg$startRuleIndices.get(ri))) {",
+        "      if (!(StartRules.get(ri))) {",
         "        throw new Error(\"Can't start parsing from rule \\\"\" + this.options.startRule + \"\\\".\");",
         "      }",
         "",
@@ -1111,6 +1104,15 @@ function generateTS(ast, ...args) {
         customHeader = options.tspegjs.customHeader;
       }
 
+      var startRules =
+      [ "export const StartRules = new Map<RuleId,string>();"]
+      .concat(
+        options.allowedStartRules.map(
+          r => "StartRules.set(RuleId."+r + ", \"" + r +"\");"
+        )
+      ).join("\n");
+
+
       res = res.concat([
         "import { IFilePosition, IFileRange, ILiteralExpectation, IClassParts, IClassExpectation, IAnyExpectation, IEndExpectation, IOtherExpectation, Expectation, SyntaxError, ITraceEvent, DefaultTracer, ICached, IPegjsParseStream, PegjsParseStream, IPegjsParseStreamBuffer, IPegjsParseStreamBuffer2 } from 'ts-pegjs/lib';",
         "",
@@ -1122,8 +1124,11 @@ function generateTS(ast, ...args) {
         ruleNamesEtc,
         customHeader,
         "",
+        startRules,
+        "",
 
       ]);
+
 
       return res.join("\n");
     }
