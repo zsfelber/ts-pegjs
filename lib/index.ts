@@ -1,4 +1,8 @@
 
+export interface IFailure {
+  peg$maxFailPos: number;
+  peg$maxFailExpected: Expectation[];
+}
 
 export interface IFilePosition {
   line: number;
@@ -43,7 +47,7 @@ export interface IOtherExpectation {
 
 export type Expectation = ILiteralExpectation | IClassExpectation | IAnyExpectation | IEndExpectation | IOtherExpectation;
 
-export class SyntaxError extends Error {
+export class PegjsParseErrorInfo {
 
   private static buildMessage(input: IPegjsParseStream, expected: Expectation[], found: string | null) {
 
@@ -144,9 +148,8 @@ export class SyntaxError extends Error {
   public name: string;
 
   constructor(input: IPegjsParseStream, message: string, expected: Expectation[], found: string | null, offset?: number) {
-    super();
     this.input = input;
-    this.message = message + SyntaxError.buildMessage(input, expected, found);
+    this.message = message + PegjsParseErrorInfo.buildMessage(input, expected, found);
     this.expected = expected;
     this.found = found;
     this.offset = offset;
@@ -155,6 +158,16 @@ export class SyntaxError extends Error {
     //if (typeof (Error as any).captureStackTrace === "function") {
     //  (Error as any).captureStackTrace(this, SyntaxError);
     //}
+  }
+}
+
+export class SyntaxError extends Error {
+  info: PegjsParseErrorInfo;
+
+  constructor(info: PegjsParseErrorInfo) {
+    super();
+    this.info = info;
+    this.message = this.info.message;
   }
 }
 
