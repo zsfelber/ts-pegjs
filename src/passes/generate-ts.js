@@ -827,17 +827,9 @@ function generateTS(ast, ...args) {
                 '  tracer?: any;',
                 '  [key: string]: any;',
                 '}',
-                '',
-                'const peg$FAILED: Readonly<any> = {};',
                 ''
             ].join('\n')
         );
-
-        if (options.trace) {
-            parts.push(
-                ['    const peg$tracer = new DefaultTracer(' + options.trace + ');', ''].join('\n')
-            );
-        }
 
         const streamTypeI = `export interface IParseStream extends IPegjsParseStream {
 
@@ -1179,8 +1171,16 @@ function generateTS(ast, ...args) {
             'function peg$decode(s: string): number[] {',
             '  return s.split("").map((ch) =>  ch.charCodeAt(0) - 32 );',
             '}',
+            '',
+            'const peg$FAILED: Readonly<any> = {};',
             ''
         ];
+
+        if (options.trace) {
+            tables.push(
+                ['const peg$tracer = new DefaultTracer(' + options.trace + ');', ''].join('\n')
+            );
+        }
 
         if (options.optimize === 'size') {
             tables = tables.concat([
