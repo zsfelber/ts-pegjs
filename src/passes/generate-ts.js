@@ -826,6 +826,7 @@ function generateTS(ast, ...args) {
                 '  startRule?: (string | RuleId);',
                 '  tracer?: any;',
                 '  [key: string]: any;',
+                '  customCache: {[id: number]: ICached};',
                 '}',
                 ''
             ].join('\n')
@@ -926,7 +927,7 @@ function generateTS(ast, ...args) {
 
         if (options.cache) {
             parts.push(
-                ['  readonly peg$resultsCache: {[id: number]: ICached} = {};', ''].join('\n')
+                ['  readonly peg$resultsCache: {[id: number]: ICached};', ''].join('\n')
             );
         }
 
@@ -936,7 +937,13 @@ function generateTS(ast, ...args) {
                 '  constructor(' + param0 + 'input: I, options?: IParseOptions) {',
                 '    this.input = input;',
                 '    this.inputBuf = input.buffer;',
-                '    this.options = options !== undefined ? options : {};'
+                '    this.options = options !== undefined ? options : {};',
+                '',
+                '    if (this.options.customCache)',
+                '      this.peg$resultsCache = this.options.customCache;',
+                '    else',
+                '      this.peg$resultsCache = {};',
+                '',
             ].join('\n')
         );
 
