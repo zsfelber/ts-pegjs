@@ -200,7 +200,6 @@ var visitor = require("pegjs/lib/compiler/visitor");
  */
 function generateBytecode(ast) {
   var consts = [];
-  var currentRule;
 
   function addConst(value) {
     var index = arrays.indexOf(consts, value);
@@ -208,25 +207,25 @@ function generateBytecode(ast) {
     return index === -1 ? consts.push(value) - 1 : index;
   }
 
-  function addFunctionConst(params, node) {
+  function addFunctionConst(params, action, context) {
 
     //console.log("context:"+JSON.stringify(context, null, "  "));
     //console.log("code:"+JSON.stringify(code, null, "  "));
-    //if (currentRule==="TypeDefinition") {
-    //  console.log(currentRule + " : "+JSON.stringify(node, null, "  "));
+    //if (context.rule==="TypeDefinition") {
+    //  console.log(context.rule + " : "+JSON.stringify(node, null, "  "));
     //}
 
     //storeRule(code, node);
-    var code = node.code;
+    var code = action.code;
 
     var result;
-    var i1 = node.checkids?node.checkids.join():"";
+    var i1 = action.checkids?action.checkids.join():"";
     var i2 = params?params.join():"";
     if (i1 !== i2) {
-      console.warn(currentRule+" check arg ids failed : "+i1+" vs "+i2);
+      console.warn(context.rule+" check arg ids failed : "+i1+" vs "+i2);
     }
-    if (node.templateFunction) {
-      result = node.templateFunction;
+    if (action.templateFunction) {
+      result = action.templateFunction;
     } else {
       result = "function(" + params.join(", ") + ") {" + code + "}";
     }
@@ -294,7 +293,7 @@ function generateBytecode(ast) {
   }
 
   function buildSemanticPredicate(node, negative, context) {
-    var functionIndex = addFunctionConst(objects.keys(context.env), node);
+    var functionIndex = addFunctionConst(objects.keys(context.env), node, context);
 
     return buildSequence(
       [op.UPDATE_SAVED_POS],
@@ -328,12 +327,11 @@ function generateBytecode(ast) {
     },
 
     rule: function(node) {
-      currentRule = node.name;
-
       node.bytecode = generate(node.expression, {
         sp:     -1,    // stack pointer
         env:    { },   // mapping of label names to stack positions
-        action: null   // action nodes pass themselves to children here
+        action: null,  // action nodes pass themselves to children here
+        rule:   node.name
       });
     },
 
@@ -389,7 +387,7 @@ function generateBytecode(ast) {
             env:    env,
             action: node
           }),
-          functionIndex  = addFunctionConst(objects.keys(env), node);
+          functionIndex  = addFunctionConst(objects.keys(env), node, context);
 
       return emitCall
         ? buildSequence(
@@ -439,7 +437,8 @@ function generateBytecode(ast) {
           if (context.action) {
             functionIndex = addFunctionConst(
               objects.keys(context.env),
-              context.action
+              context.action,
+              context
             );
 
             return buildSequence(

@@ -948,7 +948,7 @@ function generateTS(ast, ...args) {
             [
                 '  }',
                 '',
-                '  parse() {',
+                '  parse(silent?: boolean) {',
                 '    const input = this.input;',
                 '    const inputBuf = this.inputBuf;',
                 ''
@@ -1019,11 +1019,15 @@ function generateTS(ast, ...args) {
                 '      }',
                 '    }',
                 '',
-                '    throw this.peg$buildStructuredError(',
-                '      this.peg$maxFailExpected,',
-                '      input.isAvailableAt(this.peg$maxFailPos) ? input.charAt(this.peg$maxFailPos) : null,',
-                '      this.peg$maxFailPos',
-                '    );',
+                '    if (silent) {',
+                '       return this.peg$maxFailExpected;',
+                '    } else {',
+                '      throw this.peg$buildStructuredError(',
+                '        this.peg$maxFailExpected,',
+                '        input.isAvailableAt(this.peg$maxFailPos) ? input.charAt(this.peg$maxFailPos) : null,',
+                '        this.peg$maxFailPos',
+                '      );',
+                '    }',
                 '',
                 '  }'
             ].join('\n')
