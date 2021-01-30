@@ -81,7 +81,7 @@ function generateTS(ast, ...args) {
                         '    type: "rule.fail",',
                         '    rule: ' + ruleNameCode + ',',
                         '    cached: true,',
-                        '    location: this.peg$computeLocation(startPos, inputBuf.currPos)',
+                        '    location: this.peg$computeLocation(startPos, cached.maxFailPos)',
                         '  });',
                         '}',
                         ''
@@ -102,7 +102,7 @@ function generateTS(ast, ...args) {
             parts.push(
                 [
                     '',
-                    'this.peg$resultsCache[key] = { nextPos: inputBuf.currPos, result: ' +
+                    'this.peg$resultsCache[key] = { nextPos: inputBuf.currPos, maxFailPos: ruleMaxFailPos, result: ' +
                         resultCode +
                         ' };'
                 ].join('\n')
@@ -124,7 +124,7 @@ function generateTS(ast, ...args) {
                     '  peg$tracer.trace({',
                     '    type: "rule.fail",',
                     '    rule: ' + ruleNameCode + ',',
-                    '    location: this.peg$computeLocation(startPos, inputBuf.currPos)',
+                    '    location: this.peg$computeLocation(startPos, ruleMaxFailPos)',
                     '  });',
                     '}'
                 ].join('\n')
@@ -235,6 +235,7 @@ function generateTS(ast, ...args) {
                     '    const ends: any[] = [];',
                     '    const stack: any[] = [];',
                     '    let startPos = inputBuf.currPos;',
+                    '    let ruleMaxFailPos = inputBuf.currPos;',
                     '    let params;'
                 ].join('\n')
             );
@@ -247,6 +248,7 @@ function generateTS(ast, ...args) {
                     '    let end = bc.length;',
                     '    const ends: any[] = [];',
                     '    const stack: any[] = [];',
+                    '    let ruleMaxFailPos = inputBuf.currPos;',
                     '    let params;'
                 ].join('\n')
             );
@@ -384,7 +386,10 @@ function generateTS(ast, ...args) {
                 '          case ' + op.FAIL + ':', // FAIL e
                 '            stack.push(peg$FAILED);',
                 '            if (this.peg$silentFails === 0) {',
-                '              this.peg$fail(peg$consts[bc[ip + 1]] as ILiteralExpectation);',
+                '              if (input.currPos >= ruleMaxFailPos) {',
+                '                ruleMaxFailPos = input.currPos;',
+                '                this.peg$fail(peg$consts[bc[ip + 1]] as ILiteralExpectation);',
+                '              }',
                 '            }',
                 '            ip += 2;',
                 '            break;',

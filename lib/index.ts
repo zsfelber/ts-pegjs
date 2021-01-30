@@ -184,57 +184,70 @@ export class DefaultTracer {
   private indentLevel: number;
 
   startTracingOnly: {};
-  started: {atindent: number};
+  started: { atindent: number };
 
   constructor(startTracingOnly: {}) {
     this.indentLevel = 0;
-    if (startTracingOnly && !Object.keys(startTracingOnly).length) startTracingOnly = null;
     this.startTracingOnly = startTracingOnly;
-    if (!startTracingOnly) this.started = {atindent: -1};
+  }
+
+  chktrace(rule: string) {
+    if (!this.started) {
+      var traceall = !this.startTracingOnly ||
+        !Object.keys(this.startTracingOnly).length;
+
+      if (traceall || this.startTracingOnly[rule]) {
+        this.started = { atindent: this.indentLevel };
+      }
+    }
+  }
+
+  repeat(text: string, n: number): string {
+    let result = "", i;
+
+    for (i = 0; i < n; i++) {
+      result += text;
+    }
+
+    return result;
+  }
+
+  pad(text: string, length: number): string {
+    return text + this.repeat(" ", length - text.length);
+  }
+
+  log(evt: ITraceEvent, blocktxt: string) {
+
+    if (typeof console === "object") { // IE 8-10
+      var t1: string =
+        this.pad("" + evt.location.start.line + ":" + evt.location.start.column + "-"
+          + evt.location.end.line + ":" + evt.location.end.column, 24);
+
+      var t2: string =
+        this.pad(evt.type + "  " + (evt.cached ? "C" : ""), 17);
+
+      console.log(
+        "/* " + t1 + t2 + this.repeat("  ", this.indentLevel) + evt.rule + blocktxt
+      );
+    }
   }
 
   public trace(event: ITraceEvent) {
     const that = this;
 
-    function log(evt: ITraceEvent, blocktxt: string) {
-      function repeat(text: string, n: number) {
-        let result = "", i;
-
-        for (i = 0; i < n; i++) {
-          result += text;
-        }
-
-        return result;
-      }
-
-      function pad(text: string, length: number) {
-        return text + repeat(" ", length - text.length);
-      }
-
-      if (typeof console === "object") { // IE 8-10
-        console.log(
-          "/* "+ pad(evt.location.start.line + ":" + evt.location.start.column + "-"
-          + evt.location.end.line + ":" + evt.location.end.column + " "
-          + evt.type + "  " + (evt.cached?"C":"")
-          , 23) + " "
-          + repeat("  ", that.indentLevel) + evt.rule + blocktxt
-        );
-      }
-    }
-
     switch (event.type) {
       case "rule.enter":
-        if (this.startTracingOnly && this.startTracingOnly[event.rule]) {
-          this.started = {atindent: this.indentLevel};
+        this.chktrace(event.rule);
+        if (this.started) {
+          this.log(event, "*/   {");
         }
-        if (this.started) log(event, "*/   {");
         this.indentLevel++;
         break;
 
       case "rule.match":
         this.indentLevel--;
         if (this.started) {
-          log(event, "*/   } //    +");
+          this.log(event, "*/   } //    +");
           if (this.started.atindent === this.indentLevel) {
             this.started = null;
           }
@@ -244,7 +257,7 @@ export class DefaultTracer {
       case "rule.fail":
         this.indentLevel--;
         if (this.started) {
-          log(event, "*/   } //    -");
+          this.log(event, "*/   } //    -");
           if (this.started.atindent === this.indentLevel) {
             this.started = null;
           }
@@ -260,6 +273,7 @@ export class DefaultTracer {
 export interface ICached {
   nextPos: number;
   result: any;
+  maxFailPos: number;
 }
 
 // !!!! string is ok !!!!
@@ -442,7 +456,7 @@ export class PegjsParseStreamBuffer implements IPegjsParseStreamBuffer2 {
     return this.buffer.substring(from, to);
   }
   substr(from: number, len?: number): string {
-    this.seek(len<0?this.buffer.length-1:from+len);
+    this.seek(len < 0 ? this.buffer.length - 1 : from + len);
     return this.buffer.substr(from, len);
   }
   // should return this.substr(input.currPos, len)
@@ -456,7 +470,7 @@ export class PegjsParseStreamBuffer implements IPegjsParseStreamBuffer2 {
 
     if (details) {
       return details;
-    } else {
+    } else if (pos >= 0) {
       let p = 0;
       if (this.posDetailsCache.length) {
         if (pos >= this.posDetailsCache.length) {
@@ -478,7 +492,6 @@ export class PegjsParseStreamBuffer implements IPegjsParseStreamBuffer2 {
       } else {
         details = { line: 1, column: 1 };
       }
-
       while (p < pos) {
         if (this.charCodeAt(p) === 10) {
           details.line++;
@@ -496,6 +509,8 @@ export class PegjsParseStreamBuffer implements IPegjsParseStreamBuffer2 {
       this.posDetailsCache[pos] = details;
 
       return details;
+    } else {
+      return { line: 0, column: pos + 1 };
     }
   }
 
@@ -518,25 +533,25 @@ export abstract class PegjsTknParseStreamBuffer<T> extends PegjsParseStreamBuffe
   readonly tokens: T[];
 
   constructor(src: IPegjsParseStreamBuffer, initialPos = 0, initialTokens?: T[]) {
-      super(src, initialPos)
-      this.tokens = src && src["tokens"] ? src["tokens"] : initialTokens;
-    }
+    super(src, initialPos)
+    this.tokens = src && src["tokens"] ? src["tokens"] : initialTokens;
+  }
 
   replace(from: number, to: number, newConvertedTokens: T[]) {
-      var rem = this.tokens.slice(to);
-      this.tokens.length = from;
-      this.tokens.push.apply(newConvertedTokens);
-      this.tokens.push.apply(rem);
-      (this as any).buffer = this.buffer.substring(0, from) + this.generateTokenCodes(newConvertedTokens) + this.buffer.substring(to);
+    var rem = this.tokens.slice(to);
+    this.tokens.length = from;
+    this.tokens.push.apply(newConvertedTokens);
+    this.tokens.push.apply(rem);
+    (this as any).buffer = this.buffer.substring(0, from) + this.generateTokenCodes(newConvertedTokens) + this.buffer.substring(to);
   }
 
   token(pos = -1) {
-      if (pos < 0) pos += this.currPos;
-      return this.tokens[pos];
+    if (pos < 0) pos += this.currPos;
+    return this.tokens[pos];
   }
 
   abstract generateTokenCodes(tokens: T[]): string;
 
-  
+
 }
 
