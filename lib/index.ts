@@ -163,23 +163,32 @@ export class PegjsParseErrorInfo {
 
   public input: IPegjsParseStream;
   public message: string;
+  public message0: string;
   public expected: Expectation[];
-  public found: string | null;
-  public offset: number;
+  public eof: boolean;
+  public positionInParser: number;
+  public absolutePosition: number;
   public name: string;
 
-  constructor(input: IPegjsParseStream, message: string, expected: Expectation[], found: string | null, offset?: number) {
+  constructor(input: IPegjsParseStream, message: string, expected: Expectation[], eof: boolean, positionInParser?: number, absolutePosition?: number) {
     this.input = input;
-    this.message = message + PegjsParseErrorInfo.buildMessage(input, expected, found);
+    this.message = message;
+    this.message0 = message;
     this.expected = expected;
-    this.found = found;
-    this.offset = offset;
+    this.eof = eof;
+    this.positionInParser = positionInParser;
+    this.absolutePosition = absolutePosition;
     this.name = "SyntaxError";
 
     //if (typeof (Error as any).captureStackTrace === "function") {
     //  (Error as any).captureStackTrace(this, SyntaxError);
     //}
   }
+
+  generateMessage(found: string) {
+    this.message = this.message0 + PegjsParseErrorInfo.buildMessage(this.input, this.expected, found);
+  }
+
 }
 
 export class SyntaxError extends Error {
@@ -188,7 +197,10 @@ export class SyntaxError extends Error {
   constructor(info: PegjsParseErrorInfo) {
     super();
     this.info = info;
-    this.message = this.info.message;
+  }
+
+  get message() {
+    return this.info.message;
   }
 }
 
