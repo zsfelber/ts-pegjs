@@ -213,21 +213,43 @@ export interface ITraceEvent {
 export class DefaultTracer {
   private indentLevel: number;
 
-  startTracingOnly: {};
-  started: { atindent: number };
+  tracingOptions: {};
+  started: { atindent: number, running: boolean };
 
-  constructor(startTracingOnly: {}) {
+  constructor(tracingOptions: {}) {
     this.indentLevel = 0;
-    this.startTracingOnly = startTracingOnly;
+    this.tracingOptions = tracingOptions;
   }
 
   chktrace(rule: string) {
-    if (!this.started) {
-      var traceall = !this.startTracingOnly ||
-        !Object.keys(this.startTracingOnly).length;
+    var tr = !!this.started;
+    var traceall = !this.tracingOptions ||
+      !Object.keys(this.tracingOptions).length;
 
-      if (traceall || this.startTracingOnly[rule]) {
-        this.started = { atindent: this.indentLevel };
+    if (traceall || this.tracingOptions[rule]) {
+      tr = true;
+    }
+    if (!tr) {
+      var rgxincl = this.tracingOptions["$includes"];
+      if (rgxincl && rgxincl.exec(rule)) {
+        tr = true;
+      }
+    }
+    if (tr) {
+      var rgxexcl = this.tracingOptions["$excludes"];
+      if (rgxexcl && rgxexcl.exec(rule)) {
+        tr = false;
+      }
+    }
+    if (tr) {
+      if (!this.started) {
+        this.started = { atindent: this.indentLevel, running: true };
+      } else {
+        this.started.running = true;
+      }
+    } else {
+      if (this.started) {
+        this.started.running = false;
       }
     }
   }
@@ -265,10 +287,11 @@ export class DefaultTracer {
   public trace(event: ITraceEvent) {
     const that = this;
 
+    this.chktrace(event.rule);
+
     switch (event.type) {
       case "rule.enter":
-        this.chktrace(event.rule);
-        if (this.started) {
+        if (this.started && this.started.running) {
           this.log(event, "*/   {");
         }
         this.indentLevel++;
@@ -276,21 +299,21 @@ export class DefaultTracer {
 
       case "rule.match":
         this.indentLevel--;
-        if (this.started) {
+        if (this.started && this.started.running) {
           this.log(event, "*/   } //    +");
-          if (this.started.atindent === this.indentLevel) {
-            this.started = null;
-          }
+        }
+        if (this.started && this.started.atindent === this.indentLevel) {
+          this.started = null;
         }
         break;
 
       case "rule.fail":
         this.indentLevel--;
-        if (this.started) {
+        if (this.started && this.started.running) {
           this.log(event, "*/   } //    -");
-          if (this.started.atindent === this.indentLevel) {
-            this.started = null;
-          }
+        }
+        if (this.started && this.started.atindent === this.indentLevel) {
+          this.started = null;
         }
         break;
 
