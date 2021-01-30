@@ -2,6 +2,22 @@
 export interface IFailure {
   peg$maxFailPos: number;
   peg$maxFailExpected: Expectation[];
+  absoluteFailPos?: number;
+}
+
+export function mergeFailures(into: IFailure, other: IFailure) {
+  if (other.peg$maxFailPos < into.peg$maxFailPos) { return; }
+
+  if (other.peg$maxFailPos > into.peg$maxFailPos) {
+    into.peg$maxFailPos = other.peg$maxFailPos;
+    into.absoluteFailPos = other.absoluteFailPos;
+    into.peg$maxFailExpected = [];
+  } else if ((other.absoluteFailPos?other.absoluteFailPos:0) > (into.absoluteFailPos?into.absoluteFailPos:0)) {
+    into.absoluteFailPos = other.absoluteFailPos;
+    into.peg$maxFailExpected = [];
+  }
+
+  into.peg$maxFailExpected = into.peg$maxFailExpected.concat(other.peg$maxFailExpected);
 }
 
 export interface IFilePosition {
