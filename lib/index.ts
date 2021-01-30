@@ -12,9 +12,14 @@ export function mergeFailures(into: IFailure, other: IFailure) {
     into.peg$maxFailPos = other.peg$maxFailPos;
     into.absoluteFailPos = other.absoluteFailPos;
     into.peg$maxFailExpected = [];
-  } else if ((other.absoluteFailPos?other.absoluteFailPos:0) > (into.absoluteFailPos?into.absoluteFailPos:0)) {
-    into.absoluteFailPos = other.absoluteFailPos;
-    into.peg$maxFailExpected = [];
+  } else {
+    var po = other.absoluteFailPos?other.absoluteFailPos:0;
+    var pi = into.absoluteFailPos?into.absoluteFailPos:0;
+    if (po < pi) { return; }
+    if (po > pi) {
+      into.absoluteFailPos = other.absoluteFailPos;
+      into.peg$maxFailExpected = [];
+    }
   }
 
   into.peg$maxFailExpected = into.peg$maxFailExpected.concat(other.peg$maxFailExpected);
