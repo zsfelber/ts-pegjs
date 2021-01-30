@@ -253,10 +253,10 @@ function generate(ast, ...args) {
   genclss.push("import { IFilePosition, IFileRange, ILiteralExpectation, IClassParts, IClassExpectation, IAnyExpectation, IEndExpectation, IOtherExpectation, Expectation, SyntaxError, ITraceEvent, DefaultTracer, ICached, IPegjsParseStream, PegjsParseStream, IPegjsParseStreamBuffer, IPegjsParseStreamBuffer2 } from 'ts-pegjs/lib';");
 
   if (options.tspegjs.customHeader) {
-    genclss.push(options.tspegjs.customHeader + "");
+    genclss.push(options.tspegjs.customHeader.length? options.tspegjs.customHeader.join("\n"):options.tspegjs.customHeader + "");
   }
   if (options.tspegjs.inferCustomHeader) {
-    genclss.push(options.tspegjs.inferCustomHeader + '');
+    genclss.push(options.tspegjs.inferCustomHeader.length? options.tspegjs.inferCustomHeader.join("\n"):options.tspegjs.inferCustomHeader + '');
   }
 
   genclss.push("const theVeryNothing = new Object();");
