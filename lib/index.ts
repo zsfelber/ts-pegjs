@@ -1,31 +1,37 @@
 
 export interface IFailure {
-  peg$maxFailPos: number;
-  peg$maxFailExpected: Expectation[];
-  found?: string;
-  absoluteFailPos?: number;
+  absoluteFailPos: number;
+  maxFailExpected: Expectation[];
+  found: string;
 }
 
-export function mergeFailures(into: IFailure, other: IFailure) {
-  if (other.peg$maxFailPos < into.peg$maxFailPos) { return; }
+export interface ILocalFailure {
+  localFailPos: number;
+  maxFailExpected: Expectation[];
+}
 
-  if (other.peg$maxFailPos > into.peg$maxFailPos) {
-    into.peg$maxFailPos = other.peg$maxFailPos;
+
+export function mergeFailures(into: IFailure, other: IFailure) {
+  if (other.absoluteFailPos < into.absoluteFailPos) { return; }
+
+  if (other.absoluteFailPos > into.absoluteFailPos) {
     into.absoluteFailPos = other.absoluteFailPos;
-    into.peg$maxFailExpected = [];
+    into.maxFailExpected = [];
     into.found = other.found;
-  } else {
-    var po = other.absoluteFailPos?other.absoluteFailPos:0;
-    var pi = into.absoluteFailPos?into.absoluteFailPos:0;
-    if (po < pi) { return; }
-    if (po > pi) {
-      into.absoluteFailPos = other.absoluteFailPos;
-      into.peg$maxFailExpected = [];
-      into.found = other.found;
-    }
   }
 
-  into.peg$maxFailExpected = into.peg$maxFailExpected.concat(other.peg$maxFailExpected);
+  into.maxFailExpected = into.maxFailExpected.concat(other.maxFailExpected);
+}
+
+export function mergeLocalFailures(into: ILocalFailure, other: ILocalFailure) {
+  if (other.localFailPos < into.localFailPos) { return; }
+
+  if (other.localFailPos > into.localFailPos) {
+    into.localFailPos = other.localFailPos;
+    into.maxFailExpected = [];
+  }
+
+  into.maxFailExpected = into.maxFailExpected.concat(other.maxFailExpected);
 }
 
 export interface IFilePosition {
@@ -164,20 +170,19 @@ export class PegjsParseErrorInfo {
     return "Expected " + describeExpected(expected) + " but " + describeFound(found) + " found.";
   }
 
-  public message: string;
-  public message0: string;
-  public expected: Expectation[];
-  public found: string | null;
-  public positionInParser: number;
-  public absolutePosition: number;
-  public name: string;
+  readonly input: IPegjsParseStream;
+  readonly message0: string;
+  private message1: string;
+  readonly expected: Expectation[];
+  readonly found: string | null;
+  readonly absolutePosition: number;
+  readonly name: string;
 
-  constructor(input: IPegjsParseStream, message: string, expected: Expectation[], found: string | null, positionInParser?: number, absolutePosition?: number) {
+  constructor(input: IPegjsParseStream, message: string, expected: Expectation[], found: string | null, absolutePosition?: number) {
+    this.input = input;
     this.message0 = message;
-    this.message = message + PegjsParseErrorInfo.buildMessage(input, expected, found);
     this.expected = expected;
     this.found = found;
-    this.positionInParser = positionInParser;
     this.absolutePosition = absolutePosition;
     this.name = "SyntaxError";
 
@@ -185,6 +190,14 @@ export class PegjsParseErrorInfo {
     //  (Error as any).captureStackTrace(this, SyntaxError);
     //}
   }
+
+  get message() {
+    if (!this.message1) {
+      this.message1 = this.message0 + PegjsParseErrorInfo.buildMessage(this.input, this.expected, this.found);
+    }
+    return this.message1;
+  }
+
 
 }
 
@@ -355,6 +368,8 @@ export interface IPegjsParseStreamBuffer2 extends IPegjsParseStreamBuffer {
 
   printTokens(tokenCodes: string): string;
 
+  toAbsolutePosition(pos: number): number;
+
 }
 
 export interface IPegjsParseStream extends IPegjsParseStreamBuffer2 {
@@ -461,6 +476,9 @@ export class PegjsParseStream implements IPegjsParseStream {
     return this.buffer.printTokens(tokenCodes);
   }
 
+  toAbsolutePosition(pos: number): number {
+    return this.buffer.toAbsolutePosition(pos);
+  }
 
 }
 
@@ -574,6 +592,10 @@ export class PegjsParseStreamBuffer implements IPegjsParseStreamBuffer2 {
     return tokenCodes;
   }
 
+  toAbsolutePosition(pos: number): number {
+    return pos;
+  }
+
 }
 
 
@@ -604,7 +626,6 @@ export abstract class PegjsTknParseStreamBuffer<T> extends PegjsParseStreamBuffe
   }
 
   abstract generateTokenCodes(tokens: T[]): string;
-
 
 }
 
