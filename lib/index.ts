@@ -2,6 +2,7 @@
 export interface IFailure {
   peg$maxFailPos: number;
   peg$maxFailExpected: Expectation[];
+  found?: string;
   absoluteFailPos?: number;
 }
 
@@ -12,6 +13,7 @@ export function mergeFailures(into: IFailure, other: IFailure) {
     into.peg$maxFailPos = other.peg$maxFailPos;
     into.absoluteFailPos = other.absoluteFailPos;
     into.peg$maxFailExpected = [];
+    into.found = other.found;
   } else {
     var po = other.absoluteFailPos?other.absoluteFailPos:0;
     var pi = into.absoluteFailPos?into.absoluteFailPos:0;
@@ -19,6 +21,7 @@ export function mergeFailures(into: IFailure, other: IFailure) {
     if (po > pi) {
       into.absoluteFailPos = other.absoluteFailPos;
       into.peg$maxFailExpected = [];
+      into.found = other.found;
     }
   }
 
@@ -161,21 +164,19 @@ export class PegjsParseErrorInfo {
     return "Expected " + describeExpected(expected) + " but " + describeFound(found) + " found.";
   }
 
-  public input: IPegjsParseStream;
   public message: string;
   public message0: string;
   public expected: Expectation[];
-  public eof: boolean;
+  public found: string | null;
   public positionInParser: number;
   public absolutePosition: number;
   public name: string;
 
-  constructor(input: IPegjsParseStream, message: string, expected: Expectation[], eof: boolean, positionInParser?: number, absolutePosition?: number) {
-    this.input = input;
-    this.message = message;
+  constructor(input: IPegjsParseStream, message: string, expected: Expectation[], found: string | null, positionInParser?: number, absolutePosition?: number) {
     this.message0 = message;
+    this.message = message + PegjsParseErrorInfo.buildMessage(input, expected, found);
     this.expected = expected;
-    this.eof = eof;
+    this.found = found;
     this.positionInParser = positionInParser;
     this.absolutePosition = absolutePosition;
     this.name = "SyntaxError";
@@ -183,10 +184,6 @@ export class PegjsParseErrorInfo {
     //if (typeof (Error as any).captureStackTrace === "function") {
     //  (Error as any).captureStackTrace(this, SyntaxError);
     //}
-  }
-
-  generateMessage(found: string) {
-    this.message = this.message0 + PegjsParseErrorInfo.buildMessage(this.input, this.expected, found);
   }
 
 }

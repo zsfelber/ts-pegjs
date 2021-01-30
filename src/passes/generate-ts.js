@@ -934,9 +934,7 @@ function generateTS(ast, ...args) {
         }
 
         if (options.cache) {
-            parts.push(
-                ['  readonly peg$resultsCache: {[id: number]: ICached};', ''].join('\n')
-            );
+            parts.push(['  readonly peg$resultsCache: {[id: number]: ICached};', ''].join('\n'));
         }
 
         parts.push(
@@ -951,7 +949,7 @@ function generateTS(ast, ...args) {
                 '      this.peg$resultsCache = this.options.customCache;',
                 '    else',
                 '      this.peg$resultsCache = {};',
-                '',
+                ''
             ].join('\n')
         );
 
@@ -1035,7 +1033,9 @@ function generateTS(ast, ...args) {
                 '    }',
                 '',
                 '    if (silent) {',
-                '       return {peg$maxFailExpected:this.peg$maxFailExpected, peg$maxFailPos:this.peg$maxFailPos};',
+                '       return {  peg$maxFailExpected: this.peg$maxFailExpected,',
+                '                 peg$maxFailPos:      this.peg$maxFailPos,',
+                '                 get found()      {   return this.found;  }      };',
                 '    } else {',
                 '       throw new SyntaxError(this.peg$buildFailureReport(this));',
                 '    }',
@@ -1046,6 +1046,18 @@ function generateTS(ast, ...args) {
 
         parts.push(
             [
+                '',
+                '  _found: string;',
+                '  get found() {',
+                '    return    this._found',
+                '          ?   this._found',
+                '          : ( this.input.isAvailableAt(this.peg$maxFailPos)',
+                '          ?   this.input.charAt(this.peg$maxFailPos)',
+                '          :   null )     ;',
+                '  }',
+                '  set found(_found: string) {',
+                '    this._found = _found;',
+                '  }',
                 '',
                 '  peg$computeLocation(startPos: number, endPos: number): IFileRange {',
                 '    const startPosDetails = this.input.calculatePosition(startPos);',
@@ -1066,17 +1078,22 @@ function generateTS(ast, ...args) {
                 '  }',
                 '',
                 '  peg$fail(expected1: Expectation) {',
-                '    if (this.inputBuf.currPos < this.peg$maxFailPos) { return; }',
+                '    if (this.inputBuf.currPos < this.peg$maxFailPos) {',
+                '      return;',
+                '    }',
                 '',
                 '    if (this.inputBuf.currPos > this.peg$maxFailPos) {',
                 '      this.peg$maxFailPos = this.inputBuf.currPos;',
                 '      this.peg$maxFailExpected = [];',
+                '      this._found = null;',
+                '    } else if (this.absoluteFailPos) {',
+                '      return;',
                 '    }',
-                '',
+                '  ',
                 '    this.peg$maxFailExpected.push(expected1);',
                 '  }',
                 '',
-                '  peg$updateFailure(failure: IFailure) {',
+                '  peg$mergeFailure(failure: IFailure) {',
                 '    mergeFailures(this, failure);',
                 '  }',
                 '',
@@ -1086,12 +1103,11 @@ function generateTS(ast, ...args) {
                 '',
                 '  peg$buildFailureReport(failure: IFailure) {',
                 '    return new PegjsParseErrorInfo(',
-                '      this.input, "",',
-                '      failure.peg$maxFailExpected,',
-                '      ! this.input.isAvailableAt(failure.peg$maxFailPos),',
-                '      failure.peg$maxFailPos, failure.absoluteFailPos',
+                '      this.input, "", failure.peg$maxFailExpected,',
+                '      failure.found, failure.peg$maxFailPos, failure.absoluteFailPos',
                 '    );',
                 '  }',
+                '',
                 ''
             ].join('\n')
         );
@@ -1131,9 +1147,9 @@ function generateTS(ast, ...args) {
 
         var customHeader = '';
         if (options.tspegjs.customHeader) {
-            customHeader = options.tspegjs.customHeader.length ? 
-              options.tspegjs.customHeader.join("\n") : 
-              options.tspegjs.customHeader.toString() ;
+            customHeader = options.tspegjs.customHeader.length
+                ? options.tspegjs.customHeader.join('\n')
+                : options.tspegjs.customHeader.toString();
         }
 
         var startRules = ['export const StartRules = new Map<RuleId,string>();']
