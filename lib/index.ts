@@ -177,6 +177,7 @@ export interface ITraceEvent {
   rule: string;
   result?: any;
   location: IFileRange;
+  cached?: boolean;
 }
 
 export class DefaultTracer {
@@ -187,8 +188,9 @@ export class DefaultTracer {
 
   constructor(startTracingOnly: {}) {
     this.indentLevel = 0;
+    if (startTracingOnly && !Object.keys(startTracingOnly).length) startTracingOnly = null;
     this.startTracingOnly = startTracingOnly;
-    if (!this.startTracingOnly) this.started = {atindent: -1};
+    if (!startTracingOnly) this.started = {atindent: -1};
   }
 
   public trace(event: ITraceEvent) {
@@ -213,8 +215,8 @@ export class DefaultTracer {
         console.log(
           "/* "+ pad(evt.location.start.line + ":" + evt.location.start.column + "-"
           + evt.location.end.line + ":" + evt.location.end.column + " "
-          + evt.type
-          , 20) + " "
+          + evt.type + "  " + (evt.cached?"C":"")
+          , 23) + " "
           + repeat("  ", that.indentLevel) + evt.rule + blocktxt
         );
       }

@@ -41,7 +41,7 @@ function generateTS(ast, ...args) {
                     'peg$tracer.trace({',
                     '  type: "rule.enter",',
                     '  rule: ' + ruleNameCode + ',',
-                    '  location: this.peg$computeLocation(startPos, startPos)',
+                    '  location: this.peg$computeLocation(startPos, inputBuf.currPos)',
                     '});',
                     ''
                 ].join('\n')
@@ -73,13 +73,15 @@ function generateTS(ast, ...args) {
                         '    type: "rule.match",',
                         '    rule: ' + ruleNameCode + ',',
                         '    result: cached.result,',
+                        '    cached: true,',
                         '    location: this.peg$computeLocation(startPos, inputBuf.currPos)',
                         '  });',
                         '} else {',
                         '  peg$tracer.trace({',
                         '    type: "rule.fail",',
                         '    rule: ' + ruleNameCode + ',',
-                        '    location: this.peg$computeLocation(startPos, startPos)',
+                        '    cached: true,',
+                        '    location: this.peg$computeLocation(startPos, inputBuf.currPos)',
                         '  });',
                         '}',
                         ''
@@ -122,7 +124,7 @@ function generateTS(ast, ...args) {
                     '  peg$tracer.trace({',
                     '    type: "rule.fail",',
                     '    rule: ' + ruleNameCode + ',',
-                    '    location: this.peg$computeLocation(startPos, startPos)',
+                    '    location: this.peg$computeLocation(startPos, inputBuf.currPos)',
                     '  });',
                     '}'
                 ].join('\n')
@@ -1128,7 +1130,9 @@ function generateTS(ast, ...args) {
 
         var customHeader = '';
         if (options.tspegjs.customHeader) {
-            customHeader = options.tspegjs.customHeader;
+            customHeader = options.tspegjs.customHeader.length ? 
+              options.tspegjs.customHeader.join("\n") : 
+              options.tspegjs.customHeader.toString() ;
         }
 
         var startRules = ['export const StartRules = new Map<RuleId,string>();']
