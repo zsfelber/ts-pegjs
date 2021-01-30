@@ -1088,7 +1088,7 @@ function generateTS(ast, ...args) {
                 '    return new PegjsParseErrorInfo(',
                 '      this.input, "",',
                 '      failure.peg$maxFailExpected,',
-                '      ! input.isAvailableAt(failure.peg$maxFailPos),',
+                '      ! this.input.isAvailableAt(failure.peg$maxFailPos),',
                 '      failure.peg$maxFailPos, failure.absoluteFailPos',
                 '    );',
                 '  }',
