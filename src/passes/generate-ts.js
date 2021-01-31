@@ -5,13 +5,13 @@
 // Adapted for Typescript codegen (c) 2017, Pedro J. Molina
 
 var asts = require('pegjs/lib/compiler/asts');
-var js = require('pegjs/lib/compiler/js');
 var op = require('pegjs/lib/compiler/opcodes');
 var pluginVersion = require('../../package.json').version;
 var pegJsVersion = require('pegjs/package.json').version;
 var api = require("../../lib");
 const MATCH_TOKEN = api.MATCH_TOKEN;
 const ACCEPT_TOKEN = api.ACCEPT_TOKEN;
+const JSstringEscape = api.JSstringEscape;
 
 // Generates parser JavaScript code.
 function generateTS(ast, ...args) {
@@ -853,13 +853,13 @@ function generateTS(ast, ...args) {
     parts.push(
       indent4(
         generateRuleHeader(
-          '"' + js.stringEscape(rule.name) + '"',
+          '"' + JSstringEscape(rule.name) + '"',
           asts.indexOfRule(ast, rule.name)
         )
       )
     );
     parts.push(indent4(code));
-    parts.push(indent4(generateRuleFooter('"' + js.stringEscape(rule.name) + '"', s(0))));
+    parts.push(indent4(generateRuleFooter('"' + JSstringEscape(rule.name) + '"', s(0))));
 
     parts.push('}');
 
@@ -1209,7 +1209,7 @@ function pushc(cache: any, item: any): any {
     var ruleNamesEtc = '';
     let ruleIds = '{' + ast.rules.map((r) => r.name).join(', ') + '}';
     let ruleNames =
-      '[' + ast.rules.map((r) => '"' + js.stringEscape(r.name) + '"').join(', ') + ']';
+      '[' + ast.rules.map((r) => '"' + JSstringEscape(r.name) + '"').join(', ') + ']';
 
     ruleNamesEtc = [
       'export enum RuleId ' + ruleIds + ';',
@@ -1308,7 +1308,7 @@ function pushc(cache: any, item: any): any {
               (rule) =>
                 rule.bytecode ?
                   'peg$decode("' +
-                  js.stringEscape(
+                  JSstringEscape(
                     rule.bytecode.map((b) => String.fromCharCode(b + 32)).join('')
                   ) +
                   '")'
