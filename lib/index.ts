@@ -379,6 +379,9 @@ export interface IPegjsBuffer<T extends IToken> extends IBasicPegjsBuffer {
 
   tokenAt(pos?: number);
 
+  /* should read forward */
+  isAvailableAt(position: number): boolean;
+
   // should return this.substr(input.currPos, len)
   readForward(rule: number, len: number): string;
 
@@ -399,10 +402,6 @@ export interface IPegjsParseStream<T extends IToken> extends IPegjsBuffer<T> {
   readonly ruleNames: string[];
 
   readonly buffer: IPegjsBuffer<T>;
-
-  /* these should read forward if requested position is in the future
-  * meaning lookahead tokens */
-  isAvailableAt(position: number): boolean;
 
   //"input.readForward(rule, expectedText.length) === expectedText",
   //=
@@ -447,7 +446,7 @@ export class PegjsParseStream<T extends IToken> implements IPegjsParseStream<T> 
   }
 
   isAvailableAt(position: number): boolean {
-    return this.buffer.length > position;
+    return this.buffer.isAvailableAt(position);
   }
   charAt(position: number): string {
     return this.buffer.charAt(position);
@@ -524,31 +523,22 @@ export abstract class PegjsParseStreamBuffer<T extends IToken> implements IPegjs
     return this.buffer.length;
   }
 
-  seek(position: number) {
-    /*
-    if (position >= this.buffer.length) {
-        console.log("Attempt to overseek to " + position +
-            " of len:" + this.buffer.length +
-            (rule === undefined ? "" : "  in rule:" + this.ruleNames[rule]));
-    }*/
+  isAvailableAt(position: number): boolean {
+    return this.buffer.length > position;
   }
 
   /* these should read forward if requested position is in the future
   * meaning lookahead tokens */
   charAt(position: number): string {
-    this.seek(position);
     return this.buffer.charAt(position);
   }
   charCodeAt(position: number): number {
-    this.seek(position);
     return this.buffer.charCodeAt(position);
   }
   substring(from: number, to?: number): string {
-    this.seek(to);
     return this.buffer.substring(from, to);
   }
   substr(from: number, len?: number): string {
-    this.seek(len < 0 ? this.buffer.length - 1 : from + len);
     return this.buffer.substr(from, len);
   }
   // should return this.substr(input.currPos, len)
@@ -637,7 +627,41 @@ export abstract class PegjsParseStreamBuffer<T extends IToken> implements IPegjs
 
 }
 
+export abstract class PegjsSeekableParseBuffer<T extends IToken> extends PegjsParseStreamBuffer<T> {
 
+  seek(position: number) {
+    /*
+    if (position >= this.buffer.length) {
+        console.log("Attempt to overseek to " + position +
+            " of len:" + this.buffer.length +
+            (rule === undefined ? "" : "  in rule:" + this.ruleNames[rule]));
+    }*/
+  }
+
+  isAvailableAt(position: number): boolean {
+    this.seek(position);
+    return this.buffer.length > position;
+  }
+
+  /* these should read forward if requested position is in the future
+  * meaning lookahead tokens */
+  charAt(position: number): string {
+    this.seek(position);
+    return this.buffer.charAt(position);
+  }
+  charCodeAt(position: number): number {
+    this.seek(position);
+    return this.buffer.charCodeAt(position);
+  }
+  substring(from: number, to?: number): string {
+    this.seek(to);
+    return this.buffer.substring(from, to);
+  }
+  substr(from: number, len?: number): string {
+    this.seek(len < 0 ? this.buffer.length - 1 : from + len);
+    return this.buffer.substr(from, len);
+  }
+}
 
 
 // Fixed Octal Literal Before Number Char

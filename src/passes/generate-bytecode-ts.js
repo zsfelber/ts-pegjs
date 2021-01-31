@@ -490,7 +490,8 @@ function generateBytecode(ast, ...args) {
         var processedCount, functionIndex;
 
         if (elements.length > 0) {
-          processedCount = node.elements.length - elements.slice(1).length;
+          var etc = elements.slice(1);
+          processedCount = node.elements.length - etc.length;
 
           return buildSequence(
             generate(elements[0], {
@@ -502,7 +503,7 @@ function generateBytecode(ast, ...args) {
               }),
             buildCondition(
               [op.IF_NOT_ERROR],
-              buildElementsCode(elements.slice(1), {
+              buildElementsCode(etc, {
                 sp:     context.sp + 1,
                 env:    context.env,
                 action: context.action,
