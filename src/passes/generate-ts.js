@@ -53,9 +53,11 @@ function generateTS(ast, ...args) {
         [
           'var rnm = RuleNames[index];',
           'var ruleEntries = pushc(ProfilingInfo.ruleEntries, rnm);',
-          'var ruleOfMainEntries = pushc(mainEntries, rnm);',
-          'ruleEntries.totalcnt++;',
-          'ruleOfMainEntries.totalcnt++;',
+          'var ruleOfMainEntries = pushc(currentMain, rnm);',
+          'ProfilingInfo.mainEntries.entriescnt++;',
+          'currentMain.entriescnt++;',
+          'ruleEntries.entriescnt++;',
+          'ruleOfMainEntries.entriescnt++;',
           ''
         ].join('\n'));
     }
@@ -76,6 +78,17 @@ function generateTS(ast, ...args) {
           ''
         ].join('\n')
       );
+      if (options.profiling) {
+        parts.push(
+          [
+            '  ProfilingInfo.mainEntries.cachedcnt++;',
+            '  currentMain.cachedcnt++;',
+            '  ruleEntries.cachedcnt++;',
+            '  ruleOfMainEntries.cachedcnt++;',
+            '',
+          ].join('\n'));
+
+      }
 
       if (options.trace) {
         parts.push(
@@ -102,15 +115,6 @@ function generateTS(ast, ...args) {
       }
 
       parts.push(['  return cached.result;', '}', ''].join('\n'));
-    }
-
-    if (options.profiling) {
-      parts.push([
-        'ProfilingInfo.childcnt++;',
-        'ruleEntries.noncachedcnt=ruleEntries.noncachedcnt?ruleEntries.noncachedcnt+1:1;',
-        'ruleOfMainEntries.noncachedcnt=ruleOfMainEntries.noncachedcnt?ruleOfMainEntries.noncachedcnt+1:1;',
-        ''
-      ].join('\n'));
     }
 
     return parts.join('\n');
@@ -280,6 +284,15 @@ function generateTS(ast, ...args) {
     // bc[ip]    statement code
     // bc[ip+1]  statement parameter index (used in [peg$/ast.] consts and ast.rules)
 
+    var pro = "";
+    if (options.profiling) {
+      pro = `        ProfilingInfo.mainEntries.iterationscnt++;
+        currentMain.iterationscnt++;
+        ruleEntries.iterationscnt++;
+        ruleOfMainEntries.iterationscnt++;
+`;
+    }
+
     parts.push(
       [
         // The point of the outer loop and the |ips| & |ends| stacks is to avoid
@@ -289,6 +302,7 @@ function generateTS(ast, ...args) {
         // importantly cause stack overflows for complex grammars.
         '    while (true) {',
         '      while (ip < end) {',
+        pro,
         '        switch (bc[ip]) {',
         '          case ' + op.PUSH + ':', // PUSH c
         '            stack.push(peg$consts[bc[ip + 1]]);',
@@ -929,21 +943,15 @@ function generateTS(ast, ...args) {
 
     if (options.profiling) {
       const ProfilingInfo = `export var ProfilingInfo = {
-    mainEntries: {
-
-    },
-    ruleEntries: {
-
-    },
-    childcnt: 0
+  mainEntries: null,  ruleEntries: null
 };
 
-var mainEntries;
+var currentMain;
 
 function pushc(cache: any, item: any): any {
     var items = cache[item];
     if (!items) {
-        cache[item] = items = {totalcnt:0};
+        cache[item] = items = {entriescnt:0, cachedcnt:0, iterationscnt:0};
     }
     return items;
 }`;
@@ -1056,8 +1064,12 @@ function pushc(cache: any, item: any): any {
       parts.push(
         [
           '',
-          '    mainEntries = pushc(ProfilingInfo.mainEntries, RuleNames[peg$startRuleIndex]);',
-          '    mainEntries.totalcnt++;'
+          '    var M = ProfilingInfo.mainEntries = pushc(ProfilingInfo, "mainEntries");',
+          '    ProfilingInfo.ruleEntries = pushc(ProfilingInfo, "ruleEntries");',
+          '',
+          '    currentMain = pushc(M, RuleNames[peg$startRuleIndex]);',
+          '    M.mainentriescnt = M.mainentriescnt? M.mainentriescnt+1 : 1;',
+          '    currentMain.mainentriescnt = currentMain.mainentriescnt? currentMain.mainentriescnt+1 : 1;',
         ].join('\n'));
     }
 
