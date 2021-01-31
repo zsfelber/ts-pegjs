@@ -15,6 +15,8 @@ function generate(ast, ...args) {
   //console.log("infer : "+JSON.stringify(simplified, null, "  "));
   //console.log("inferred types:"+JSON.stringify(inferredTypes, null, "   "));
 
+  const baseTokenType = options.baseTokenType ? options.baseTokenType : "IToken";
+
   var simplifiedRules = {};
   var inferredTypes = {};
 
@@ -261,7 +263,7 @@ function generate(ast, ...args) {
 
   genclss.push("const theVeryNothing = new Object();");
   genclss.push("");
-  genclss.push("class UselessClassJustToResolveTypes<T extends IToken> {");
+  genclss.push("class UselessClassJustToResolveTypes<T extends "+baseTokenType+"> {");
   genclss.push(["",
   'input: IPegjsParseStream<T>;',
   'inputBuf: IPegjsBuffer<T>;',

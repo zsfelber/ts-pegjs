@@ -888,7 +888,9 @@ function generateTS(ast, ...args) {
       ].join('\n')
     );
 
-    const streamTypeI = `export interface IParseStream<T extends IToken> extends IPegjsParseStream<T> {
+    const baseTokenType = options.baseTokenType ? options.baseTokenType : "IToken";
+
+    const streamTypeI = `export interface IParseStream<T extends `+baseTokenType+`> extends IPegjsParseStream<T> {
 
   // should return this.substr(inputBuf.currPos, len)
   readForward(rule: RuleId, len: number): string;
@@ -904,7 +906,7 @@ function generateTS(ast, ...args) {
   expectLowerCase(rule: RuleId, expectedText: string): boolean;
     
 }`;
-    const streamType = `export class ParseStream<T extends IToken> extends PegjsParseStream<T> {
+    const streamType = `export class ParseStream<T extends `+baseTokenType+`> extends PegjsParseStream<T> {
     
   /** NOTE string also implements IBasicPegjsBuffer 
     * buffer initialized as "" if initialBuf is omitted
@@ -979,7 +981,7 @@ function pushc(cache: any, item: any): any {
       [
         '',
         '',
-        'export class PegjsParser<T extends IToken, I extends ParseStream<T>> {',
+        'export class PegjsParser<T extends '+baseTokenType+', I extends ParseStream<T>> {',
         '',
         '  options: IParseOptions;',
         '  input: I;',
