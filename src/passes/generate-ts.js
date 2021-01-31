@@ -395,7 +395,7 @@ function generateTS(ast, ...args) {
         '',
         '          case ' + MATCH_TOKEN + ':', // MATCH_TOKEN s, a, f, ...
         indent12(
-          generateCondition('this.token().tokenId === peg$consts[bc[ip + 1]]', 1)
+          generateCondition('this.token().tokenId === bc[ip + 1]', 1)
         ),
         '',
         '          case ' + op.MATCH_STRING_IC + ':', // MATCH_STRING_IC s, a, f, ...
@@ -909,7 +909,7 @@ function generateTS(ast, ...args) {
   /** NOTE string also implements IBasicPegjsBuffer 
     * buffer initialized as "" if initialBuf is omitted
     */
-  constructor(initialBuf?: IBasicPegjsBuffer) {
+  constructor(initialBuf?: IPegjsBuffer<T>) {
     super(initialBuf, RuleNames);
   }
   // should return this.substr(inputBuf.currPos, len)

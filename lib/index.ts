@@ -423,12 +423,8 @@ export class PegjsParseStream<T extends IToken> implements IPegjsParseStream<T> 
 
   readonly buffer: IPegjsBuffer<T>;
 
-  constructor(buffer: IBasicPegjsBuffer, ruleNames?: string[]) {
-    if (buffer.hasOwnProperty("currPos")) {
-      this.buffer = buffer as IPegjsBuffer<T>;
-    } else {
-      this.buffer = new PegjsParseStreamBuffer(buffer);
-    }
+  constructor(buffer: IPegjsBuffer<T>, ruleNames?: string[]) {
+    this.buffer = buffer;
     this.ruleNames = ruleNames ? ruleNames : [];
   }
   get tokens() {
@@ -506,7 +502,7 @@ export class PegjsParseStream<T extends IToken> implements IPegjsParseStream<T> 
 
 
 
-export class PegjsParseStreamBuffer<T extends IToken> implements IPegjsBuffer<T> {
+export abstract class PegjsParseStreamBuffer<T extends IToken> implements IPegjsBuffer<T> {
 
   readonly buffer: string;
   /* give read-write access to pegjs, do not manipulate them */
@@ -515,9 +511,9 @@ export class PegjsParseStreamBuffer<T extends IToken> implements IPegjsBuffer<T>
   readonly posDetailsCache: IFilePosition[];
   readonly tokens: T[];
 
-  constructor(src: IBasicPegjsBuffer, initialPos = 0) {
-    this.buffer = src ? src.toString() : "";
-    this.tokens = src && src["tokens"] ? src["tokens"] : [];
+  constructor(src: string, tokens: T[], initialPos = 0) {
+    this.buffer = src;
+    this.tokens = tokens;
 
     this.savedPos = initialPos;
     this.currPos = initialPos;
@@ -619,15 +615,20 @@ export class PegjsParseStreamBuffer<T extends IToken> implements IPegjsBuffer<T>
     return this.buffer;
   }
 
-  /* convert literal to human readable form */
-  printLiteral(literal: string): string {
-    return literal;
-  }
 
-  /* convert token to human readable form */
-  printToken(tokenId: number): string {
-    return ""+tokenId;
-  }
+  /* convert literal to human readable form  trivial impl: 
+   * printLiteral(literal: string): string {
+   *   return literal;
+   * }
+   **/
+  abstract printLiteral(literal: string): string;
+
+  /* convert token to human readable form  trivial impl:
+   * printToken(tokenId: number): string {
+   *   return ""+tokenId;
+   * }
+   **/
+  abstract printToken(tokenId: number): string;
 
   toAbsolutePosition(pos: number): number {
     return pos;

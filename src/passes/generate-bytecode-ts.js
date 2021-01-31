@@ -211,7 +211,7 @@ const ACCEPT_TOKEN = api.ACCEPT_TOKEN;
  *
  * [40] MATCH_TOKEN s, a, f, ...
  *
- *        if (token().tokenId === consts[s]) {
+ *        if (token().tokenId === s) {
  *          interpret(ip + 4, ip + 4 + a);
  *        } else {
  *          interpret(ip + 4 + a, ip + 4 + a + f);
@@ -226,8 +226,9 @@ const ACCEPT_TOKEN = api.ACCEPT_TOKEN;
 
 
 function generateBytecode(ast, ...args) {
-  var consts = [];
-  var terminals = [];
+  const consts = [];
+  const terminals = [];
+  const terminalConsts = {};
 
   const options = args[args.length - 1];
   /*const tokenType = options.tokenType ? eval(options.tokenType) : null;
@@ -357,6 +358,25 @@ function generateBytecode(ast, ...args) {
       buildSequence([op.APPEND], expressionCode)
     );
   }
+
+  var findTerminals = visitor.build({
+    rule: function(node, context) {
+      // terminal rule
+      if (/^Ł/.exec(node.name)) {
+        findTerminals(node.expression, {
+          terminal: node.name
+        });
+      }
+    },
+
+    literal: function(node, context) {
+      if (context.terminal) {
+        terminalConsts[context.terminal] = node.value.charCodeAt(0);
+      }
+    }
+  });
+  findTerminals(ast);
+
 
   var generate = visitor.build({
     grammar: function(node, context) {
@@ -647,16 +667,14 @@ function generateBytecode(ast, ...args) {
     rule_ref: function(node, context) {
       // terminal rule
       if (/^Ł/.exec(node.name)) {
-        var terminalIndex = addConst(
-          "Terminal."+node.name
-        );
+        var tc = terminalConsts[node.name];
         var expectedIndex = addConst(
           'peg$tokenExpectation('
-            + "Terminal."+node.name
+            + "Terminal."+node.name+" /*"+tc+"*/"
             + ')'
         );
         return buildCondition(
-          [MATCH_TOKEN, terminalIndex],
+          [MATCH_TOKEN, tc],
           [op.ACCEPT_TOKEN],
           [op.FAIL, expectedIndex]
         );
