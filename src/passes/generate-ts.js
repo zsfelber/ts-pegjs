@@ -1312,7 +1312,7 @@ function pushc(cache: any, item: any): any {
                     rule.bytecode.map((b) => String.fromCharCode(b + 32)).join('')
                   ) +
                   '")'
-                : '0'
+                : '[0]'
             )
             .join(',\n')
         ),

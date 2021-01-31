@@ -364,7 +364,7 @@ function generateBytecode(ast, ...args) {
       // terminal rule
       if (/^Ł/.exec(node.name)) {
         findTerminals(node.expression, {
-          terminal: node.name
+          terminal: node.name.substring(1)
         });
       }
     },
@@ -398,7 +398,7 @@ function generateBytecode(ast, ...args) {
           sp:     -1,    // stack pointer
           env:    { },   // mapping of label names to stack positions
           action: null,  // action nodes pass themselves to children here
-          terminal: node.name
+          terminal: node.name.substring(1)
         });
       } else {
         node.bytecode = generate(node.expression, {
@@ -667,10 +667,10 @@ function generateBytecode(ast, ...args) {
     rule_ref: function(node, context) {
       // terminal rule
       if (/^Ł/.exec(node.name)) {
-        var tc = terminalConsts[node.name];
+        var tc = terminalConsts[node.name.substring(1)];
         var expectedIndex = addConst(
           'peg$tokenExpectation('
-            + "Terminal."+node.name+" /*"+tc+"*/"
+            + "Terminal."+node.name.substring(1)+" /*"+tc+"*/"
             + ')'
         );
         return buildCondition(
