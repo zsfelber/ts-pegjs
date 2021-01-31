@@ -15,6 +15,11 @@ var js = require("pegjs/lib/compiler/js");
 var op = require("pegjs/lib/compiler/opcodes");
 var visitor = require("pegjs/lib/compiler/visitor");
 
+var api = require("../../lib");
+const MATCH_TOKEN = api.MATCH_TOKEN;
+const ACCEPT_TOKEN = api.ACCEPT_TOKEN;
+
+
 /* Generates bytecode.
  *
  * Instructions
@@ -197,9 +202,41 @@ var visitor = require("pegjs/lib/compiler/visitor");
  * [29] SILENT_FAILS_OFF
  *
  *        silentFails--;
+ * 
+ * 
+ * 
+ * +++++++++++++++++++++++++++++
+ * 
+ * 
+ *
+ * [40] MATCH_TOKEN s, a, f, ...
+ *
+ *        if (token().tokenId === consts[s]) {
+ *          interpret(ip + 4, ip + 4 + a);
+ *        } else {
+ *          interpret(ip + 4 + a, ip + 4 + a + f);
+ *        }
+ *
+ * [41] ACCEPT_TOKEN
+ *
+ *        stack.push(token());
+ *        currPos++;
+ *
  */
-function generateBytecode(ast) {
+
+
+function generateBytecode(ast, ...args) {
   var consts = [];
+  var terminals = [];
+
+  const options = args[args.length - 1];
+  /*const tokenType = options.tokenType ? eval(options.tokenType) : null;
+
+  if (tokenType) {
+    for (let nonterminal in tokenType) {
+      console.log("Nonterminal: "+nonterminal);
+    }
+  }*/
 
   function addConst(value) {
     var index = arrays.indexOf(consts, value);
@@ -273,7 +310,9 @@ function generateBytecode(ast) {
       generate(expression, {
         sp:     context.sp + 1,
         env:    objects.clone(context.env),
-        action: null
+        action: null,
+        rule:     context.rule,
+        terminal: context.terminal,
       }),
       [op.SILENT_FAILS_OFF],
       buildCondition(
@@ -320,19 +359,35 @@ function generateBytecode(ast) {
   }
 
   var generate = visitor.build({
-    grammar: function(node) {
+    grammar: function(node, context) {
       arrays.each(node.rules, generate);
 
+      // type checking may fail if no string in there:
+      addConst(
+        '""'
+      );
+
       node.consts = consts;
+      node.terminals = terminals;
     },
 
-    rule: function(node) {
-      node.bytecode = generate(node.expression, {
-        sp:     -1,    // stack pointer
-        env:    { },   // mapping of label names to stack positions
-        action: null,  // action nodes pass themselves to children here
-        rule:   node.name
-      });
+    rule: function(node, context) {
+      // terminal rule
+      if (/^Ł/.exec(node.name)) {
+        generate(node.expression, {
+          sp:     -1,    // stack pointer
+          env:    { },   // mapping of label names to stack positions
+          action: null,  // action nodes pass themselves to children here
+          terminal: node.name
+        });
+      } else {
+        node.bytecode = generate(node.expression, {
+          sp:     -1,    // stack pointer
+          env:    { },   // mapping of label names to stack positions
+          action: null,  // action nodes pass themselves to children here
+          rule:   node.name
+        });
+      }
     },
 
     named: function(node, context) {
@@ -360,7 +415,9 @@ function generateBytecode(ast) {
           generate(alternatives[0], {
             sp:     context.sp,
             env:    objects.clone(context.env),
-            action: null
+            action: null,
+            rule:     context.rule,
+            terminal: context.terminal,
           }),
           alternatives.length > 1
             ? buildCondition(
@@ -385,7 +442,9 @@ function generateBytecode(ast) {
           expressionCode = generate(node.expression, {
             sp:     context.sp + (emitCall ? 1 : 0),
             env:    env,
-            action: node
+            action: node,
+            rule:     context.rule,
+            terminal: context.terminal,
           }),
           functionIndex  = addFunctionConst(objects.keys(env), node, context);
 
@@ -417,14 +476,18 @@ function generateBytecode(ast) {
             generate(elements[0], {
               sp:     context.sp,
               env:    context.env,
-              action: null
-            }),
+              action: null,
+              rule:     context.rule,
+              terminal: context.terminal,
+              }),
             buildCondition(
               [op.IF_NOT_ERROR],
               buildElementsCode(elements.slice(1), {
                 sp:     context.sp + 1,
                 env:    context.env,
-                action: context.action
+                action: context.action,
+                rule:     context.rule,
+                terminal: context.terminal,
               }),
               buildSequence(
                 processedCount > 1 ? [op.POP_N, processedCount] : [op.POP],
@@ -462,7 +525,9 @@ function generateBytecode(ast) {
         buildElementsCode(node.elements, {
           sp:     context.sp + 1,
           env:    context.env,
-          action: context.action
+          action: context.action,
+          rule:     context.rule,
+          terminal: context.terminal,
         })
       );
     },
@@ -475,7 +540,9 @@ function generateBytecode(ast) {
       return generate(node.expression, {
         sp:     context.sp,
         env:    env,
-        action: null
+        action: null,
+        rule:     context.rule,
+        terminal: context.terminal,
       });
     },
 
@@ -485,7 +552,9 @@ function generateBytecode(ast) {
         generate(node.expression, {
           sp:     context.sp + 1,
           env:    objects.clone(context.env),
-          action: null
+          action: null,
+          rule:     context.rule,
+          terminal: context.terminal,
         }),
         buildCondition(
           [op.IF_NOT_ERROR],
@@ -508,7 +577,9 @@ function generateBytecode(ast) {
         generate(node.expression, {
           sp:     context.sp,
           env:    objects.clone(context.env),
-          action: null
+          action: null,
+          rule:     context.rule,
+          terminal: context.terminal,
         }),
         buildCondition(
           [op.IF_ERROR],
@@ -522,7 +593,9 @@ function generateBytecode(ast) {
       var expressionCode = generate(node.expression, {
             sp:     context.sp + 1,
             env:    objects.clone(context.env),
-            action: null
+            action: null,
+            rule:     context.rule,
+            terminal: context.terminal,
           });
 
       return buildSequence(
@@ -537,7 +610,9 @@ function generateBytecode(ast) {
       var expressionCode = generate(node.expression, {
             sp:     context.sp + 1,
             env:    objects.clone(context.env),
-            action: null
+            action: null,
+            rule:     context.rule,
+            terminal: context.terminal,
           });
 
       return buildSequence(
@@ -555,7 +630,9 @@ function generateBytecode(ast) {
       return generate(node.expression, {
         sp:     context.sp,
         env:    objects.clone(context.env),
-        action: null
+        action: null,
+        rule:     context.rule,
+        terminal: context.terminal,
       });
     },
 
@@ -567,14 +644,34 @@ function generateBytecode(ast) {
       return buildSemanticPredicate(node, true, context);
     },
 
-    rule_ref: function(node) {
-      return [op.RULE, asts.indexOfRule(ast, node.name)];
+    rule_ref: function(node, context) {
+      // terminal rule
+      if (/^Ł/.exec(node.name)) {
+        var terminalIndex = addConst(
+          "Terminal."+node.name
+        );
+        var expectedIndex = addConst(
+          'peg$tokenExpectation('
+            + "Terminal."+node.name
+            + ')'
+        );
+        return buildCondition(
+          [MATCH_TOKEN, terminalIndex],
+          [op.ACCEPT_TOKEN],
+          [op.FAIL, expectedIndex]
+        );
+
+      } else {
+        return [op.RULE, asts.indexOfRule(ast, node.name)];
+      }
     },
 
-    literal: function(node) {
+    literal: function(node, context) {
       var stringIndex, expectedIndex;
 
-      if (node.value.length > 0) {
+      if (context.terminal) {
+        terminals.push("    "+context.terminal+" = "+node.value.charCodeAt(0));
+      } else if (node.value.length > 0) {
         stringIndex = addConst('"'
           + js.stringEscape(
               node.ignoreCase ? node.value.toLowerCase() : node.value
@@ -609,7 +706,7 @@ function generateBytecode(ast) {
       }
     },
 
-    "class": function(node) {
+    "class": function(node, context) {
       var regexp, parts, regexpIndex, expectedIndex;
 
       if (node.parts.length > 0) {

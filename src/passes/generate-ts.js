@@ -9,6 +9,9 @@ var js = require('pegjs/lib/compiler/js');
 var op = require('pegjs/lib/compiler/opcodes');
 var pluginVersion = require('../../package.json').version;
 var pegJsVersion = require('pegjs/package.json').version;
+var api = require("../../lib");
+const MATCH_TOKEN = api.MATCH_TOKEN;
+const ACCEPT_TOKEN = api.ACCEPT_TOKEN;
 
 // Generates parser JavaScript code.
 function generateTS(ast, ...args) {
@@ -390,6 +393,11 @@ function generateTS(ast, ...args) {
           generateCondition('input.expect(index, peg$consts[bc[ip + 1]] as string)', 1)
         ),
         '',
+        '          case ' + MATCH_TOKEN + ':', // MATCH_TOKEN s, a, f, ...
+        indent12(
+          generateCondition('this.token().tokenId === peg$consts[bc[ip + 1]]', 1)
+        ),
+        '',
         '          case ' + op.MATCH_STRING_IC + ':', // MATCH_STRING_IC s, a, f, ...
         indent12(
           generateCondition(
@@ -418,12 +426,18 @@ function generateTS(ast, ...args) {
         '            ip += 2;',
         '            break;',
         '',
+        '          case ' + ACCEPT_TOKEN + ':', // ACCEPT_TOKEN
+        '            stack.push(this.token());',
+        '            inputBuf.currPos++;',
+        '            ip++;',
+        '            break;',
+        '',
         '          case ' + op.FAIL + ':', // FAIL e
         '            stack.push(peg$FAILED);',
         '            if (this.peg$silentFails === 0) {',
         '              if (input.currPos >= ruleMaxFailPos) {',
         '                ruleMaxFailPos = input.currPos;',
-        '                this.peg$fail(peg$consts[bc[ip + 1]] as ILiteralExpectation);',
+        '                this.peg$fail(peg$consts[bc[ip + 1]] as Expectation);',
         '              }',
         '            }',
         '            ip += 2;',
@@ -874,7 +888,7 @@ function generateTS(ast, ...args) {
       ].join('\n')
     );
 
-    const streamTypeI = `export interface IParseStream extends IPegjsParseStream {
+    const streamTypeI = `export interface IParseStream<T extends IToken> extends IPegjsParseStream<T> {
 
   // should return this.substr(inputBuf.currPos, len)
   readForward(rule: RuleId, len: number): string;
@@ -890,12 +904,12 @@ function generateTS(ast, ...args) {
   expectLowerCase(rule: RuleId, expectedText: string): boolean;
     
 }`;
-    const streamType = `export class ParseStream extends PegjsParseStream {
+    const streamType = `export class ParseStream<T extends IToken> extends PegjsParseStream<T> {
     
-  /** NOTE string also implements IPegjsParseStreamBuffer 
+  /** NOTE string also implements IBasicPegjsBuffer 
     * buffer initialized as "" if initialBuf is omitted
     */
-  constructor(initialBuf?: IPegjsParseStreamBuffer) {
+  constructor(initialBuf?: IBasicPegjsBuffer) {
     super(initialBuf, RuleNames);
   }
   // should return this.substr(inputBuf.currPos, len)
@@ -965,11 +979,11 @@ function pushc(cache: any, item: any): any {
       [
         '',
         '',
-        'export class PegjsParser<I extends ParseStream> {',
+        'export class PegjsParser<T extends IToken, I extends ParseStream<T>> {',
         '',
         '  options: IParseOptions;',
         '  input: I;',
-        '  inputBuf: IPegjsParseStreamBuffer2;',
+        '  inputBuf: IPegjsBuffer<T>;',
         '',
         '  localFailPos = 0;',
         '  maxFailExpected: Expectation[] = [];',
@@ -1005,6 +1019,7 @@ function pushc(cache: any, item: any): any {
         ''
       ].join('\n')
     );
+
 
     if (options.tspegjs.customInit) {
       parts.push(indent4(options.tspegjs.customInit.join('\n')));
@@ -1111,6 +1126,10 @@ function pushc(cache: any, item: any): any {
     parts.push(
       [
         '',
+        '  token() {',
+        '    return this.inputBuf.tokenAt(-1);',
+        '  }',
+        '',
         '  peg$failure() {',
         '    return {  maxFailExpected:     this.maxFailExpected,',
         '              absoluteFailPos:     this.peg$absoluteFailPos(),',
@@ -1121,9 +1140,9 @@ function pushc(cache: any, item: any): any {
         '    return this.inputBuf.toAbsolutePosition(this.localFailPos);',
         '  }',
         '',
-        '  peg$foundErrorLiteral() {',
+        '  peg$foundErrorLiteral(): ITokenExpectation {',
         '    return    this.input.isAvailableAt(this.localFailPos)',
-        '          ?   this.input.charAt(this.localFailPos)',
+        '          ?   { type: "token", tokenId: this.input.tokenAt(this.localFailPos).tokenId }',
         '          :   null     ;',
         '  }',
         '',
@@ -1186,17 +1205,19 @@ function pushc(cache: any, item: any): any {
     let res = [];
 
     var ruleNamesEtc = '';
-    if (options.optimize === 'size') {
-      let ruleIds = '{' + ast.rules.map((r) => r.name).join(', ') + '}';
-      let ruleNames =
-        '[' + ast.rules.map((r) => '"' + js.stringEscape(r.name) + '"').join(', ') + ']';
+    let ruleIds = '{' + ast.rules.map((r) => r.name).join(', ') + '}';
+    let ruleNames =
+      '[' + ast.rules.map((r) => '"' + js.stringEscape(r.name) + '"').join(', ') + ']';
 
-      ruleNamesEtc = [
-        'export enum RuleId ' + ruleIds + ';',
-        'export var RuleNames = ' + ruleNames + ';',
-        ''
-      ].join('\n');
-    }
+    ruleNamesEtc = [
+      'export enum RuleId ' + ruleIds + ';',
+      'export var RuleNames = ' + ruleNames + ';',
+      '',
+      'export enum Terminal {',
+      indent2(ast.terminals.join(',\n')),
+      '}',
+      ''
+    ].join('\n');
 
     var customHeader = '';
     if (options.tspegjs.customHeader) {
@@ -1214,7 +1235,7 @@ function pushc(cache: any, item: any): any {
       .join('\n');
 
     res = res.concat([
-      "import { IFilePosition, IFileRange, ILiteralExpectation, IClassParts, IClassExpectation, IAnyExpectation, IEndExpectation, IOtherExpectation, Expectation, SyntaxError, ITraceEvent, DefaultTracer, ICached, IPegjsParseStream, PegjsParseStream, IPegjsParseStreamBuffer, IPegjsParseStreamBuffer2, IFailure, PegjsParseErrorInfo, mergeFailures, mergeLocalFailures } from 'ts-pegjs/lib';",
+      "import { IFilePosition, IFileRange, ILiteralExpectation, IClassParts, IClassExpectation, IAnyExpectation, IEndExpectation, IOtherExpectation, Expectation, SyntaxError, ITraceEvent, DefaultTracer, ICached, IPegjsParseStream, PegjsParseStream, IBasicPegjsBuffer, IPegjsBuffer, IFailure, PegjsParseErrorInfo, mergeFailures, mergeLocalFailures, IToken, ITokenExpectation } from 'ts-pegjs/lib';",
       '',
       '// Generated by PEG.js v. ' +
       pegJsVersion +
@@ -1240,6 +1261,10 @@ function pushc(cache: any, item: any): any {
       '',
       'function peg$literalExpectation(text1: string, ignoreCase: boolean): ILiteralExpectation {',
       '  return { type: "literal", text: text1, ignoreCase: ignoreCase };',
+      '}',
+      '',
+      'function peg$tokenExpectation(tokenId: number): ITokenExpectation {',
+      '  return { type: "token", tokenId: tokenId };',
       '}',
       '',
       'function peg$classExpectation(parts: IClassParts, inverted: boolean, ignoreCase: boolean): IClassExpectation {',
@@ -1279,11 +1304,13 @@ function pushc(cache: any, item: any): any {
           ast.rules
             .map(
               (rule) =>
-                'peg$decode("' +
-                js.stringEscape(
-                  rule.bytecode.map((b) => String.fromCharCode(b + 32)).join('')
-                ) +
-                '")'
+                rule.bytecode ?
+                  'peg$decode("' +
+                  js.stringEscape(
+                    rule.bytecode.map((b) => String.fromCharCode(b + 32)).join('')
+                  ) +
+                  '")'
+                : ''
             )
             .join(',\n')
         ),

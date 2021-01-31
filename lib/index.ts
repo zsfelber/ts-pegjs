@@ -1,8 +1,12 @@
 
+export const MATCH_TOKEN = 40;
+export const ACCEPT_TOKEN = 41;
+
+
 export interface IFailure {
   absoluteFailPos: number;
   maxFailExpected: Expectation[];
-  found: string;
+  found: Expectation;
 }
 
 export interface ILocalFailure {
@@ -53,6 +57,11 @@ export interface ILiteralExpectation {
   ignoreCase: boolean;
 }
 
+export interface ITokenExpectation {
+  type: "token";
+  tokenId: number;
+}
+
 export interface IClassParts extends Array<string | IClassParts> { }
 
 export interface IClassExpectation {
@@ -75,11 +84,11 @@ export interface IOtherExpectation {
   description: string;
 }
 
-export type Expectation = ILiteralExpectation | IClassExpectation | IAnyExpectation | IEndExpectation | IOtherExpectation;
+export type Expectation = ILiteralExpectation | ITokenExpectation | IClassExpectation | IAnyExpectation | IEndExpectation | IOtherExpectation;
 
-export class PegjsParseErrorInfo {
+export class PegjsParseErrorInfo<T extends IToken> {
 
-  private static buildMessage(input: IPegjsParseStream, expected: Expectation[], found: string | null) {
+  private static buildMessage<T extends IToken>(input: IPegjsParseStream<T>, expected: Expectation[], found: Expectation) {
 
     function hex(ch: string): string {
       return ch.charCodeAt(0).toString(16).toUpperCase();
@@ -112,9 +121,14 @@ export class PegjsParseErrorInfo {
     }
 
     function describeExpectation(expectation: Expectation) {
+      if (!expectation) {
+        return "end of input";
+      }
       switch (expectation.type) {
         case "literal":
-          return "\"" + input.printTokens(expectation.text) + "\"";
+          return "\"" + input.printLiteral(expectation.text) + "\"";
+        case "token":
+          return input.printToken(expectation.tokenId);
         case "class":
           const escapedParts = expectation.parts.map((part) => {
             return Array.isArray(part)
@@ -163,22 +177,18 @@ export class PegjsParseErrorInfo {
       }
     }
 
-    function describeFound(found1: string | null) {
-      return found1 ? "\"" + input.printTokens(found1) + "\"" : "end of input";
-    }
-
-    return "Expected " + describeExpected(expected) + " but " + describeFound(found) + " found.";
+    return "Expected " + describeExpected(expected) + " but " + describeExpectation(found) + " found.";
   }
 
-  readonly input: IPegjsParseStream;
+  readonly input: IPegjsParseStream<T>;
   readonly message0: string;
   private message1: string;
   readonly expected: Expectation[];
-  readonly found: string | null;
+  readonly found: Expectation;
   readonly absolutePosition: number;
   readonly name: string;
 
-  constructor(input: IPegjsParseStream, message: string, expected: Expectation[], found: string | null, absolutePosition?: number) {
+  constructor(input: IPegjsParseStream<T>, message: string, expected: Expectation[], found: Expectation, absolutePosition?: number) {
     this.input = input;
     this.message0 = message;
     this.expected = expected;
@@ -201,10 +211,10 @@ export class PegjsParseErrorInfo {
 
 }
 
-export class SyntaxError extends Error {
-  info: PegjsParseErrorInfo;
+export class SyntaxError<T extends IToken> extends Error {
+  info: PegjsParseErrorInfo<T>;
 
-  constructor(info: PegjsParseErrorInfo) {
+  constructor(info: PegjsParseErrorInfo<T>) {
     super();
     this.info = info;
   }
@@ -342,8 +352,13 @@ export interface ICached {
   maxFailPos: number;
 }
 
+export interface IToken {
+  tokenId: number;
+  text: string;
+}
+
 // !!!! string is ok !!!!
-export interface IPegjsParseStreamBuffer {
+export interface IBasicPegjsBuffer {
 
   readonly length: number;
 
@@ -357,37 +372,37 @@ export interface IPegjsParseStreamBuffer {
 
 }
 
-export interface IPegjsParseStreamBuffer2 extends IPegjsParseStreamBuffer {
+export interface IPegjsBuffer<T extends IToken> extends IBasicPegjsBuffer {
   currPos: number;
   savedPos: number;
+  readonly tokens: T[];
+
+  tokenAt(pos: number);
 
   // should return this.substr(input.currPos, len)
   readForward(rule: number, len: number): string;
 
   calculatePosition(pos: number): IFilePosition;
 
-  printTokens(tokenCodes: string): string;
+  /* convert literal to human readable form */
+  printLiteral(literal: string): string;
+
+  /* convert token to human readable form */
+  printToken(tokenId: number): string;
 
   toAbsolutePosition(pos: number): number;
 
 }
 
-export interface IPegjsParseStream extends IPegjsParseStreamBuffer2 {
+export interface IPegjsParseStream<T extends IToken> extends IPegjsBuffer<T> {
 
   readonly ruleNames: string[];
 
-  readonly buffer: IPegjsParseStreamBuffer2;
+  readonly buffer: IPegjsBuffer<T>;
 
   /* these should read forward if requested position is in the future
   * meaning lookahead tokens */
   isAvailableAt(position: number): boolean;
-  charAt(position: number): string;
-  charCodeAt(position: number): number;
-  substring(from: number, to?: number): string;
-  substr(from: number, len?: number): string;
-
-  // should return this.substr(input.currPos, len)
-  readForward(rule: number, len: number): string;
 
   //"input.readForward(rule, expectedText.length) === expectedText",
   //=
@@ -399,27 +414,28 @@ export interface IPegjsParseStream extends IPegjsParseStreamBuffer2 {
   //"input.expectLowerCase(rule, expectedText)",
   expectLowerCase(rule: number, expectedText: string): boolean;
 
-  calculatePosition(position: number): IFilePosition;
-
-  /* convert tokens to human readable form */
-  printTokens(tokenCodes: string): string;
-
 }
 
 
-export class PegjsParseStream implements IPegjsParseStream {
+export class PegjsParseStream<T extends IToken> implements IPegjsParseStream<T> {
 
   readonly ruleNames: string[];
 
-  readonly buffer: IPegjsParseStreamBuffer2;
+  readonly buffer: IPegjsBuffer<T>;
 
-  constructor(buffer: IPegjsParseStreamBuffer, ruleNames?: string[]) {
+  constructor(buffer: IBasicPegjsBuffer, ruleNames?: string[]) {
     if (buffer.hasOwnProperty("currPos")) {
-      this.buffer = buffer as IPegjsParseStreamBuffer2;
+      this.buffer = buffer as IPegjsBuffer<T>;
     } else {
       this.buffer = new PegjsParseStreamBuffer(buffer);
     }
     this.ruleNames = ruleNames ? ruleNames : [];
+  }
+  get tokens() {
+    return this.buffer.tokens;
+  }
+  tokenAt(pos = -1) {
+    return this.buffer.tokenAt(pos);
   }
 
   get currPos() {
@@ -472,8 +488,14 @@ export class PegjsParseStream implements IPegjsParseStream {
     return this.buffer.calculatePosition(pos);
   }
 
-  printTokens(tokenCodes: string): string {
-    return this.buffer.printTokens(tokenCodes);
+  /* convert literal to human readable form */
+  printLiteral(literal: string): string {
+    return this.buffer.printLiteral(literal);
+  }
+
+  /* convert token to human readable form */
+  printToken(tokenId: number): string {
+    return this.buffer.printToken(tokenId);
   }
 
   toAbsolutePosition(pos: number): number {
@@ -484,16 +506,19 @@ export class PegjsParseStream implements IPegjsParseStream {
 
 
 
-export class PegjsParseStreamBuffer implements IPegjsParseStreamBuffer2 {
+export class PegjsParseStreamBuffer<T extends IToken> implements IPegjsBuffer<T> {
 
   readonly buffer: string;
   /* give read-write access to pegjs, do not manipulate them */
   savedPos: number;
   currPos: number;
   readonly posDetailsCache: IFilePosition[];
+  readonly tokens: T[];
 
-  constructor(src: IPegjsParseStreamBuffer, initialPos = 0) {
+  constructor(src: IBasicPegjsBuffer, initialPos = 0) {
     this.buffer = src ? src.toString() : "";
+    this.tokens = src && src["tokens"] ? src["tokens"] : [];
+
     this.savedPos = initialPos;
     this.currPos = initialPos;
     this.posDetailsCache = [];
@@ -533,6 +558,11 @@ export class PegjsParseStreamBuffer implements IPegjsParseStreamBuffer2 {
   // should return this.substr(input.currPos, len)
   readForward(rule: number, len: number): string {
     return this.substr(this.currPos, len);
+  }
+
+  tokenAt(pos = -1) {
+    if (pos < 0) pos += this.currPos;
+    return this.tokens[pos];
   }
 
 
@@ -588,44 +618,20 @@ export class PegjsParseStreamBuffer implements IPegjsParseStreamBuffer2 {
   toString() {
     return this.buffer;
   }
-  printTokens(tokenCodes: string): string {
-    return tokenCodes;
+
+  /* convert literal to human readable form */
+  printLiteral(literal: string): string {
+    return literal;
+  }
+
+  /* convert token to human readable form */
+  printToken(tokenId: number): string {
+    return ""+tokenId;
   }
 
   toAbsolutePosition(pos: number): number {
     return pos;
   }
-
-}
-
-
-
-/**
- * T token class
- */
-export abstract class PegjsTknParseStreamBuffer<T> extends PegjsParseStreamBuffer {
-
-  readonly tokens: T[];
-
-  constructor(src: IPegjsParseStreamBuffer, initialPos = 0, initialTokens?: T[]) {
-    super(src, initialPos)
-    this.tokens = src && src["tokens"] ? src["tokens"] : initialTokens;
-  }
-
-  replace(from: number, to: number, newConvertedTokens: T[]) {
-    var rem = this.tokens.slice(to);
-    this.tokens.length = from;
-    this.tokens.push.apply(newConvertedTokens);
-    this.tokens.push.apply(rem);
-    (this as any).buffer = this.buffer.substring(0, from) + this.generateTokenCodes(newConvertedTokens) + this.buffer.substring(to);
-  }
-
-  token(pos = -1) {
-    if (pos < 0) pos += this.currPos;
-    return this.tokens[pos];
-  }
-
-  abstract generateTokenCodes(tokens: T[]): string;
 
 }
 
