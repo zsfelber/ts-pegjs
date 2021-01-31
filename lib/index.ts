@@ -557,7 +557,7 @@ export abstract class PegjsParseStreamBuffer<T extends IToken> implements IPegjs
   }
 
   tokenAt(pos?: number) {
-    if (!pos) pos = 0;
+    if (pos === undefined) pos = this.currPos;
     else if (pos < 0) pos += this.currPos;
     return this.tokens[pos];
   }
