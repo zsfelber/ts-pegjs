@@ -675,7 +675,7 @@ function generateBytecode(ast, ...args) {
         );
         return buildCondition(
           [MATCH_TOKEN, tc],
-          [op.ACCEPT_TOKEN],
+          [ACCEPT_TOKEN],
           [op.FAIL, expectedIndex]
         );
 

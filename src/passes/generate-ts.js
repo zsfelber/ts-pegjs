@@ -1129,7 +1129,7 @@ function pushc(cache: any, item: any): any {
       [
         '',
         '  token() {',
-        '    return this.inputBuf.tokenAt(-1);',
+        '    return this.inputBuf.tokenAt();',
         '  }',
         '',
         '  peg$failure() {',
