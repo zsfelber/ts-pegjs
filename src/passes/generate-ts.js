@@ -55,7 +55,8 @@ function generateTS(ast, ...args) {
           'var ruleEntries = pushc(ProfilingInfo.ruleEntries, rnm);',
           'var ruleOfMainEntries = pushc(mainEntries, rnm);',
           'ruleEntries.totalcnt++;',
-          'ruleOfMainEntries.totalcnt++;'
+          'ruleOfMainEntries.totalcnt++;',
+          ''
         ].join('\n'));
     }
 
@@ -107,7 +108,8 @@ function generateTS(ast, ...args) {
       parts.push([
         'ProfilingInfo.childcnt++;',
         'ruleEntries.noncachedcnt=ruleEntries.noncachedcnt?ruleEntries.noncachedcnt+1:1;',
-        'ruleOfMainEntries.noncachedcnt=ruleOfMainEntries.noncachedcnt?ruleOfMainEntries.noncachedcnt+1:1;'
+        'ruleOfMainEntries.noncachedcnt=ruleOfMainEntries.noncachedcnt?ruleOfMainEntries.noncachedcnt+1:1;',
+        ''
       ].join('\n'));
     }
 
@@ -904,7 +906,7 @@ function generateTS(ast, ...args) {
 }`;
 
 
-    parts.push(['', streamTypeI, '', streamType, '', ''].join('\n'));
+    parts.push(['', streamTypeI, '', streamType, ''].join('\n'));
 
     if (options.optimize === 'size') {
       parts.push('');
@@ -926,8 +928,7 @@ function generateTS(ast, ...args) {
     }
 
     if (options.profiling) {
-      const ProfilingInfo = `
-export var ProfilingInfo = {
+      const ProfilingInfo = `export var ProfilingInfo = {
     mainEntries: {
 
     },
@@ -1054,10 +1055,11 @@ function pushc(cache: any, item: any): any {
     if (options.profiling) {
       parts.push(
         [
+          '',
           '    mainEntries = pushc(ProfilingInfo.mainEntries, RuleNames[peg$startRuleIndex]);',
           '    mainEntries.totalcnt++;'
-        ].join('\n')
-        }
+        ].join('\n'));
+    }
 
     if (ast.initializer) {
       parts.push(indent4(ast.initializer.code));
