@@ -377,7 +377,7 @@ export interface IPegjsBuffer<T extends IToken> extends IBasicPegjsBuffer {
   savedPos: number;
   readonly tokens: T[];
 
-  tokenAt(pos: number);
+  tokenAt(pos?: number);
 
   // should return this.substr(input.currPos, len)
   readForward(rule: number, len: number): string;
@@ -430,7 +430,7 @@ export class PegjsParseStream<T extends IToken> implements IPegjsParseStream<T> 
   get tokens() {
     return this.buffer.tokens;
   }
-  tokenAt(pos = -1) {
+  tokenAt(pos?: number) {
     return this.buffer.tokenAt(pos);
   }
 
@@ -556,8 +556,9 @@ export abstract class PegjsParseStreamBuffer<T extends IToken> implements IPegjs
     return this.substr(this.currPos, len);
   }
 
-  tokenAt(pos = -1) {
-    if (pos < 0) pos += this.currPos;
+  tokenAt(pos?: number) {
+    if (!pos) pos = 0;
+    else if (pos < 0) pos += this.currPos;
     return this.tokens[pos];
   }
 
