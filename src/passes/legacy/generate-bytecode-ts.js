@@ -454,8 +454,7 @@ function generateBytecode(ast, ...args) {
             action: node,
             rule:     context.rule,
             terminal: context.terminal,
-          }),
-          functionIndex  = addFunctionConst(objects.keys(env), node, context);
+          }), functionIndex;
 
       return emitCall
         ? buildSequence(
@@ -465,7 +464,9 @@ function generateBytecode(ast, ...args) {
               [op.IF_NOT_ERROR],
               buildSequence(
                 [op.LOAD_SAVED_POS, 1],
-                buildCall(functionIndex, 1, env, context.sp + 2)
+                buildCall(
+                  functionIndex  = addFunctionConst(objects.keys(env), node, context), 
+                  1, env, context.sp + 2)
               ),
               []
             ),
