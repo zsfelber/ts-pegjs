@@ -231,13 +231,6 @@ function generateBytecode(ast, ...args) {
   const terminalConsts = {};
 
   const options = args[args.length - 1];
-  /*const tokenType = options.tokenType ? eval(options.tokenType) : null;
-
-  if (tokenType) {
-    for (let nonterminal in tokenType) {
-      console.log("Nonterminal: "+nonterminal);
-    }
-  }*/
 
   function addConst(value) {
     var index = arrays.indexOf(consts, value);
@@ -371,7 +364,9 @@ function generateBytecode(ast, ...args) {
 
     literal: function(node, context) {
       if (context.terminal) {
-        terminalConsts[context.terminal] = node.value.charCodeAt(0);
+        var tokenId = node.value.charCodeAt(0);
+        terminalConsts[context.terminal] = tokenId;
+        terminals.push("    "+context.terminal+" = "+tokenId);
       }
     }
   });
@@ -389,18 +384,12 @@ function generateBytecode(ast, ...args) {
 
       node.consts = consts;
       node.terminals = terminals;
+      node.terminalConsts = terminalConsts;
     },
 
     rule: function(node, context) {
-      // terminal rule
-      if (/^Ł/.exec(node.name)) {
-        generate(node.expression, {
-          sp:     -1,    // stack pointer
-          env:    { },   // mapping of label names to stack positions
-          action: null,  // action nodes pass themselves to children here
-          terminal: node.name.substring(1)
-        });
-      } else {
+      // nonterminal rule only 
+      if (!/^Ł/.exec(node.name)) {
         node.bytecode = generate(node.expression, {
           sp:     -1,    // stack pointer
           env:    { },   // mapping of label names to stack positions
@@ -688,9 +677,7 @@ function generateBytecode(ast, ...args) {
     literal: function(node, context) {
       var stringIndex, expectedIndex;
 
-      if (context.terminal) {
-        terminals.push("    "+context.terminal+" = "+node.value.charCodeAt(0));
-      } else if (node.value.length > 0) {
+      if (node.value.length > 0) {
         stringIndex = addConst('"'
           + js.stringEscape(
               node.ignoreCase ? node.value.toLowerCase() : node.value
