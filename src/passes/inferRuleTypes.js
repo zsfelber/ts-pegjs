@@ -246,7 +246,7 @@ function generate(ast) {
         return r;
     }
     var genclss = [];
-    genclss.push("import { IFilePosition, IFileRange, ILiteralExpectation, IClassParts, IClassExpectation, IAnyExpectation, IEndExpectation, IOtherExpectation, Expectation, SyntaxError, ITraceEvent, DefaultTracer, ICached, IPegjsParseStream, PegjsParseStream, IPegjsParseStreamBuffer, IPegjsParseStreamBuffer2 } from 'ts-pegjs/lib';");
+    genclss.push("import { IFilePosition, IFileRange, ILiteralExpectation, IClassParts, IClassExpectation, IAnyExpectation, IEndExpectation, IOtherExpectation, Expectation, SyntaxError, ITraceEvent, DefaultTracer, ICached, IPegjsParseStream, PegjsParseStream, IPegjsBuffer, IToken } from 'ts-pegjs/lib';");
     if (options.tspegjs.customHeader) {
         genclss.push(options.tspegjs.customHeader.length ? options.tspegjs.customHeader.join("\n") : options.tspegjs.customHeader + "");
     }
@@ -255,14 +255,16 @@ function generate(ast) {
     }
     genclss.push("const theVeryNothing = new Object();");
     genclss.push("");
-    genclss.push("class UselessClassJustToResolveTypes {");
+    genclss.push("class UselessClassJustToResolveTypes<T extends IToken> {");
     genclss.push(["",
-        "input: IPegjsParseStream;",
-        "inputBuf: IPegjsParseStreamBuffer2;",
+        'input: IPegjsParseStream<T>;',
+        'inputBuf: IPegjsBuffer<T>;',
         "",
         "peg$maxFailPos = 0;",
         "peg$maxFailExpected: Expectation[] = [];",
         "peg$silentFails = 0;",
+        "",
+        "token(): T { return null; } ",
         ""].join("\n"));
     genclss.push("");
     if (options.tspegjs.customFields) {
