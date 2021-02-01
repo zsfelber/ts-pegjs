@@ -72,7 +72,6 @@ function generate(ast, ...args) {
     pushNode<T extends PNode>(cons:new (parent:PNode) => T, kind?: PNodeKind): T {
       var child: T = new cons(this.current);
       if (kind !== undefined) child.kind = kind;
-      if (this.current) this.current.children.push(child);
       this.current = child;
       return child;
     }
@@ -182,6 +181,7 @@ function generate(ast, ...args) {
 
         var v = parseGrammarAst(node, node.expression) as PValueNode;
         v.label = node.label;
+        child = v;
 
         break;
 
@@ -196,7 +196,7 @@ function generate(ast, ...args) {
       case "semantic_and":
       case "semantic_not":
         var current = ctx.current;
-        ctx.pushNode(KT[node.type], KK[node.type]);
+        child = ctx.pushNode(KT[node.type], KK[node.type]);
         // this generates the function arguments from preceeding nodes, as expected 
         var action = ctx.generateAction(child, current, PActionKind.PREDICATE, node);
         return ctx.popNode();

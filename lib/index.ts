@@ -1,3 +1,4 @@
+import { prependListener } from "process";
 
 export const MATCH_TOKEN = 40;
 export const ACCEPT_TOKEN = 41;
@@ -486,6 +487,7 @@ export class PNode {
 
   constructor(parent: PNode) {
     this.parent = parent;
+    if (parent) parent.children.push(this);
   }
 
   toString(){
@@ -507,12 +509,12 @@ export class PActContainer extends PNode {
 }
 
 export class PGrammar extends PActContainer {
-  kind: PNodeKind.GRAMMAR;
+  kind = PNodeKind.GRAMMAR;
   children: PActContainer[];
 }
 
 export class PRule extends PActContainer {
-  kind: PNodeKind.RULE;
+  kind = PNodeKind.RULE;
   rule?: string;
 
   get symbol() {
@@ -521,7 +523,7 @@ export class PRule extends PActContainer {
 }
 
 export class PTerminal extends PActContainer {
-  kind: PNodeKind.TERMINAL;
+  kind = PNodeKind.TERMINAL;
   terminal?: string;
 
   get symbol() {
@@ -538,7 +540,7 @@ export class PValueNode extends PLogicNode {
   label?: string;
 
   toString(){
-    return this.kind+" "+this.label;
+    return this.kind+(this.label?" "+this.label:"");
   }
 }
 
@@ -548,12 +550,12 @@ export class PRef extends PValueNode {
   }
 
   toString(){
-    return this.kind+" "+this.label+" "+this.symbol;
+    return this.kind+(this.label?" "+this.label:"")+" "+this.symbol;
   }
 }
 
 export class PRuleRef extends PRef {
-  kind: PNodeKind.RULE_REF;
+  kind = PNodeKind.RULE_REF;
   rule?: string;
 
   get symbol() {
@@ -562,7 +564,7 @@ export class PRuleRef extends PRef {
 }
 
 export class PTerminalRef extends PRef {
-  kind: PNodeKind.TERMINAL_REF;
+  kind = PNodeKind.TERMINAL_REF;
   terminal?: string;
 
   value?: number;
@@ -573,12 +575,12 @@ export class PTerminalRef extends PRef {
 }
 
 export class PSemanticAnd extends PLogicNode {
-  kind: PNodeKind.SEMANTIC_AND;
+  kind = PNodeKind.SEMANTIC_AND;
 
 }
 
 export class PSemanticNot extends PLogicNode {
-  kind: PNodeKind.SEMANTIC_NOT;
+  kind = PNodeKind.SEMANTIC_NOT;
 
 }
 

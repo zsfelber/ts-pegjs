@@ -25,10 +25,10 @@ function generate(ast) {
         if (options && options.returnTypes) {
             switch (node.kind) {
                 case lib_1.PNodeKind.RULE:
-                    outputType = options.returnTypes[node.rule];
+                    outputType = options.returnTypes[node.symbol];
                     break;
                 case lib_1.PNodeKind.TERMINAL:
-                    outputType = options.returnTypes["Ł" + node.terminal];
+                    outputType = options.returnTypes["Ł" + node.symbol];
                     break;
             }
         }
@@ -42,7 +42,7 @@ function generate(ast) {
         var subTmpFuncs = [];
         function genTmpFunc(node, tmpfuncname, outputType) {
             var sresult = [];
-            sresult.push("  " + tmpfuncname + "()" + outputType + " { // Tmp " + node.kind + " " + (node.name ? node.name : ""));
+            sresult.push("  " + tmpfuncname + "()" + outputType + " { // Tmp " + node.toString());
             var j = 0;
             if (node.kind === lib_1.PNodeKind.SEQUENCE) {
                 sresult.push("    var result = [");
@@ -52,10 +52,10 @@ function generate(ast) {
                 var tmpChildFuncName;
                 switch (child.kind) {
                     case lib_1.PNodeKind.RULE_REF:
-                        tmpChildFuncName = "$_" + child.name;
+                        tmpChildFuncName = "$_" + child.rule;
                         break;
                     case lib_1.PNodeKind.TERMINAL_REF:
-                        tmpChildFuncName = "$_$" + child.name;
+                        tmpChildFuncName = "$_$" + child.terminal;
                         break;
                     default:
                         tmpChildFuncName = genTmpFunc(child, "$_" + (i++), "");
@@ -111,11 +111,11 @@ function generate(ast) {
                 sresult.push("  $_" + name + "()" + outputType + " {  // " + action.target.kind + "/" + action.kind);
                 action.args.forEach(function (a) {
                     var argFuncName, inf;
-                    if (a.evaluate.rule) {
+                    if (a.evaluate.kind === lib_1.PNodeKind.RULE_REF) {
                         argFuncName = "$_" + a.evaluate.rule;
                         inf = "rule";
                     }
-                    else if (a.evaluate.terminal) {
+                    else if (a.evaluate.kind === lib_1.PNodeKind.TERMINAL_REF) {
                         argFuncName = "$_$" + a.evaluate.terminal;
                         inf = "term";
                     }
@@ -133,16 +133,16 @@ function generate(ast) {
                 var outputType = ot(rule);
                 var name, ass;
                 if (rule.kind === lib_1.PNodeKind.TERMINAL) {
-                    name = "$" + rule.name;
+                    name = "$" + rule.symbol;
                     ass = outputType.replace(":", " as ");
                 }
                 else {
-                    name = rule.name;
+                    name = rule.symbol;
                     ass = "";
                 }
                 if (rule.ruleActions.length) {
                     var condret = 0;
-                    sresult.push("  $_" + name + "()" + outputType + " {  // (" + rule.kind + ") " + rule.name);
+                    sresult.push("  $_" + name + "()" + outputType + " {  // (" + rule.kind + ") " + rule.symbol);
                     rule.ruleActions.forEach(function (action) {
                         var aname;
                         if (rule.kind === lib_1.PNodeKind.TERMINAL) {
@@ -163,7 +163,7 @@ function generate(ast) {
                     sresult.push("");
                 }
                 else if (rule.kind === lib_1.PNodeKind.TERMINAL) {
-                    sresult.push("  $_" + name + "()" + outputType + " {  // generated (" + rule.kind + ") " + rule.name);
+                    sresult.push("  $_" + name + "()" + outputType + " {  // generated (" + rule.kind + ") " + rule.symbol);
                     sresult.push("    return this.token()" + ass + ";");
                     sresult.push("  }");
                 }

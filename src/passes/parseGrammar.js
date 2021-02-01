@@ -2,6 +2,8 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 var lib_1 = require("../../lib");
 var compiler_1 = require("pegjs/lib/compiler");
+var lib_2 = require("../../lib");
+var index_1 = require("../../lib/index");
 // Generates parser JavaScript code.
 function generate(ast) {
     var args = [];
@@ -34,6 +36,17 @@ function generate(ast) {
     });
     findTerminals(ast);
     var KT = {
+        "grammar": lib_2.PGrammar,
+        "rule": lib_2.PRule,
+        "choice": index_1.PValueNode,
+        "sequence": index_1.PValueNode,
+        "optional": index_1.PValueNode,
+        "one_or_more": index_1.PValueNode,
+        "zero_or_more": index_1.PValueNode,
+        "semantic_and": index_1.PSemanticAnd,
+        "semantic_not": index_1.PSemanticNot
+    };
+    var KK = {
         "grammar": lib_1.PNodeKind.GRAMMAR,
         "rule": lib_1.PNodeKind.RULE,
         "choice": lib_1.PNodeKind.CHOICE,
@@ -52,10 +65,10 @@ function generate(ast) {
     var Context = /** @class */ (function () {
         function Context() {
         }
-        Context.prototype.pushNode = function (kind) {
-            var child = { parent: this.current, kind: kind, children: [] };
-            if (this.current)
-                this.current.children.push(child);
+        Context.prototype.pushNode = function (cons, kind) {
+            var child = new cons(this.current);
+            if (kind !== undefined)
+                child.kind = kind;
             this.current = child;
             return child;
         };
@@ -66,7 +79,7 @@ function generate(ast) {
         };
         Context.prototype.generateAction = function (target, argumentsOwner, kind, node) {
             var action = { name: "", kind: kind, ownerRule: ctx.rule, target: target, code: gencode(node.code), index: this.rule.actions.length, args: new Map, argsarr: [] };
-            action.name = ctx.rule.name + "$" + action.index;
+            action.name = ctx.rule.symbol + "$" + action.index;
             target.action = action;
             this.grammar.actions.push(action);
             this.rule.actions.push(action);
@@ -103,35 +116,43 @@ function generate(ast) {
         var child;
         switch (node.type) {
             case "grammar":
-                ctx.grammar = node.grammar = ctx.pushNode(lib_1.PNodeKind.GRAMMAR);
+                ctx.grammar = node.grammar = ctx.pushNode(lib_2.PGrammar);
                 ctx.grammar.actions = [];
                 ctx.grammar.ruleActions = [];
                 node.rules.forEach(function (rule) {
-                    child = parseGrammarAst(node, rule);
+                    parseGrammarAst(node, rule);
                 });
                 return ctx.popNode();
             case "rule":
                 // terminal/nonterminal 
                 if (/^Ł/.exec(node.name)) {
-                    ctx.rule = ctx.pushNode(lib_1.PNodeKind.TERMINAL);
-                    ctx.rule.terminal = ctx.rule.name = node.name.substring(1);
+                    var t = ctx.pushNode(lib_2.PTerminal);
+                    t.terminal = node.name.substring(1);
+                    ctx.rule = t;
                 }
                 else {
-                    ctx.rule = ctx.pushNode(lib_1.PNodeKind.RULE);
-                    ctx.rule.rule = ctx.rule.name = node.name;
+                    var r = ctx.pushNode(lib_2.PRule);
+                    ctx.rule = r;
+                    r.rule = node.name;
                 }
                 ctx.rule.actions = [];
                 ctx.rule.ruleActions = [];
-                child = parseGrammarAst(node, node.expression);
+                parseGrammarAst(node, node.expression);
                 return ctx.popNode();
             case "action":
                 child = parseGrammarAst(node, node.expression);
                 ctx.generateAction(child, child, lib_1.PActionKind.RULE, node);
                 break;
+            case "choice":
+                var choice = ctx.pushNode(index_1.PValueNode, lib_1.PNodeKind.CHOICE);
+                node.alternatives.forEach(function (elem) {
+                    parseGrammarAst(node, elem);
+                });
+                return ctx.popNode();
             case "sequence":
-                var sequence = ctx.pushNode(lib_1.PNodeKind.SEQUENCE);
+                var sequence = ctx.pushNode(index_1.PValueNode, lib_1.PNodeKind.SEQUENCE);
                 node.elements.forEach(function (elem) {
-                    child = parseGrammarAst(node, elem);
+                    parseGrammarAst(node, elem);
                 });
                 if (sequence.children.length === 0) {
                     sequence.kind = lib_1.PNodeKind.EMPTY;
@@ -141,48 +162,37 @@ function generate(ast) {
                 }
                 return ctx.popNode();
             case "labeled":
-                child = parseGrammarAst(node, node.expression);
-                child.label = node.label;
+                var v = parseGrammarAst(node, node.expression);
+                v.label = node.label;
+                child = v;
                 break;
-            case "choice":
-                var choice = ctx.pushNode(lib_1.PNodeKind.CHOICE);
-                node.alternatives.forEach(function (elem) {
-                    child = parseGrammarAst(node, elem);
-                });
-                if (choice.children.length === 0) {
-                    choice.kind = lib_1.PNodeKind.EMPTY;
-                }
-                else if (choice.children.length === 0) {
-                    choice.kind = lib_1.PNodeKind.SINGLE;
-                }
-                return ctx.popNode();
             case "optional":
             case "zero_or_more":
             case "one_or_more":
-                ctx.pushNode(KT[node.type]);
-                child = parseGrammarAst(node, node.expression);
+                ctx.pushNode(KT[node.type], KK[node.type]);
+                parseGrammarAst(node, node.expression);
                 return ctx.popNode();
             case "semantic_and":
             case "semantic_not":
                 var current = ctx.current;
-                child = ctx.pushNode(KT[node.type]);
+                child = ctx.pushNode(KT[node.type], KK[node.type]);
                 // this generates the function arguments from preceeding nodes, as expected 
                 var action = ctx.generateAction(child, current, lib_1.PActionKind.PREDICATE, node);
                 return ctx.popNode();
             case "rule_ref":
                 // terminal rule
                 if (/^Ł/.exec(node.name)) {
-                    child = ctx.pushNode(lib_1.PNodeKind.TERMINAL_REF);
-                    child.name = child.terminal = node.name.substring(1);
-                    child.value = terminalConsts.get(child.terminal);
+                    var tr = ctx.pushNode(index_1.PTerminalRef);
+                    tr.terminal = node.name.substring(1);
+                    tr.value = terminalConsts.get(tr.terminal);
                 }
                 else {
-                    child = ctx.pushNode(lib_1.PNodeKind.RULE_REF);
-                    child.name = child.rule = node.name;
+                    var rr = ctx.pushNode(index_1.PRuleRef);
+                    rr.rule = node.name;
                 }
                 return ctx.popNode();
             case "literal":
-                child = ctx.pushNode(lib_1.PNodeKind.EMPTY);
+                ctx.pushNode(index_1.PValueNode, lib_1.PNodeKind.EMPTY);
                 return ctx.popNode();
         }
         return child;
