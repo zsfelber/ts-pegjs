@@ -57,7 +57,7 @@ function generate(ast, ...args) {
 
     pushNode(kind: PNodeKind) {
       var child: PNode = { parent: this.current, kind, children: [] };
-      this.current.children.push(child);
+      if (this.current) this.current.children.push(child);
       this.current = child;
       return child;
     }
@@ -69,6 +69,7 @@ function generate(ast, ...args) {
     generateAction(target: PNode, argumentsOwner: PNode, node) {
       var ta: PFunction = {owner: target, code: gencode(node.code), index: this.rule.actions.length, args: new Map, argsarr: []};
       target.action = ta;
+      this.grammar.actions.push(ta);
       this.rule.actions.push(ta);
       var i = 0;
       argumentsOwner.children.forEach(chch=>{
@@ -94,6 +95,7 @@ function generate(ast, ...args) {
     switch (node.type) {
       case "grammar":
         ctx.grammar = node.gramar = ctx.pushNode(PNodeKind.GRAMMAR);
+        ctx.grammar.actions = [];
         node.rules.forEach(rule => {
           child = parseGrammarAst(node, rule);
         });
@@ -105,6 +107,7 @@ function generate(ast, ...args) {
           //node.name.substring(1)
         } else {
           ctx.rule = ctx.pushNode(PNodeKind.RULE);
+          ctx.rule.actions = [];
           ctx.rule.name = node.name;
           child = parseGrammarAst(node, node.expression);
           
@@ -178,7 +181,7 @@ function generate(ast, ...args) {
 
   }
 
-
+  parseGrammarAst(null, ast);
 
   //console.log("ast : "+JSON.stringify(ast, null, "  "));
 
