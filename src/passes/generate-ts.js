@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 /* eslint-disable quotes */
 'use strict';
 
@@ -44,7 +45,7 @@ function generateTS(ast, ...args) {
           'peg$tracer.trace({',
           '  type: "rule.enter",',
           '  rule: ' + ruleNameCode + ',',
-          '  location: this.peg$computeLocation(startPos, inputBuf.currPos)',
+          '  location: this.peg$computeLocation(startPos, input.currPos)',
           '});',
           ''
         ].join('\n')
@@ -68,7 +69,7 @@ function generateTS(ast, ...args) {
     if (options.cache) {
       parts.push(
         [
-          'const key = inputBuf.currPos * ' +
+          'const key = input.currPos * ' +
           ast.rules.length +
           ' + ' +
           ruleIndexCode +
@@ -77,7 +78,7 @@ function generateTS(ast, ...args) {
           'let position: number;',
           '',
           'if (cached) {',
-          '  inputBuf.currPos = cached.nextPos;',
+          '  input.currPos = cached.nextPos;',
           ''
         ].join('\n')
       );
@@ -102,7 +103,7 @@ function generateTS(ast, ...args) {
             '    rule: ' + ruleNameCode + ',',
             '    result: cached.result,',
             '    cached: true,',
-            '    location: this.peg$computeLocation(startPos, inputBuf.currPos)',
+            '    location: this.peg$computeLocation(startPos, input.currPos)',
             '  });',
             '} else {',
             '  peg$tracer.trace({',
@@ -130,7 +131,7 @@ function generateTS(ast, ...args) {
       parts.push(
         [
           '',
-          'this.peg$resultsCache[key] = { nextPos: inputBuf.currPos, maxFailPos: ruleMaxFailPos, result: ' +
+          'this.peg$resultsCache[key] = { nextPos: input.currPos, maxFailPos: ruleMaxFailPos, result: ' +
           resultCode +
           ' };'
         ].join('\n')
@@ -146,7 +147,7 @@ function generateTS(ast, ...args) {
           '    type: "rule.match",',
           '    rule: ' + ruleNameCode + ',',
           '    result: ' + resultCode + ',',
-          '    location: this.peg$computeLocation(startPos, inputBuf.currPos)',
+          '    location: this.peg$computeLocation(startPos, input.currPos)',
           '  });',
           '} else {',
           '  peg$tracer.trace({',
@@ -188,54 +189,6 @@ function generateTS(ast, ...args) {
     );
 
     const baseTokenType = options.baseTokenType ? options.baseTokenType : "IToken";
-
-    const streamTypeI = `export interface IParseStream<T extends `+baseTokenType+`> extends IPegjsParseStream<T> {
-
-  // should return this.substr(inputBuf.currPos, len)
-  readForward(rule: RuleId, len: number): string;
-
-  //"input.readForward(rule, expectedText.length) === expectedText",
-  //=
-  //"input.expect(rule, expectedText)",
-  expect(rule: RuleId, expectedText: string): boolean;
-
-  //"input.readForward(rule, expectedText.length).toLowerCase() === expectedText",
-  //=
-  //"input.expectLowerCase(rule, expectedText)",
-  expectLowerCase(rule: RuleId, expectedText: string): boolean;
-    
-}`;
-    const streamType = `export class ParseStream<T extends `+baseTokenType+`> extends PegjsParseStream<T> {
-    
-  /** NOTE string also implements IBasicPegjsBuffer 
-    * buffer initialized as "" if initialBuf is omitted
-    */
-  constructor(initialBuf?: IPegjsBuffer<T>) {
-    super(initialBuf, RuleNames);
-  }
-  // should return this.substr(inputBuf.currPos, len)
-  readForward(rule: RuleId, len: number): string {
-    return super.readForward(rule, len);
-  }
-
-  //"input.readForward(rule, expectedText.length) === expectedText",
-  //=
-  //"input.expect(rule, expectedText)",
-  expect(rule: RuleId, expectedText: string): boolean {
-    return super.expect(rule, expectedText);
-  }
-
-  //"input.readForward(rule, expectedText.length).toLowerCase() === expectedText",
-  //=
-  //"input.expectLowerCase(rule, expectedText)",
-  expectLowerCase(rule: RuleId, expectedText: string): boolean {
-    return super.expectLowerCase(rule, expectedText);
-  }
-
-}`;
-
-
-    parts.push(['', streamTypeI, '', streamType, ''].join('\n'));
 
     if (options.optimize === 'size') {
       parts.push('');
@@ -280,11 +233,10 @@ function pushc(cache: any, item: any): any {
       [
         '',
         '',
-        'export class PegjsParser<T extends '+baseTokenType+', I extends ParseStream<T>> {',
+        'export class PegjsParser<T extends '+baseTokenType+', I extends PegjsParseStream<T>> {',
         '',
         '  options: IParseOptions;',
         '  input: I;',
-        '  inputBuf: IPegjsBuffer<T>;',
         '',
         '  localFailPos = 0;',
         '  maxFailExpected: Expectation[] = [];',
@@ -310,7 +262,6 @@ function pushc(cache: any, item: any): any {
         '',
         '  constructor(' + param0 + 'input: I, options?: IParseOptions) {',
         '    this.input = input;',
-        '    this.inputBuf = input.buffer;',
         '    this.options = options !== undefined ? options : {};',
         '',
         '    if (this.options.customCache)',
@@ -330,52 +281,20 @@ function pushc(cache: any, item: any): any {
       [
         '  }',
         '',
-        '  parse(silent?: boolean): IFailure {',
+        '  parse(silent: boolean, peg$startRuleIndex: RuleId = 0): IFailure {',
         '    const input = this.input;',
-        '    const inputBuf = this.inputBuf;',
         ''
       ].join('\n')
     );
 
-    if (options.optimize === 'size') {
-      let startRuleIndex = asts.indexOfRule(ast, options.allowedStartRules[0]);
+    parts.push([
+      '    if (peg$startRuleIndex) {',
+      '      if (!(StartRules.get(peg$startRuleIndex))) {',
+      '        throw new Error("Can\'t start parsing from rule \\"" + RuleNames[peg$startRuleIndex] + "\\".");',
+      '      }',
+      '    }'
+    ].join('\n'));
 
-      parts.push(['    let peg$startRuleIndex = ' + startRuleIndex + ';'].join('\n'));
-    }
-
-    parts.push(
-      ['', '    // inputBuf.currPos = 0;', '    // inputBuf.savedPos = 0;', ''].join('\n')
-    );
-
-    parts.push([''].join('\n'));
-
-    if (options.optimize === 'size') {
-      parts.push(
-        [
-          '    if (this.options.startRule !== undefined) {',
-          '      var ri = typeof this.options.startRule === "string"?eval("RuleId."+this.options.startRule):this.options.startRule;',
-          '      if (!(StartRules.get(ri))) {',
-          '        throw new Error("Can\'t start parsing from rule \\"" + this.options.startRule + "\\".");',
-          '      }',
-          '',
-          '      peg$startRuleIndex = ri;',
-          '    }'
-        ].join('\n')
-      );
-    } else {
-      parts.push(
-        [
-          '    if (this.options.startRule !== undefined) {',
-          '      var ri = typeof this.options.startRule==="string"?eval("RuleId."+this.options.startRule):this.options.startRule;',
-          '      if (!(peg$startRuleFunctions.get(ri))) {',
-          '        throw new Error("Can\'t start parsing from rule \\"" + this.options.startRule + "\\".");',
-          '      }',
-          '',
-          '      peg$startRuleFunction = peg$startRuleFunctions[ri];',
-          '    }'
-        ].join('\n')
-      );
-    }
     if (options.profiling) {
       parts.push(
         [
@@ -406,7 +325,7 @@ function pushc(cache: any, item: any): any {
       [
         '',
         '    if (this.peg$result !== peg$FAILED) {',
-        '      if (input.isAvailableAt(this.inputBuf.currPos)) {',
+        '      if (input.length > this.input.currPos) {',
         '        this.peg$fail(peg$endExpectation());',
         '      } else {',
         '        return;',
@@ -428,7 +347,7 @@ function pushc(cache: any, item: any): any {
       [
         '',
         '  token() {',
-        '    return this.inputBuf.tokenAt();',
+        '    return this.input.tokenAt(this.input.currPos);',
         '  }',
         '',
         '  peg$failure() {',
@@ -438,11 +357,11 @@ function pushc(cache: any, item: any): any {
         '  }',
         '',
         '  peg$absoluteFailPos() {',
-        '    return this.inputBuf.toAbsolutePosition(this.localFailPos);',
+        '    return this.input.toAbsolutePosition(this.localFailPos);',
         '  }',
         '',
         '  peg$foundErrorLiteral(): ITokenExpectation {',
-        '    return    this.input.isAvailableAt(this.localFailPos)',
+        '    return    this.input.length > this.localFailPos',
         '          ?   { type: "token", tokenId: this.input.tokenAt(this.localFailPos).tokenId }',
         '          :   null     ;',
         '  }',
@@ -467,7 +386,7 @@ function pushc(cache: any, item: any): any {
         '',
         '  peg$fail(expected1: Expectation) {',
         '    mergeLocalFailures(this, { maxFailExpected: [ expected1 ],',
-        '                               localFailPos:    this.inputBuf.currPos }  );',
+        '                               localFailPos:    this.input.currPos }  );',
         '  }',
         '',
         '  /*function peg$buildSimpleError(message: string, location1: IFileRange) {',
@@ -485,15 +404,8 @@ function pushc(cache: any, item: any): any {
       ].join('\n')
     );
 
-    if (options.optimize === 'size') {
-      parts.push(generateInterpreter());
-      parts.push('');
-    } else {
-      ast.rules.forEach((rule) => {
-        parts.push(generateRuleFunction(rule));
-        parts.push('');
-      });
-    }
+    // TODO
+    // parts.push(generateInterpreter());
 
     parts.push(indent2(ast.fields.join('\n')));
 
@@ -536,7 +448,7 @@ function pushc(cache: any, item: any): any {
       .join('\n');
 
     res = res.concat([
-      "import { IFilePosition, IFileRange, ILiteralExpectation, IClassParts, IClassExpectation, IAnyExpectation, IEndExpectation, IOtherExpectation, Expectation, SyntaxError, ITraceEvent, DefaultTracer, ICached, IPegjsParseStream, PegjsParseStream, IBasicPegjsBuffer, IPegjsBuffer, IFailure, PegjsParseErrorInfo, mergeFailures, mergeLocalFailures, IToken, ITokenExpectation } from 'ts-pegjs/lib';",
+      "import { IFilePosition, IFileRange, IAnyExpectation, IEndExpectation, IOtherExpectation, Expectation, SyntaxError, ITraceEvent, DefaultTracer, ICached, PegjsParseStream, IFailure, PegjsParseErrorInfo, mergeFailures, mergeLocalFailures, IToken, ITokenExpectation } from 'ts-pegjs/lib';",
       '',
       '// Generated by PEG.js v. ' +
       pegJsVersion +
@@ -560,16 +472,8 @@ function pushc(cache: any, item: any): any {
   function generateTables() {
     var tables = [
       '',
-      'function peg$literalExpectation(text1: string, ignoreCase: boolean): ILiteralExpectation {',
-      '  return { type: "literal", text: text1, ignoreCase: ignoreCase };',
-      '}',
-      '',
       'function peg$tokenExpectation(tokenId: number): ITokenExpectation {',
       '  return { type: "token", tokenId: tokenId };',
-      '}',
-      '',
-      'function peg$classExpectation(parts: IClassParts, inverted: boolean, ignoreCase: boolean): IClassExpectation {',
-      '  return { type: "class", parts: parts, inverted: inverted, ignoreCase: ignoreCase };',
       '}',
       '',
       'function peg$anyExpectation(): IAnyExpectation {',
@@ -598,24 +502,10 @@ function pushc(cache: any, item: any): any {
       );
     }
 
+    //TODO
+    /*
     if (options.optimize === 'size') {
       tables = tables.concat([
-        'const peg$bytecode = [',
-        indent2(
-          ast.rules
-            .map(
-              (rule) =>
-                rule.bytecode ?
-                  'peg$decode("' +
-                  JSstringEscape(
-                    rule.bytecode.map((b) => String.fromCharCode(b + 32)).join('')
-                  ) +
-                  '")'
-                : '[0]'
-            )
-            .join(',\n')
-        ),
-        '];',
         '',
         'const peg$consts = [',
         indent2(ast.consts.join(',\n')),
@@ -623,7 +513,7 @@ function pushc(cache: any, item: any): any {
       ]);
     } else {
       tables = tables.concat(ast.consts.map((c, i) => 'const peg$c' + i + ' = ' + c + ';'));
-    }
+    }*/
 
     return tables.join('\n');
   }
@@ -634,9 +524,6 @@ function pushc(cache: any, item: any): any {
     // "  \"use strict\";",
     '',
     generateToplevel(),
-    '',
-    '',
-    '',
     '',
     '',
     //indent2("return " + generateParserObject() + ";"),

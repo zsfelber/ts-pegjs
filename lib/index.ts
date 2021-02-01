@@ -51,24 +51,9 @@ export interface IFileRange {
   end: IFilePosition;
 }
 
-export interface ILiteralExpectation {
-  type: "literal";
-  text: string;
-  ignoreCase: boolean;
-}
-
 export interface ITokenExpectation {
   type: "token";
   tokenId: number;
-}
-
-export interface IClassParts extends Array<string | IClassParts> { }
-
-export interface IClassExpectation {
-  type: "class";
-  parts: IClassParts;
-  inverted: boolean;
-  ignoreCase: boolean;
 }
 
 export interface IAnyExpectation {
@@ -84,7 +69,7 @@ export interface IOtherExpectation {
   description: string;
 }
 
-export type Expectation = ILiteralExpectation | ITokenExpectation | IClassExpectation | IAnyExpectation | IEndExpectation | IOtherExpectation;
+export type Expectation = ITokenExpectation | IAnyExpectation | IEndExpectation | IOtherExpectation;
 
 export class PegjsParseErrorInfo<T extends IToken> {
 
@@ -125,18 +110,8 @@ export class PegjsParseErrorInfo<T extends IToken> {
         return "end of input";
       }
       switch (expectation.type) {
-        case "literal":
-          return "\"" + input.printLiteral(expectation.text) + "\"";
         case "token":
           return input.printToken(expectation.tokenId);
-        case "class":
-          const escapedParts = expectation.parts.map((part) => {
-            return Array.isArray(part)
-              ? classEscape(part[0] as string) + "-" + classEscape(part[1] as string)
-              : classEscape(part);
-          });
-
-          return "[" + (expectation.inverted ? "^" : "") + escapedParts + "]";
         case "any":
           return "any character";
         case "end":
@@ -390,6 +365,8 @@ export abstract class PegjsParseStream<T extends IToken> {
   abstract printToken(tokenId: number): string;
 
   abstract toAbsolutePosition(pos: number): number;
+
+  abstract calculatePosition(pos: number): IFilePosition;
 
 
 }
