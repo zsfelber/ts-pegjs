@@ -28,7 +28,7 @@ function generate(ast, ...args) {
           outputType = options.returnTypes[node.rule];
           break;
         case PNodeKind.TERMINAL:
-          outputType = options.returnTypes["Ł"+node.rule];
+          outputType = options.returnTypes["Ł"+node.terminal];
           break;
       }
     }
@@ -145,28 +145,18 @@ function generate(ast, ...args) {
         if (rule.ruleActions.length) {
           var condret = 0;
           sresult.push("  $_" + name + "()" + outputType + " {  // ("+rule.kind+") " + rule.name);
-          rule.children.forEach(child => {
-
-            if (child.action && child.action.kind === PActionKind.RULE) {
-              var aname;
-              if (rule.kind === PNodeKind.TERMINAL) {
-                aname = "$"+child.action.name;
-              } else {
-                aname = child.action.name;
-              }
-      
-              switch (rule.kind) {
-                case PNodeKind.CHOICE:
-                  condret = 1;
-                  sresult.push("    if (theVeryNothing['randomVar']===" + (j++) + ") {");
-                  sresult.push("      return this.$_" + aname + "();");
-                  sresult.push("    }");
-                  break;
-                default:
-                  sresult.push("    return this.$_" + aname + "();");
-                  break;
-              }
+          rule.ruleActions.forEach(action => {
+            var aname;
+            if (rule.kind === PNodeKind.TERMINAL) {
+              aname = "$"+action.name;
+            } else {
+              aname = action.name;
             }
+
+            condret = 1;
+            sresult.push("    if (theVeryNothing['butSomething']===" + (j++) + ") {");
+            sresult.push("      return this.$_" + aname + "();");
+            sresult.push("    }");
           });
           if (condret) {
             sresult.push("    return undefined;");

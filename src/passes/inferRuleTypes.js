@@ -28,7 +28,7 @@ function generate(ast) {
                     outputType = options.returnTypes[node.rule];
                     break;
                 case lib_1.PNodeKind.TERMINAL:
-                    outputType = options.returnTypes["Ł" + node.rule];
+                    outputType = options.returnTypes["Ł" + node.terminal];
                     break;
             }
         }
@@ -139,27 +139,18 @@ function generate(ast) {
                 if (rule.ruleActions.length) {
                     var condret = 0;
                     sresult.push("  $_" + name + "()" + outputType + " {  // (" + rule.kind + ") " + rule.name);
-                    rule.children.forEach(function (child) {
-                        if (child.action && child.action.kind === lib_1.PActionKind.RULE) {
-                            var aname;
-                            if (rule.kind === lib_1.PNodeKind.TERMINAL) {
-                                aname = "$" + child.action.name;
-                            }
-                            else {
-                                aname = child.action.name;
-                            }
-                            switch (rule.kind) {
-                                case lib_1.PNodeKind.CHOICE:
-                                    condret = 1;
-                                    sresult.push("    if (theVeryNothing['randomVar']===" + (j++) + ") {");
-                                    sresult.push("      return this.$_" + aname + "();");
-                                    sresult.push("    }");
-                                    break;
-                                default:
-                                    sresult.push("    return this.$_" + aname + "();");
-                                    break;
-                            }
+                    rule.ruleActions.forEach(function (action) {
+                        var aname;
+                        if (rule.kind === lib_1.PNodeKind.TERMINAL) {
+                            aname = "$" + action.name;
                         }
+                        else {
+                            aname = action.name;
+                        }
+                        condret = 1;
+                        sresult.push("    if (theVeryNothing['butSomething']===" + (j++) + ") {");
+                        sresult.push("      return this.$_" + aname + "();");
+                        sresult.push("    }");
                     });
                     if (condret) {
                         sresult.push("    return undefined;");
