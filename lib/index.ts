@@ -482,24 +482,87 @@ export enum PActionKind {
 export class PNode {
   parent: PNode;
   kind: PNodeKind;
-  children: PNode[];
+  children: PNode[] = [];
+
+  constructor(parent: PNode) {
+    this.parent = parent;
+  }
+}
+
+export class PActContainer extends PNode {
   actions?: PFunction[];
   ruleActions?: PFunction[];
-  name?: string;
-  label?: string;
-  value?: number;
-  action?: PFunction;
+
+  get id(): string {
+    return null;
+  }
+}
+
+export class PGrammar extends PActContainer {
+  kind: PNodeKind.GRAMMAR;
+}
+
+export class PRule extends PActContainer {
+  kind: PNodeKind.RULE;
   rule?: string;
+
+  get id() {
+    return this.rule;
+  }
+}
+
+export class PTerminal extends PActContainer {
+  kind: PNodeKind.TERMINAL;
   terminal?: string;
+
+  get id() {
+    return this.terminal;
+  }
+}
+
+export class PLogicNode extends PNode {
+  action?: PFunction;
+
+}
+
+export class PValueNode extends PLogicNode {
+  label?: string;
+
+}
+
+export class PRuleRef extends PValueNode {
+  kind: PNodeKind.RULE_REF;
+  rule?: string;
+
+}
+
+export class PTerminalRef extends PValueNode {
+  kind: PNodeKind.TERMINAL_REF;
+  terminal?: string;
+
+  value?: number;
+
+}
+
+export class PSemanticAnd extends PLogicNode {
+  kind: PNodeKind.SEMANTIC_AND;
+
+}
+
+export class PSemanticNot extends PLogicNode {
+  kind: PNodeKind.SEMANTIC_NOT;
+
 }
 
 export class PFunction {
   name: string;
-  ownerRule: PNode;
-  target: PNode;
+  ownerRule: PActContainer;
+  target: PLogicNode;
+
   index: number;
   args: Map<string,PCallArg>;
   argsarr: PCallArg[];
+
   generatedMemberName?: string;
   code?: string[];
   kind: PActionKind;
@@ -509,6 +572,6 @@ export class PCallArg {
   label?: string;
   type?: string;
   index: number;
-  evaluate: PNode;
+  evaluate: PValueNode;
 }
 

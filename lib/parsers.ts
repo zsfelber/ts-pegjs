@@ -1,2 +1,11 @@
 
 
+export class SequenceParser {
+
+  
+
+  constructor() {
+
+  }
+
+} 
