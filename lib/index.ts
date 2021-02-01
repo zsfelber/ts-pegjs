@@ -721,6 +721,7 @@ export class PNode {
   parent: PNode;
   kind: PNodeKind;
   children: PNode[];
+  actions?: PFunction[];
   name?: string;
   label?: string;
   value?: number;
@@ -730,13 +731,17 @@ export class PNode {
 }
 
 export class PFunction {
-  name: string;
+  owner: PNode;
+  index: number;
   args: Map<string,PCallArg>;
   argsarr: PCallArg[];
+  generatedMemberName?: string;
+  code?: string[];
 }
 
 export class PCallArg {
   label?: string;
+  type?: string;
   index: number;
   evaluate: PNode;
 }

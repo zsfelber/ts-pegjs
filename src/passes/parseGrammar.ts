@@ -44,8 +44,16 @@ function generate(ast, ...args) {
     "semantic_and": PNodeKind.SEMANTIC_AND,
     "semantic_not": PNodeKind.SEMANTIC_NOT
   }
+
+  function gencode(code: string): string[] {
+    var result = [];
+    result = code.split("\n").map(line => line.trim());
+    return result;
+  }
   class Context {
     current: PNode;
+    grammar: PNode;
+    rule: PNode;
 
     pushNode(kind: PNodeKind) {
       var child: PNode = { parent: this.current, kind, children: [] };
@@ -58,9 +66,10 @@ function generate(ast, ...args) {
       this.current = this.current.parent;
       return generatedNode;
     }
-    generateAction(target: PNode, argumentsOwner: PNode, name: string) {
-      var ta = {name, args: new Map, argsarr: []};
+    generateAction(target: PNode, argumentsOwner: PNode, node) {
+      var ta: PFunction = {owner: target, code: gencode(node.code), index: this.rule.actions.length, args: new Map, argsarr: []};
       target.action = ta;
+      this.rule.actions.push(ta);
       var i = 0;
       argumentsOwner.children.forEach(chch=>{
         if (chch.label) {
@@ -72,95 +81,98 @@ function generate(ast, ...args) {
         }
         i++;
       });
+      return ta;
     }
   }
 
-  var stack = new Context();
+  var ctx = new Context();
 
   function parseGrammarAst(parent, node): PNode {
 
-    var argIndex = stack.current.children.length;
+    var child: PNode;
 
     switch (node.type) {
       case "grammar":
-        node.gramar = stack.pushNode(PNodeKind.GRAMMAR);
+        ctx.grammar = node.gramar = ctx.pushNode(PNodeKind.GRAMMAR);
         node.rules.forEach(rule => {
-          var child = parseGrammarAst(node, rule);
+          child = parseGrammarAst(node, rule);
         });
-        return stack.popNode();
+        return ctx.popNode();
 
       case "rule":
         // terminal/nonterminal 
         if (/^Ł/.exec(node.name)) {
           //node.name.substring(1)
         } else {
-          var rule = stack.pushNode(PNodeKind.RULE);
-          rule.name = node.name;
-          var child = parseGrammarAst(node, node.expression);
+          ctx.rule = ctx.pushNode(PNodeKind.RULE);
+          ctx.rule.name = node.name;
+          child = parseGrammarAst(node, node.expression);
           
-          return stack.popNode();
+          return ctx.popNode();
         }
         break;
 
       case "action":
 
-        var child = parseGrammarAst(node, node.expression);
-        stack.generateAction(child, child, node.templateFunction);
+        child = parseGrammarAst(node, node.expression);
+        ctx.generateAction(child, child, node);
         break;
 
       case "sequence":
 
-        var sequence = stack.pushNode(PNodeKind.SEQUENCE);
+        var sequence = ctx.pushNode(PNodeKind.SEQUENCE);
 
         node.elements.forEach(elem => {
-          var child = parseGrammarAst(node, elem);
+          child = parseGrammarAst(node, elem);
         });
 
-        return stack.popNode();
+        return ctx.popNode();
 
       case "labeled":
 
-        var child = parseGrammarAst(node, node.expression);
+        child = parseGrammarAst(node, node.expression);
         child.label = node.label;
 
         break;
 
       case "choice":
 
-        var choice = stack.pushNode(PNodeKind.CHOICE);
+        var choice = ctx.pushNode(PNodeKind.CHOICE);
 
         node.alternatives.forEach(elem => {
-          var child = parseGrammarAst(node, elem);
+          child = parseGrammarAst(node, elem);
         });
 
-        return stack.popNode();
+        return ctx.popNode();
 
       case "optional":
       case "zero_or_more":
       case "one_or_more":
 
-        stack.pushNode(KT[node.type]);
-        var child = parseGrammarAst(node, node.expression);
-        return stack.popNode();
+        ctx.pushNode(KT[node.type]);
+        child = parseGrammarAst(node, node.expression);
+        return ctx.popNode();
 
       case "semantic_and":
       case "semantic_not":
-        var current = stack.current;
-        var child = stack.pushNode(KT[node.type]);
+        var current = ctx.current;
+        child = ctx.pushNode(KT[node.type]);
         // this generates the function arguments from preceeding nodes, as expected 
-        stack.generateAction(child, current, node.templateFunction);
-        return stack.popNode();
+        var action = ctx.generateAction(child, current, node);
+        child.name = ctx.rule.name+"$"+action.index;
+        return ctx.popNode();
 
       case "rule_ref":
         // terminal rule
         if (/^Ł/.exec(node.name)) {
-          var child = stack.pushNode(PNodeKind.TERMINAL_REF);
+          child = ctx.pushNode(PNodeKind.TERMINAL_REF);
           child.terminal = node.name.substring(1);
           child.value = terminalConsts[child.terminal];
         } else {
-          var child = stack.pushNode(PNodeKind.RULE_REF);
+          child = ctx.pushNode(PNodeKind.RULE_REF);
           child.rule = node.name;
         }
+        return ctx.popNode();
   
     }
 
