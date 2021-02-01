@@ -699,3 +699,45 @@ function hex(ch) {
 }
 
 
+
+
+
+export enum PNodeKind {
+  GRAMMAR,
+  RULE,
+  CHOICE,
+  SEQUENCE,
+  OPTIONAL,
+  ONE_OR_MORE,
+  ZERO_OR_MORE,
+  SINGLE,
+  SEMANTIC_AND,
+  SEMANTIC_NOT,
+  RULE_REF,
+  TERMINAL_REF
+}
+
+export class PNode {
+  parent: PNode;
+  kind: PNodeKind;
+  children: PNode[];
+  name?: string;
+  label?: string;
+  value?: number;
+  action?: PFunction;
+  rule?: string;
+  terminal?: string;
+}
+
+export class PFunction {
+  name: string;
+  args: Map<string,PCallArg>;
+  argsarr: PCallArg[];
+}
+
+export class PCallArg {
+  label?: string;
+  index: number;
+  evaluate: PNode;
+}
+

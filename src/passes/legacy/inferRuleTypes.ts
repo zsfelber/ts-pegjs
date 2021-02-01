@@ -1,8 +1,5 @@
 import * as ts from "typescript";
 import * as fs from "fs";
-import { checkServerIdentity } from "tls";
-import { type } from "os";
-var visitor = require("pegjs/lib/compiler/visitor");
 
 // Generates parser JavaScript code.
 function generate(ast, ...args) {
