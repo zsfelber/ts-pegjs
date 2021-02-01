@@ -22,7 +22,7 @@ function generate(ast) {
     ast.fields = [];
     function ot(node) {
         var outputType = (node.kind === lib_1.PNodeKind.RULE && options && options.returnTypes) ?
-            options.returnTypes[node.name] : "";
+            options.returnTypes[node.rule] : "";
         outputType = outputType ? ": " + outputType : "";
         return outputType;
     }
@@ -52,74 +52,86 @@ function generate(ast) {
                 switch (node.kind) {
                     case lib_1.PNodeKind.CHOICE:
                         sresult.push("    if (theVeryNothing['randomVar']===" + (j++) + ") {");
-                        sresult.push("      return " + tmpChildFuncName + "();");
+                        sresult.push("      return this." + tmpChildFuncName + "();");
                         sresult.push("    }");
                         break;
                     case lib_1.PNodeKind.SEQUENCE:
-                        sresult.push("      " + tmpChildFuncName + "(),");
+                        sresult.push("      this." + tmpChildFuncName + "(),");
                         break;
                     case lib_1.PNodeKind.ONE_OR_MORE:
                     case lib_1.PNodeKind.ZERO_OR_MORE:
-                        sresult.push("    return [ " + tmpChildFuncName + "() ];");
+                        sresult.push("    return [ this." + tmpChildFuncName + "() ];");
                         break;
                     default:
-                        sresult.push("    return " + tmpChildFuncName + "();");
+                        sresult.push("    return this." + tmpChildFuncName + "();");
                         break;
                 }
             });
             if (node.kind === lib_1.PNodeKind.SEQUENCE) {
                 sresult.push("    ];");
+                sresult.push("    return result;");
             }
             sresult.push("  }");
             sresult.push("");
             subTmpFuncs = subTmpFuncs.concat(sresult);
             return tmpfuncname;
         }
-        grammar.actions.forEach(function (action) {
-            var outputType = action.kind === lib_1.PActionKind.RULE ? ot(action.ownerRule)
-                : ": boolean";
-            result.push("  $_" + action.name + "()" + outputType + " {  // " + action.target.kind + "/" + action.kind);
-            action.args.forEach(function (a) {
-                var argFuncName;
-                if (a.evaluate.name) {
-                    argFuncName = "$_" + a.evaluate.name;
+        function genMainFuncs() {
+            var sresult = [];
+            grammar.actions.forEach(function (action) {
+                var outputType = action.kind === lib_1.PActionKind.RULE ? ot(action.ownerRule)
+                    : ": boolean";
+                sresult.push("  $_" + action.name + "()" + outputType + " {  // " + action.target.kind + "/" + action.kind);
+                action.args.forEach(function (a) {
+                    var argFuncName, inf;
+                    if (a.evaluate.rule) {
+                        argFuncName = "$_" + a.evaluate.rule;
+                        inf = "rule";
+                    }
+                    else if (a.evaluate.terminal) {
+                        argFuncName = "$_" + a.evaluate.terminal;
+                        inf = "term";
+                    }
+                    else {
+                        argFuncName = genTmpFunc(a.evaluate, "$_" + (i++), "");
+                        inf = "tmp";
+                    }
+                    sresult.push("    let " + a.label + " = this." + argFuncName + "(); // " + inf);
+                });
+                sresult = sresult.concat(action.code.map(function (line) { return "    " + line; }));
+                sresult.push("  }");
+            });
+            var j = 0;
+            grammar.children.forEach(function (rule) {
+                var outputType = ot(rule);
+                if (rule.ruleActions.length) {
+                    sresult.push("  $_" + rule.name + "()" + outputType + " {  // Rule " + rule.name);
+                    rule.children.forEach(function (child) {
+                        if (child.action && child.action.kind === lib_1.PActionKind.RULE) {
+                            switch (rule.kind) {
+                                case lib_1.PNodeKind.CHOICE:
+                                    sresult.push("    if (theVeryNothing['randomVar']===" + (j++) + ") {");
+                                    sresult.push("      return this.$_" + child.action.name + "();");
+                                    sresult.push("    }");
+                                    break;
+                                default:
+                                    sresult.push("    return this.$_" + child.action.name + "();");
+                                    break;
+                            }
+                        }
+                    });
+                    sresult.push("  }");
+                    sresult.push("");
                 }
                 else {
-                    argFuncName = genTmpFunc(a.evaluate, "$_" + (i++), "");
-                }
-                result.push("    let " + a.label + " = " + argFuncName + "();");
-            });
-            result = result.concat(action.code.map(function (line) { return "    " + line; }));
-            result.push("  }");
-        });
-        var j = 0;
-        grammar.children.forEach(function (rule) {
-            var outputType = ot(rule);
-            result.push("  $_" + rule.name + "()" + outputType + " {  // Rule " + rule.name);
-            rule.children.forEach(function (child) {
-                if (child.action && child.action.kind === lib_1.PActionKind.RULE) {
-                    switch (rule.kind) {
-                        case lib_1.PNodeKind.CHOICE:
-                            result.push("    if (theVeryNothing['randomVar']===" + (j++) + ") {");
-                            result.push("      return $_" + child.action.name + "();");
-                            result.push("    }");
-                            break;
-                        default:
-                            result.push("    return $_" + child.action.name + "();");
-                            break;
-                    }
+                    genTmpFunc(rule, "$_" + rule.name, outputType);
                 }
             });
-            result.push("  }");
-            result.push("");
-        });
-        grammar.children.forEach(function (rule) {
-            if (!rule.actions.length) {
-                var outputType = ot(rule);
-                genTmpFunc(rule, "$_" + rule.name, outputType);
-            }
-        });
+            return sresult;
+        }
+        var mainFuncs = genMainFuncs();
         result = result.concat(subTmpFuncs);
+        result = result.concat(mainFuncs);
         return result;
     }
     var genclss = [];

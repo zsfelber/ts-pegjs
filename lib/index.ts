@@ -705,6 +705,7 @@ function hex(ch) {
 export enum PNodeKind {
   GRAMMAR="grammar",
   RULE="rule",
+  TERMINAL="terminal",
   CHOICE="choice",
   SEQUENCE="sequence",
   OPTIONAL="optional",

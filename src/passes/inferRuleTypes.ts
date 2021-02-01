@@ -22,7 +22,7 @@ function generate(ast, ...args) {
 
   function ot(node: PNode) {
     var outputType = (node.kind === PNodeKind.RULE && options && options.returnTypes) ?
-      options.returnTypes[node.name] : "";
+      options.returnTypes[node.rule] : "";
     outputType = outputType ? ": " + outputType : "";
     return outputType;
   }
@@ -35,7 +35,7 @@ function generate(ast, ...args) {
 
     function genTmpFunc(node: PNode, tmpfuncname: string, outputType: string) {
       var sresult = [];
-      sresult.push("  " + tmpfuncname + "()" + outputType + " { // Tmp "+node.kind+" "+(node.name?node.name:""));
+      sresult.push("  " + tmpfuncname + "()" + outputType + " { // Tmp " + node.kind + " " + (node.name ? node.name : ""));
       var j = 0;
       if (node.kind === PNodeKind.SEQUENCE) {
         sresult.push("    var result = [");
@@ -54,23 +54,24 @@ function generate(ast, ...args) {
         switch (node.kind) {
           case PNodeKind.CHOICE:
             sresult.push("    if (theVeryNothing['randomVar']===" + (j++) + ") {");
-            sresult.push("      return " + tmpChildFuncName + "();");
+            sresult.push("      return this." + tmpChildFuncName + "();");
             sresult.push("    }");
             break;
           case PNodeKind.SEQUENCE:
-            sresult.push("      " + tmpChildFuncName + "(),");
+            sresult.push("      this." + tmpChildFuncName + "(),");
             break;
           case PNodeKind.ONE_OR_MORE:
           case PNodeKind.ZERO_OR_MORE:
-            sresult.push("    return [ " + tmpChildFuncName + "() ];");
+            sresult.push("    return [ this." + tmpChildFuncName + "() ];");
             break;
           default:
-            sresult.push("    return " + tmpChildFuncName + "();");
+            sresult.push("    return this." + tmpChildFuncName + "();");
             break;
         }
       });
       if (node.kind === PNodeKind.SEQUENCE) {
         sresult.push("    ];");
+        sresult.push("    return result;");
       }
       sresult.push("  }");
       sresult.push("");
@@ -78,58 +79,70 @@ function generate(ast, ...args) {
       return tmpfuncname;
     }
 
-    grammar.actions.forEach(action => {
-      var outputType = 
-        action.kind===PActionKind.RULE ? ot(action.ownerRule)
-          : ": boolean";
-      result.push("  $_" + action.name + "()" + outputType + " {  // " + action.target.kind+"/"+action.kind);
-      action.args.forEach(a => {
-        var argFuncName;
-        if (a.evaluate.name) {
-          argFuncName = "$_" + a.evaluate.name;
-        } else {
-          argFuncName = genTmpFunc(a.evaluate, "$_" + (i++), "");
-        }
-        result.push("    let " + a.label + " = " + argFuncName + "();");
-      });
-      result = result.concat(action.code.map(line => "    " + line));
-      result.push("  }");
-    });
-
-    var j = 0;
-
-    grammar.children.forEach(rule => {
-
-      var outputType = ot(rule);
-      result.push("  $_" + rule.name + "()" + outputType + " {  // Rule " + rule.name);
-      rule.children.forEach(child => {
-
-        if (child.action && child.action.kind === PActionKind.RULE) {
-
-          switch (rule.kind) {
-            case PNodeKind.CHOICE:
-              result.push("    if (theVeryNothing['randomVar']===" + (j++) + ") {");
-              result.push("      return $_" + child.action.name + "();");
-              result.push("    }");
-              break;
-            default:
-              result.push("    return $_" + child.action.name + "();");
-              break;
+    function genMainFuncs() {
+      var sresult = [];
+      grammar.actions.forEach(action => {
+        var outputType =
+          action.kind === PActionKind.RULE ? ot(action.ownerRule)
+            : ": boolean";
+        sresult.push("  $_" + action.name + "()" + outputType + " {  // " + action.target.kind + "/" + action.kind);
+        action.args.forEach(a => {
+          var argFuncName, inf;
+          if (a.evaluate.rule) {
+            argFuncName = "$_" + a.evaluate.rule;
+            inf = "rule";
+          } else if (a.evaluate.terminal) {
+            argFuncName = "$_" + a.evaluate.terminal;
+            inf = "term";
+          } else {
+            argFuncName = genTmpFunc(a.evaluate, "$_" + (i++), "");
+            inf = "tmp";
           }
-        }
+          sresult.push("    let " + a.label + " = this." + argFuncName + "(); // " + inf);
+        });
+        sresult = sresult.concat(action.code.map(line => "    " + line));
+        sresult.push("  }");
       });
 
-      result.push("  }");
-      result.push("");
-    });
+      var j = 0;
 
-    grammar.children.forEach(rule => {
-      if (!rule.actions.length) {
+      grammar.children.forEach(rule => {
+
         var outputType = ot(rule);
-        genTmpFunc(rule, "$_" + rule.name, outputType);
-      }
-    });
+
+        if (rule.ruleActions.length) {
+          sresult.push("  $_" + rule.name + "()" + outputType + " {  // ("+rule.kind+") " + rule.name);
+          rule.children.forEach(child => {
+
+            if (child.action && child.action.kind === PActionKind.RULE) {
+
+              switch (rule.kind) {
+                case PNodeKind.CHOICE:
+                  sresult.push("    if (theVeryNothing['randomVar']===" + (j++) + ") {");
+                  sresult.push("      return this.$_" + child.action.name + "();");
+                  sresult.push("    }");
+                  break;
+                default:
+                  sresult.push("    return this.$_" + child.action.name + "();");
+                  break;
+              }
+            }
+          });
+
+          sresult.push("  }");
+          sresult.push("");
+        } else {
+          genTmpFunc(rule, "$_" + rule.name, outputType);
+        }
+      });
+      return sresult;
+    }
+
+    var mainFuncs = genMainFuncs();
+
     result = result.concat(subTmpFuncs);
+    result = result.concat(mainFuncs);
+
     return result;
   }
 

@@ -111,17 +111,16 @@ function generate(ast, ...args) {
       case "rule":
         // terminal/nonterminal 
         if (/^Ł/.exec(node.name)) {
-          //node.name.substring(1)
+          ctx.rule = ctx.pushNode(PNodeKind.TERMINAL);
+          ctx.rule.rule = ctx.rule.name = node.name.substring(1);
         } else {
           ctx.rule = ctx.pushNode(PNodeKind.RULE);
-          ctx.rule.actions = [];
-          ctx.rule.ruleActions = [];
-          ctx.rule.name = node.name;
-          child = parseGrammarAst(node, node.expression);
-
-          return ctx.popNode();
+          ctx.rule.rule = ctx.rule.name = node.name;
         }
-        break;
+        ctx.rule.actions = [];
+        ctx.rule.ruleActions = [];
+        child = parseGrammarAst(node, node.expression);
+        return ctx.popNode();
 
       case "action":
 
@@ -147,7 +146,7 @@ function generate(ast, ...args) {
       case "labeled":
 
         child = parseGrammarAst(node, node.expression);
-        child.name = child.label = node.label;
+        child.label = node.label;
 
         break;
 

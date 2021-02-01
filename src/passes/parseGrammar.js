@@ -111,7 +111,7 @@ function generate(ast) {
                     ctx.rule = ctx.pushNode(lib_1.PNodeKind.RULE);
                     ctx.rule.actions = [];
                     ctx.rule.ruleActions = [];
-                    ctx.rule.name = node.name;
+                    ctx.rule.rule = ctx.rule.name = node.name;
                     child = parseGrammarAst(node, node.expression);
                     return ctx.popNode();
                 }
@@ -134,7 +134,7 @@ function generate(ast) {
                 return ctx.popNode();
             case "labeled":
                 child = parseGrammarAst(node, node.expression);
-                child.name = child.label = node.label;
+                child.label = node.label;
                 break;
             case "choice":
                 var choice = ctx.pushNode(lib_1.PNodeKind.CHOICE);
