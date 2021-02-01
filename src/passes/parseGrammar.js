@@ -64,24 +64,29 @@ function generate(ast) {
             this.current = this.current.parent;
             return generatedNode;
         };
-        Context.prototype.generateAction = function (target, argumentsOwner, node) {
-            var ta = { owner: target, code: gencode(node.code), index: this.rule.actions.length, args: new Map, argsarr: [] };
-            target.action = ta;
-            this.grammar.actions.push(ta);
-            this.rule.actions.push(ta);
+        Context.prototype.generateAction = function (target, argumentsOwner, kind, node) {
+            var action = { name: "", kind: kind, ownerRule: ctx.rule, target: target, code: gencode(node.code), index: this.rule.actions.length, args: new Map, argsarr: [] };
+            action.name = ctx.rule.name + "$" + action.index;
+            target.action = action;
+            this.grammar.actions.push(action);
+            this.rule.actions.push(action);
+            if (kind === lib_1.PActionKind.RULE) {
+                this.grammar.ruleActions.push(action);
+                this.rule.ruleActions.push(action);
+            }
             var i = 0;
             argumentsOwner.children.forEach(function (chch) {
                 if (chch.label) {
                     var a = { label: chch.label, index: i, evaluate: chch };
-                    ta.args.set(chch.label, a);
-                    ta.argsarr.push(a);
+                    action.args.set(chch.label, a);
+                    action.argsarr.push(a);
                 }
                 else {
                     //child.action.args.set(chch.label, {label: "$"+i, index: i, evaluate: chch});
                 }
                 i++;
             });
-            return ta;
+            return action;
         };
         return Context;
     }());
@@ -90,8 +95,9 @@ function generate(ast) {
         var child;
         switch (node.type) {
             case "grammar":
-                ctx.grammar = node.gramar = ctx.pushNode(lib_1.PNodeKind.GRAMMAR);
+                ctx.grammar = node.grammar = ctx.pushNode(lib_1.PNodeKind.GRAMMAR);
                 ctx.grammar.actions = [];
+                ctx.grammar.ruleActions = [];
                 node.rules.forEach(function (rule) {
                     child = parseGrammarAst(node, rule);
                 });
@@ -104,6 +110,7 @@ function generate(ast) {
                 else {
                     ctx.rule = ctx.pushNode(lib_1.PNodeKind.RULE);
                     ctx.rule.actions = [];
+                    ctx.rule.ruleActions = [];
                     ctx.rule.name = node.name;
                     child = parseGrammarAst(node, node.expression);
                     return ctx.popNode();
@@ -111,23 +118,35 @@ function generate(ast) {
                 break;
             case "action":
                 child = parseGrammarAst(node, node.expression);
-                ctx.generateAction(child, child, node);
+                ctx.generateAction(child, child, lib_1.PActionKind.RULE, node);
                 break;
             case "sequence":
                 var sequence = ctx.pushNode(lib_1.PNodeKind.SEQUENCE);
                 node.elements.forEach(function (elem) {
                     child = parseGrammarAst(node, elem);
                 });
+                if (sequence.children.length === 0) {
+                    sequence.kind = lib_1.PNodeKind.EMPTY;
+                }
+                else if (sequence.children.length === 0) {
+                    sequence.kind = lib_1.PNodeKind.SINGLE;
+                }
                 return ctx.popNode();
             case "labeled":
                 child = parseGrammarAst(node, node.expression);
-                child.label = node.label;
+                child.name = child.label = node.label;
                 break;
             case "choice":
                 var choice = ctx.pushNode(lib_1.PNodeKind.CHOICE);
                 node.alternatives.forEach(function (elem) {
                     child = parseGrammarAst(node, elem);
                 });
+                if (choice.children.length === 0) {
+                    choice.kind = lib_1.PNodeKind.EMPTY;
+                }
+                else if (choice.children.length === 0) {
+                    choice.kind = lib_1.PNodeKind.SINGLE;
+                }
                 return ctx.popNode();
             case "optional":
             case "zero_or_more":
@@ -140,25 +159,60 @@ function generate(ast) {
                 var current = ctx.current;
                 child = ctx.pushNode(KT[node.type]);
                 // this generates the function arguments from preceeding nodes, as expected 
-                var action = ctx.generateAction(child, current, node);
-                child.name = ctx.rule.name + "$" + action.index;
+                var action = ctx.generateAction(child, current, lib_1.PActionKind.PREDICATE, node);
                 return ctx.popNode();
             case "rule_ref":
                 // terminal rule
                 if (/^Ł/.exec(node.name)) {
                     child = ctx.pushNode(lib_1.PNodeKind.TERMINAL_REF);
-                    child.terminal = node.name.substring(1);
+                    child.name = child.terminal = node.name.substring(1);
                     child.value = terminalConsts[child.terminal];
                 }
                 else {
                     child = ctx.pushNode(lib_1.PNodeKind.RULE_REF);
-                    child.rule = node.name;
+                    child.name = child.rule = node.name;
                 }
                 return ctx.popNode();
         }
+        return child;
     }
     parseGrammarAst(null, ast);
-    //console.log("ast : "+JSON.stringify(ast, null, "  "));
+    //console.log("parsed grammar : "+stringify(ctx.grammar, ""));
+}
+var i = 0;
+function stringify(obj, indent) {
+    if (!indent)
+        indent = "";
+    if (typeof obj !== 'object' || obj === null || obj instanceof Array) {
+        return value(obj, indent);
+    }
+    if (obj["$pr"]) {
+        return obj["$pr"];
+    }
+    obj["$pr"] = "$" + i;
+    var result = " " + i + "." + indent + ' {\n' + Object.keys(obj).map(function (k) {
+        return (typeof obj[k] === 'function') ? null : indent + "  " + k + " : " + value(obj[k], indent + "  ");
+    }).join(",\n") + "/" + i + "." + indent + '}\n';
+    return result;
+}
+function value(val, indent) {
+    switch (typeof val) {
+        case 'string':
+            return '"' + val.replace(/\\/g, '\\\\').replace('"', '\\"') + '"';
+        case 'number':
+        case 'boolean':
+            return '' + val;
+        case 'function':
+            return 'null';
+        case 'object':
+            if (val instanceof Date)
+                return '"' + val.toISOString() + '"';
+            if (val instanceof Array)
+                return " " + i + "." + indent + '[\n' + val.map(function (v) { return value(v, indent + "  "); }).join(',\n') + +"/" + i + "." + indent + ']\n';
+            if (val === null)
+                return 'null';
+            return stringify(val, indent);
+    }
 }
 module.exports = generate;
 //# sourceMappingURL=parseGrammar.js.map

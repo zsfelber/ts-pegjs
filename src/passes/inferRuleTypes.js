@@ -33,7 +33,7 @@ function generate(ast) {
         var subTmpFuncs = [];
         function genTmpFunc(node, tmpfuncname, outputType) {
             var sresult = [];
-            sresult.push("  " + tmpfuncname + "()" + outputType + " {");
+            sresult.push("  " + tmpfuncname + "()" + outputType + " { // Tmp " + node.kind + " " + (node.name ? node.name : ""));
             var j = 0;
             if (node.kind === lib_1.PNodeKind.SEQUENCE) {
                 sresult.push("    var result = [");
@@ -76,12 +76,13 @@ function generate(ast) {
             return tmpfuncname;
         }
         grammar.actions.forEach(function (action) {
-            var outputType = ot(action.owner);
-            result.push("  $_" + action.owner.name + "()" + outputType + " {");
+            var outputType = action.kind === lib_1.PActionKind.RULE ? ot(action.ownerRule)
+                : ": boolean";
+            result.push("  $_" + action.name + "()" + outputType + " {  // " + action.target.kind + "/" + action.kind);
             action.args.forEach(function (a) {
                 var argFuncName;
-                if (!a.evaluate.name) {
-                    argFuncName = a.evaluate.name;
+                if (a.evaluate.name) {
+                    argFuncName = "$_" + a.evaluate.name;
                 }
                 else {
                     argFuncName = genTmpFunc(a.evaluate, "$_" + (i++), "");
@@ -90,6 +91,27 @@ function generate(ast) {
             });
             result = result.concat(action.code.map(function (line) { return "    " + line; }));
             result.push("  }");
+        });
+        var j = 0;
+        grammar.children.forEach(function (rule) {
+            var outputType = ot(rule);
+            result.push("  $_" + rule.name + "()" + outputType + " {  // Rule " + rule.name);
+            rule.children.forEach(function (child) {
+                if (child.action && child.action.kind === lib_1.PActionKind.RULE) {
+                    switch (rule.kind) {
+                        case lib_1.PNodeKind.CHOICE:
+                            result.push("    if (theVeryNothing['randomVar']===" + (j++) + ") {");
+                            result.push("      return $_" + child.action.name + "();");
+                            result.push("    }");
+                            break;
+                        default:
+                            result.push("    return $_" + child.action.name + "();");
+                            break;
+                    }
+                }
+            });
+            result.push("  }");
+            result.push("");
         });
         grammar.children.forEach(function (rule) {
             if (!rule.actions.length) {
@@ -167,7 +189,7 @@ function generate(ast) {
             });
         }
     });
-    console.log(inferredTypes);
+    // console.log(inferredTypes);
     // TODO
     //Object.values(simplifiedRules).forEach((simpleRule: any) => {
     //  generateNodeClasses(simpleRule, simpleRule, null, "    ");

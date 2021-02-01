@@ -703,18 +703,23 @@ function hex(ch) {
 
 
 export enum PNodeKind {
-  GRAMMAR,
-  RULE,
-  CHOICE,
-  SEQUENCE,
-  OPTIONAL,
-  ONE_OR_MORE,
-  ZERO_OR_MORE,
-  SINGLE,
-  SEMANTIC_AND,
-  SEMANTIC_NOT,
-  RULE_REF,
-  TERMINAL_REF
+  GRAMMAR="grammar",
+  RULE="rule",
+  CHOICE="choice",
+  SEQUENCE="sequence",
+  OPTIONAL="optional",
+  ONE_OR_MORE="one_or_more",
+  ZERO_OR_MORE="zero_or_more",
+  EMPTY="empty",
+  SINGLE="single",
+  SEMANTIC_AND="semantic_and",
+  SEMANTIC_NOT="semantic_not",
+  RULE_REF="rule_ref",
+  TERMINAL_REF="terminal_ref"
+}
+export enum PActionKind {
+  RULE="RULE",
+  PREDICATE="PREDICATE"
 }
 
 export class PNode {
@@ -722,6 +727,7 @@ export class PNode {
   kind: PNodeKind;
   children: PNode[];
   actions?: PFunction[];
+  ruleActions?: PFunction[];
   name?: string;
   label?: string;
   value?: number;
@@ -731,12 +737,15 @@ export class PNode {
 }
 
 export class PFunction {
-  owner: PNode;
+  name: string;
+  ownerRule: PNode;
+  target: PNode;
   index: number;
   args: Map<string,PCallArg>;
   argsarr: PCallArg[];
   generatedMemberName?: string;
   code?: string[];
+  kind: PActionKind;
 }
 
 export class PCallArg {

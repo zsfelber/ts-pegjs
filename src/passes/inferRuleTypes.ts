@@ -1,6 +1,6 @@
 import * as ts from "typescript";
 import * as fs from "fs";
-import { PNodeKind, PNode, PFunction, PCallArg } from "../../lib";
+import { PNodeKind, PActionKind, PNode, PFunction, PCallArg } from "../../lib";
 
 // Generates parser JavaScript code.
 function generate(ast, ...args) {
@@ -35,7 +35,7 @@ function generate(ast, ...args) {
 
     function genTmpFunc(node: PNode, tmpfuncname: string, outputType: string) {
       var sresult = [];
-      sresult.push("  " + tmpfuncname + "()" + outputType + " {");
+      sresult.push("  " + tmpfuncname + "()" + outputType + " { // Tmp "+node.kind+" "+(node.name?node.name:""));
       var j = 0;
       if (node.kind === PNodeKind.SEQUENCE) {
         sresult.push("    var result = [");
@@ -79,12 +79,14 @@ function generate(ast, ...args) {
     }
 
     grammar.actions.forEach(action => {
-      var outputType = ot(action.owner);
-      result.push("  $_" + action.owner.name + "()" + outputType + " {");
+      var outputType = 
+        action.kind===PActionKind.RULE ? ot(action.ownerRule)
+          : ": boolean";
+      result.push("  $_" + action.name + "()" + outputType + " {  // " + action.target.kind+"/"+action.kind);
       action.args.forEach(a => {
         var argFuncName;
-        if (!a.evaluate.name) {
-          argFuncName = a.evaluate.name;
+        if (a.evaluate.name) {
+          argFuncName = "$_" + a.evaluate.name;
         } else {
           argFuncName = genTmpFunc(a.evaluate, "$_" + (i++), "");
         }
@@ -92,7 +94,33 @@ function generate(ast, ...args) {
       });
       result = result.concat(action.code.map(line => "    " + line));
       result.push("  }");
+    });
 
+    var j = 0;
+
+    grammar.children.forEach(rule => {
+
+      var outputType = ot(rule);
+      result.push("  $_" + rule.name + "()" + outputType + " {  // Rule " + rule.name);
+      rule.children.forEach(child => {
+
+        if (child.action && child.action.kind === PActionKind.RULE) {
+
+          switch (rule.kind) {
+            case PNodeKind.CHOICE:
+              result.push("    if (theVeryNothing['randomVar']===" + (j++) + ") {");
+              result.push("      return $_" + child.action.name + "();");
+              result.push("    }");
+              break;
+            default:
+              result.push("    return $_" + child.action.name + "();");
+              break;
+          }
+        }
+      });
+
+      result.push("  }");
+      result.push("");
     });
 
     grammar.children.forEach(rule => {
@@ -186,7 +214,7 @@ function generate(ast, ...args) {
     }
   });
 
-  console.log(inferredTypes);
+  // console.log(inferredTypes);
 
   // TODO
 
