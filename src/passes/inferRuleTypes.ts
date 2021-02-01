@@ -21,7 +21,7 @@ function generate(ast, ...args) {
   ast.fields = [];
 
   function ot(node: PNode) {
-    var outputType = (node.kind === PNodeKind.RULE && options && options.returnTypes) ?
+    var outputType = ((node.kind === PNodeKind.RULE||node.kind === PNodeKind.TERMINAL) && options && options.returnTypes) ?
       options.returnTypes[node.rule] : "";
     outputType = outputType ? ": " + outputType : "";
     return outputType;

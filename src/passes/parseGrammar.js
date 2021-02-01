@@ -105,17 +105,17 @@ function generate(ast) {
             case "rule":
                 // terminal/nonterminal 
                 if (/^Ł/.exec(node.name)) {
-                    //node.name.substring(1)
+                    ctx.rule = ctx.pushNode(lib_1.PNodeKind.TERMINAL);
+                    ctx.rule.terminal = ctx.rule.name = node.name.substring(1);
                 }
                 else {
                     ctx.rule = ctx.pushNode(lib_1.PNodeKind.RULE);
-                    ctx.rule.actions = [];
-                    ctx.rule.ruleActions = [];
                     ctx.rule.rule = ctx.rule.name = node.name;
-                    child = parseGrammarAst(node, node.expression);
-                    return ctx.popNode();
                 }
-                break;
+                ctx.rule.actions = [];
+                ctx.rule.ruleActions = [];
+                child = parseGrammarAst(node, node.expression);
+                return ctx.popNode();
             case "action":
                 child = parseGrammarAst(node, node.expression);
                 ctx.generateAction(child, child, lib_1.PActionKind.RULE, node);
@@ -166,12 +166,15 @@ function generate(ast) {
                 if (/^Ł/.exec(node.name)) {
                     child = ctx.pushNode(lib_1.PNodeKind.TERMINAL_REF);
                     child.name = child.terminal = node.name.substring(1);
-                    child.value = terminalConsts[child.terminal];
+                    child.value = terminalConsts.get(child.terminal);
                 }
                 else {
                     child = ctx.pushNode(lib_1.PNodeKind.RULE_REF);
                     child.name = child.rule = node.name;
                 }
+                return ctx.popNode();
+            case "literal":
+                child = ctx.pushNode(lib_1.PNodeKind.EMPTY);
                 return ctx.popNode();
         }
         return child;

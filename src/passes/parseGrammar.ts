@@ -112,7 +112,7 @@ function generate(ast, ...args) {
         // terminal/nonterminal 
         if (/^Ł/.exec(node.name)) {
           ctx.rule = ctx.pushNode(PNodeKind.TERMINAL);
-          ctx.rule.rule = ctx.rule.name = node.name.substring(1);
+          ctx.rule.terminal = ctx.rule.name = node.name.substring(1);
         } else {
           ctx.rule = ctx.pushNode(PNodeKind.RULE);
           ctx.rule.rule = ctx.rule.name = node.name;
@@ -186,11 +186,15 @@ function generate(ast, ...args) {
         if (/^Ł/.exec(node.name)) {
           child = ctx.pushNode(PNodeKind.TERMINAL_REF);
           child.name = child.terminal = node.name.substring(1);
-          child.value = terminalConsts[child.terminal];
+          child.value = terminalConsts.get(child.terminal);
         } else {
           child = ctx.pushNode(PNodeKind.RULE_REF);
           child.name = child.rule = node.name;
         }
+        return ctx.popNode();
+
+      case "literal":
+        child = ctx.pushNode(PNodeKind.EMPTY);
         return ctx.popNode();
     }
 

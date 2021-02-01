@@ -21,7 +21,7 @@ function generate(ast) {
     ast.inferredTypes = inferredTypes;
     ast.fields = [];
     function ot(node) {
-        var outputType = (node.kind === lib_1.PNodeKind.RULE && options && options.returnTypes) ?
+        var outputType = ((node.kind === lib_1.PNodeKind.RULE || node.kind === lib_1.PNodeKind.TERMINAL) && options && options.returnTypes) ?
             options.returnTypes[node.rule] : "";
         outputType = outputType ? ": " + outputType : "";
         return outputType;
@@ -105,7 +105,7 @@ function generate(ast) {
             grammar.children.forEach(function (rule) {
                 var outputType = ot(rule);
                 if (rule.ruleActions.length) {
-                    sresult.push("  $_" + rule.name + "()" + outputType + " {  // Rule " + rule.name);
+                    sresult.push("  $_" + rule.name + "()" + outputType + " {  // (" + rule.kind + ") " + rule.name);
                     rule.children.forEach(function (child) {
                         if (child.action && child.action.kind === lib_1.PActionKind.RULE) {
                             switch (rule.kind) {
