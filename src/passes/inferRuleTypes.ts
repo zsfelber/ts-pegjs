@@ -44,8 +44,10 @@ function generate(ast, ...args) {
         var tmpChildFuncName: string;
         switch (child.kind) {
           case PNodeKind.RULE_REF:
-          case PNodeKind.TERMINAL_REF:
             tmpChildFuncName = "$_" + child.name;
+            break;
+          case PNodeKind.TERMINAL_REF:
+            tmpChildFuncName = "$_$" + child.name;
             break;
           default:
             tmpChildFuncName = genTmpFunc(child, "$_" + (i++), "");
@@ -85,14 +87,25 @@ function generate(ast, ...args) {
         var outputType =
           action.kind === PActionKind.RULE ? ot(action.ownerRule)
             : ": boolean";
-        sresult.push("  $_" + action.name + "()" + outputType + " {  // " + action.target.kind + "/" + action.kind);
+
+        var name;
+        switch (action.ownerRule.kind) {
+          case PNodeKind.RULE:
+            name = action.name;
+            break;
+          default:
+            name = "$"+action.name;
+            break;
+        } 
+
+        sresult.push("  $_" + name + "()" + outputType + " {  // " + action.target.kind + "/" + action.kind);
         action.args.forEach(a => {
           var argFuncName, inf;
           if (a.evaluate.rule) {
             argFuncName = "$_" + a.evaluate.rule;
             inf = "rule";
           } else if (a.evaluate.terminal) {
-            argFuncName = "$_" + a.evaluate.terminal;
+            argFuncName = "$_$" + a.evaluate.terminal;
             inf = "term";
           } else {
             argFuncName = genTmpFunc(a.evaluate, "$_" + (i++), "");
@@ -109,21 +122,33 @@ function generate(ast, ...args) {
       grammar.children.forEach(rule => {
 
         var outputType = ot(rule);
+        var name;
+        if (rule.kind === PNodeKind.TERMINAL) {
+          name = "$"+rule.name;
+        } else {
+          name = rule.name;
+        }
 
         if (rule.ruleActions.length) {
-          sresult.push("  $_" + rule.name + "()" + outputType + " {  // ("+rule.kind+") " + rule.name);
+          sresult.push("  $_" + name + "()" + outputType + " {  // ("+rule.kind+") " + rule.name);
           rule.children.forEach(child => {
 
             if (child.action && child.action.kind === PActionKind.RULE) {
-
+              var aname;
+              if (rule.kind === PNodeKind.TERMINAL) {
+                aname = "$"+child.action.name;
+              } else {
+                aname = child.action.name;
+              }
+      
               switch (rule.kind) {
                 case PNodeKind.CHOICE:
                   sresult.push("    if (theVeryNothing['randomVar']===" + (j++) + ") {");
-                  sresult.push("      return this.$_" + child.action.name + "();");
+                  sresult.push("      return this.$_" + aname + "();");
                   sresult.push("    }");
                   break;
                 default:
-                  sresult.push("    return this.$_" + child.action.name + "();");
+                  sresult.push("    return this.$_" + aname + "();");
                   break;
               }
             }
@@ -132,7 +157,7 @@ function generate(ast, ...args) {
           sresult.push("  }");
           sresult.push("");
         } else {
-          genTmpFunc(rule, "$_" + rule.name, outputType);
+          genTmpFunc(rule, "$_" + name, outputType);
         }
       });
       return sresult;

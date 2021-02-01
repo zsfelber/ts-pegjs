@@ -42,8 +42,10 @@ function generate(ast) {
                 var tmpChildFuncName;
                 switch (child.kind) {
                     case lib_1.PNodeKind.RULE_REF:
-                    case lib_1.PNodeKind.TERMINAL_REF:
                         tmpChildFuncName = "$_" + child.name;
+                        break;
+                    case lib_1.PNodeKind.TERMINAL_REF:
+                        tmpChildFuncName = "$_$" + child.name;
                         break;
                     default:
                         tmpChildFuncName = genTmpFunc(child, "$_" + (i++), "");
@@ -81,7 +83,16 @@ function generate(ast) {
             grammar.actions.forEach(function (action) {
                 var outputType = action.kind === lib_1.PActionKind.RULE ? ot(action.ownerRule)
                     : ": boolean";
-                sresult.push("  $_" + action.name + "()" + outputType + " {  // " + action.target.kind + "/" + action.kind);
+                var name;
+                switch (action.ownerRule.kind) {
+                    case lib_1.PNodeKind.RULE:
+                        name = action.name;
+                        break;
+                    default:
+                        name = "$" + action.name;
+                        break;
+                }
+                sresult.push("  $_" + name + "()" + outputType + " {  // " + action.target.kind + "/" + action.kind);
                 action.args.forEach(function (a) {
                     var argFuncName, inf;
                     if (a.evaluate.rule) {
@@ -89,7 +100,7 @@ function generate(ast) {
                         inf = "rule";
                     }
                     else if (a.evaluate.terminal) {
-                        argFuncName = "$_" + a.evaluate.terminal;
+                        argFuncName = "$_$" + a.evaluate.terminal;
                         inf = "term";
                     }
                     else {
@@ -104,18 +115,32 @@ function generate(ast) {
             var j = 0;
             grammar.children.forEach(function (rule) {
                 var outputType = ot(rule);
+                var name;
+                if (rule.kind === lib_1.PNodeKind.TERMINAL) {
+                    name = "$" + rule.name;
+                }
+                else {
+                    name = rule.name;
+                }
                 if (rule.ruleActions.length) {
-                    sresult.push("  $_" + rule.name + "()" + outputType + " {  // (" + rule.kind + ") " + rule.name);
+                    sresult.push("  $_" + name + "()" + outputType + " {  // (" + rule.kind + ") " + rule.name);
                     rule.children.forEach(function (child) {
                         if (child.action && child.action.kind === lib_1.PActionKind.RULE) {
+                            var aname;
+                            if (rule.kind === lib_1.PNodeKind.TERMINAL) {
+                                aname = "$" + child.action.name;
+                            }
+                            else {
+                                aname = child.action.name;
+                            }
                             switch (rule.kind) {
                                 case lib_1.PNodeKind.CHOICE:
                                     sresult.push("    if (theVeryNothing['randomVar']===" + (j++) + ") {");
-                                    sresult.push("      return this.$_" + child.action.name + "();");
+                                    sresult.push("      return this.$_" + aname + "();");
                                     sresult.push("    }");
                                     break;
                                 default:
-                                    sresult.push("    return this.$_" + child.action.name + "();");
+                                    sresult.push("    return this.$_" + aname + "();");
                                     break;
                             }
                         }
@@ -124,7 +149,7 @@ function generate(ast) {
                     sresult.push("");
                 }
                 else {
-                    genTmpFunc(rule, "$_" + rule.name, outputType);
+                    genTmpFunc(rule, "$_" + name, outputType);
                 }
             });
             return sresult;
