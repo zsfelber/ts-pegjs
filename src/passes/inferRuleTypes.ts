@@ -21,8 +21,17 @@ function generate(ast, ...args) {
   ast.fields = [];
 
   function ot(node: PNode) {
-    var outputType = ((node.kind === PNodeKind.RULE||node.kind === PNodeKind.TERMINAL) && options && options.returnTypes) ?
-      options.returnTypes[node.rule] : "";
+    var outputType: string;
+    if (options && options.returnTypes) {
+      switch (node.kind) {
+        case PNodeKind.RULE:
+          outputType = options.returnTypes[node.rule];
+          break;
+        case PNodeKind.TERMINAL:
+          outputType = options.returnTypes["Ł"+node.rule];
+          break;
+      }
+    }
     outputType = outputType ? ": " + outputType : "";
     return outputType;
   }
@@ -174,6 +183,7 @@ function generate(ast, ...args) {
 
   var genclss = [];
   genclss.push("import { IFilePosition, IFileRange, ILiteralExpectation, IClassParts, IClassExpectation, IAnyExpectation, IEndExpectation, IOtherExpectation, Expectation, SyntaxError, ITraceEvent, DefaultTracer, ICached, IPegjsParseStream, PegjsParseStream, IPegjsBuffer, IToken } from 'ts-pegjs/lib';");
+import { ACCEPT_TOKEN } from '../../lib/index';
 
   if (options.tspegjs.customHeader) {
     genclss.push(options.tspegjs.customHeader.length ? options.tspegjs.customHeader.join("\n") : options.tspegjs.customHeader + "");

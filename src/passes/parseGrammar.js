@@ -75,7 +75,7 @@ function generate(ast) {
                 this.rule.ruleActions.push(action);
             }
             var i = 0;
-            argumentsOwner.children.forEach(function (chch) {
+            var addlabels = function (chch) {
                 if (chch.label) {
                     var a = { label: chch.label, index: i, evaluate: chch };
                     action.args.set(chch.label, a);
@@ -85,7 +85,15 @@ function generate(ast) {
                     //child.action.args.set(chch.label, {label: "$"+i, index: i, evaluate: chch});
                 }
                 i++;
-            });
+            };
+            if (argumentsOwner.kind === lib_1.PNodeKind.SEQUENCE || argumentsOwner.kind === lib_1.PNodeKind.CHOICE) {
+                argumentsOwner.children.forEach(function (chch) {
+                    addlabels(chch);
+                });
+            }
+            else {
+                addlabels(argumentsOwner);
+            }
             return action;
         };
         return Context;

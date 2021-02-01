@@ -21,8 +21,17 @@ function generate(ast) {
     ast.inferredTypes = inferredTypes;
     ast.fields = [];
     function ot(node) {
-        var outputType = ((node.kind === lib_1.PNodeKind.RULE || node.kind === lib_1.PNodeKind.TERMINAL) && options && options.returnTypes) ?
-            options.returnTypes[node.rule] : "";
+        var outputType;
+        switch (node.kind) {
+            case lib_1.PNodeKind.RULE:
+                outputType = ((node.kind === lib_1.PNodeKind.RULE || node.kind === lib_1.PNodeKind.TERMINAL) && options && options.returnTypes) ?
+                    options.returnTypes[node.rule] : "";
+                break;
+            case lib_1.PNodeKind.TERMINAL:
+                outputType = ((node.kind === lib_1.PNodeKind.RULE || node.kind === lib_1.PNodeKind.TERMINAL) && options && options.returnTypes) ?
+                    options.returnTypes[node.rule] : "";
+                break;
+        }
         outputType = outputType ? ": " + outputType : "";
         return outputType;
     }
@@ -161,6 +170,7 @@ function generate(ast) {
     }
     var genclss = [];
     genclss.push("import { IFilePosition, IFileRange, ILiteralExpectation, IClassParts, IClassExpectation, IAnyExpectation, IEndExpectation, IOtherExpectation, Expectation, SyntaxError, ITraceEvent, DefaultTracer, ICached, IPegjsParseStream, PegjsParseStream, IPegjsBuffer, IToken } from 'ts-pegjs/lib';");
+    import { ACCEPT_TOKEN } from '../../lib/index';
     if (options.tspegjs.customHeader) {
         genclss.push(options.tspegjs.customHeader.length ? options.tspegjs.customHeader.join("\n") : options.tspegjs.customHeader + "");
     }

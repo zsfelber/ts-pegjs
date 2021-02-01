@@ -78,7 +78,7 @@ function generate(ast, ...args) {
         this.rule.ruleActions.push(action);
       }
       var i = 0;
-      argumentsOwner.children.forEach(chch => {
+      const addlabels = (chch: PNode) => {
         if (chch.label) {
           var a = { label: chch.label, index: i, evaluate: chch };
           action.args.set(chch.label, a);
@@ -87,7 +87,15 @@ function generate(ast, ...args) {
           //child.action.args.set(chch.label, {label: "$"+i, index: i, evaluate: chch});
         }
         i++;
-      });
+      }
+
+      if (argumentsOwner.kind === PNodeKind.SEQUENCE || argumentsOwner.kind === PNodeKind.CHOICE) {
+        argumentsOwner.children.forEach(chch => {
+          addlabels(chch);
+        });
+      } else {
+        addlabels(argumentsOwner);
+      }
       return action;
     }
   }
