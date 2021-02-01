@@ -83,7 +83,7 @@ function generate(ast, ...args) {
     }
     generateAction(target: PLogicNode, argumentsOwner: PNode, kind: PActionKind, node) {
       var action: PFunction = { name:"", kind, ownerRule:ctx.rule, target, code: gencode(node.code), index: this.rule.actions.length, args: new Map, argsarr: [] };
-      action.name = ctx.rule.id + "$" + action.index;
+      action.name = ctx.rule.symbol + "$" + action.index;
 
       target.action = action;
       this.grammar.actions.push(action);

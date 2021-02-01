@@ -1,6 +1,8 @@
 import * as ts from "typescript";
 import * as fs from "fs";
-import { PNodeKind, PActionKind, PNode, PFunction, PCallArg } from "../../lib";
+import { PNodeKind, PActionKind, PNode, PGrammar, PFunction, PCallArg, PRule,
+  PRuleRef, PTerminalRef, PActContainer
+ } from "../../lib";
 
 // Generates parser JavaScript code.
 function generate(ast, ...args) {
@@ -20,15 +22,15 @@ function generate(ast, ...args) {
   ast.inferredTypes = inferredTypes;
   ast.fields = [];
 
-  function ot(node: PNode) {
+  function ot(node: PActContainer) {
     var outputType: string;
     if (options && options.returnTypes) {
       switch (node.kind) {
         case PNodeKind.RULE:
-          outputType = options.returnTypes[node.rule];
+          outputType = options.returnTypes[node.symbol];
           break;
         case PNodeKind.TERMINAL:
-          outputType = options.returnTypes["Ł"+node.terminal];
+          outputType = options.returnTypes["Ł"+node.symbol];
           break;
       }
     }
@@ -37,14 +39,14 @@ function generate(ast, ...args) {
   }
 
   function generateTmpClasses(): string[] {
-    var grammar: PNode = ast.grammar;
+    var grammar: PGrammar = ast.grammar;
     var result = [];
     var i = 0;
     var subTmpFuncs = [];
 
     function genTmpFunc(node: PNode, tmpfuncname: string, outputType: string) {
       var sresult = [];
-      sresult.push("  " + tmpfuncname + "()" + outputType + " { // Tmp " + node.kind + " " + (node.name ? node.name : ""));
+      sresult.push("  " + tmpfuncname + "()" + outputType + " { // Tmp " + node.toString());
       var j = 0;
       if (node.kind === PNodeKind.SEQUENCE) {
         sresult.push("    var result = [");
@@ -54,10 +56,10 @@ function generate(ast, ...args) {
         var tmpChildFuncName: string;
         switch (child.kind) {
           case PNodeKind.RULE_REF:
-            tmpChildFuncName = "$_" + child.name;
+            tmpChildFuncName = "$_" + (child as PRuleRef).rule;
             break;
           case PNodeKind.TERMINAL_REF:
-            tmpChildFuncName = "$_$" + child.name;
+            tmpChildFuncName = "$_$" + (child as PTerminalRef).terminal;
             break;
           default:
             tmpChildFuncName = genTmpFunc(child, "$_" + (i++), "");
@@ -115,11 +117,11 @@ function generate(ast, ...args) {
         sresult.push("  $_" + name + "()" + outputType + " {  // " + action.target.kind + "/" + action.kind);
         action.args.forEach(a => {
           var argFuncName, inf;
-          if (a.evaluate.rule) {
-            argFuncName = "$_" + a.evaluate.rule;
+          if (a.evaluate.kind === PNodeKind.RULE_REF) {
+            argFuncName = "$_" + (a.evaluate as PRuleRef).rule;
             inf = "rule";
-          } else if (a.evaluate.terminal) {
-            argFuncName = "$_$" + a.evaluate.terminal;
+          } else if (a.evaluate.kind === PNodeKind.TERMINAL_REF) {
+            argFuncName = "$_$" + (a.evaluate as PTerminalRef).terminal;
             inf = "term";
           } else {
             argFuncName = genTmpFunc(a.evaluate, "$_" + (i++), "");
@@ -138,16 +140,16 @@ function generate(ast, ...args) {
         var outputType = ot(rule);
         var name, ass;
         if (rule.kind === PNodeKind.TERMINAL) {
-          name = "$"+rule.name;
+          name = "$"+rule.symbol;
           ass = outputType.replace(":", " as ");
         } else {
-          name = rule.name;
+          name = rule.symbol;
           ass = "";
         }
 
         if (rule.ruleActions.length) {
           var condret = 0;
-          sresult.push("  $_" + name + "()" + outputType + " {  // ("+rule.kind+") " + rule.name);
+          sresult.push("  $_" + name + "()" + outputType + " {  // ("+rule.kind+") " + rule.symbol);
           rule.ruleActions.forEach(action => {
             var aname;
             if (rule.kind === PNodeKind.TERMINAL) {
@@ -167,7 +169,7 @@ function generate(ast, ...args) {
           sresult.push("  }");
           sresult.push("");
         } else if (rule.kind === PNodeKind.TERMINAL) {
-          sresult.push("  $_" + name + "()" + outputType + " {  // generated ("+rule.kind+") " + rule.name);
+          sresult.push("  $_" + name + "()" + outputType + " {  // generated ("+rule.kind+") " + rule.symbol);
           sresult.push("    return this.token()"+ass+";");
           sresult.push("  }");
         } else {

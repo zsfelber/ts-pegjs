@@ -487,26 +487,35 @@ export class PNode {
   constructor(parent: PNode) {
     this.parent = parent;
   }
+
+  toString(){
+    return ""+this.kind;
+  }
 }
 
 export class PActContainer extends PNode {
   actions?: PFunction[];
   ruleActions?: PFunction[];
 
-  get id(): string {
+  get symbol(): string {
     return null;
+  }
+
+  toString() {
+    return this.kind+" "+this.symbol;
   }
 }
 
 export class PGrammar extends PActContainer {
   kind: PNodeKind.GRAMMAR;
+  children: PActContainer[];
 }
 
 export class PRule extends PActContainer {
   kind: PNodeKind.RULE;
   rule?: string;
 
-  get id() {
+  get symbol() {
     return this.rule;
   }
 }
@@ -515,7 +524,7 @@ export class PTerminal extends PActContainer {
   kind: PNodeKind.TERMINAL;
   terminal?: string;
 
-  get id() {
+  get symbol() {
     return this.terminal;
   }
 }
@@ -528,20 +537,39 @@ export class PLogicNode extends PNode {
 export class PValueNode extends PLogicNode {
   label?: string;
 
+  toString(){
+    return this.kind+" "+this.label;
+  }
 }
 
-export class PRuleRef extends PValueNode {
+export class PRef extends PValueNode {
+  get symbol() {
+    return null;
+  }
+
+  toString(){
+    return this.kind+" "+this.label+" "+this.symbol;
+  }
+}
+
+export class PRuleRef extends PRef {
   kind: PNodeKind.RULE_REF;
   rule?: string;
 
+  get symbol() {
+    return this.rule;
+  }
 }
 
-export class PTerminalRef extends PValueNode {
+export class PTerminalRef extends PRef {
   kind: PNodeKind.TERMINAL_REF;
   terminal?: string;
 
   value?: number;
 
+  get symbol() {
+    return this.terminal;
+  }
 }
 
 export class PSemanticAnd extends PLogicNode {
