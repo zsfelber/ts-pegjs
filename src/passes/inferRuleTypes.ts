@@ -97,16 +97,17 @@ function generate(ast, ...args) {
     function genMainFuncs() {
       var sresult = [];
       grammar.actions.forEach(action => {
-        var outputType =
-          action.kind === PActionKind.RULE ? ot(action.ownerRule)
-            : ": boolean";
 
+        var outputType;
         var name;
         switch (action.ownerRule.kind) {
           case PNodeKind.RULE:
+            outputType = action.kind === PActionKind.RULE ? ot(action.ownerRule)
+              : ": boolean";
             name = action.name;
             break;
           default:
+            outputType = action.kind === PActionKind.RULE ? "" : ": boolean";
             name = "$"+action.name;
             break;
         } 
@@ -135,11 +136,13 @@ function generate(ast, ...args) {
       grammar.children.forEach(rule => {
 
         var outputType = ot(rule);
-        var name;
+        var name, ass;
         if (rule.kind === PNodeKind.TERMINAL) {
           name = "$"+rule.name;
+          ass = outputType.replace(":", " as ");
         } else {
           name = rule.name;
+          ass = "";
         }
 
         if (rule.ruleActions.length) {
@@ -155,7 +158,7 @@ function generate(ast, ...args) {
 
             condret = 1;
             sresult.push("    if (theVeryNothing['butSomething']===" + (j++) + ") {");
-            sresult.push("      return this.$_" + aname + "();");
+            sresult.push("      return this.$_" + aname + "()"+ass+";");
             sresult.push("    }");
           });
           if (condret) {
@@ -163,6 +166,10 @@ function generate(ast, ...args) {
           }
           sresult.push("  }");
           sresult.push("");
+        } else if (rule.kind === PNodeKind.TERMINAL) {
+          sresult.push("  $_" + name + "()" + outputType + " {  // generated ("+rule.kind+") " + rule.name);
+          sresult.push("    return this.token()"+ass+";");
+          sresult.push("  }");
         } else {
           genTmpFunc(rule, "$_" + name, outputType);
         }
@@ -200,7 +207,7 @@ function generate(ast, ...args) {
     "  peg$maxFailExpected: Expectation[] = [];",
     "  peg$silentFails = 0;", // 0 = report failures, > 0 = silence failures
     "",
-    "  token(): T { return null; } ",
+    "  token(): "+baseTokenType+" { return null; } ",
     "",
     ""].join("\n"));
   genclss.push("");

@@ -95,14 +95,16 @@ function generate(ast) {
         function genMainFuncs() {
             var sresult = [];
             grammar.actions.forEach(function (action) {
-                var outputType = action.kind === lib_1.PActionKind.RULE ? ot(action.ownerRule)
-                    : ": boolean";
+                var outputType;
                 var name;
                 switch (action.ownerRule.kind) {
                     case lib_1.PNodeKind.RULE:
+                        outputType = action.kind === lib_1.PActionKind.RULE ? ot(action.ownerRule)
+                            : ": boolean";
                         name = action.name;
                         break;
                     default:
+                        outputType = action.kind === lib_1.PActionKind.RULE ? "" : ": boolean";
                         name = "$" + action.name;
                         break;
                 }
@@ -129,12 +131,14 @@ function generate(ast) {
             var j = 0;
             grammar.children.forEach(function (rule) {
                 var outputType = ot(rule);
-                var name;
+                var name, ass;
                 if (rule.kind === lib_1.PNodeKind.TERMINAL) {
                     name = "$" + rule.name;
+                    ass = outputType.replace(":", " as ");
                 }
                 else {
                     name = rule.name;
+                    ass = "";
                 }
                 if (rule.ruleActions.length) {
                     var condret = 0;
@@ -149,7 +153,7 @@ function generate(ast) {
                         }
                         condret = 1;
                         sresult.push("    if (theVeryNothing['butSomething']===" + (j++) + ") {");
-                        sresult.push("      return this.$_" + aname + "();");
+                        sresult.push("      return this.$_" + aname + "()" + ass + ";");
                         sresult.push("    }");
                     });
                     if (condret) {
@@ -157,6 +161,11 @@ function generate(ast) {
                     }
                     sresult.push("  }");
                     sresult.push("");
+                }
+                else if (rule.kind === lib_1.PNodeKind.TERMINAL) {
+                    sresult.push("  $_" + name + "()" + outputType + " {  // generated (" + rule.kind + ") " + rule.name);
+                    sresult.push("    return this.token()" + ass + ";");
+                    sresult.push("  }");
                 }
                 else {
                     genTmpFunc(rule, "$_" + name, outputType);
@@ -188,7 +197,7 @@ function generate(ast) {
         "  peg$maxFailExpected: Expectation[] = [];",
         "  peg$silentFails = 0;",
         "",
-        "  token(): T { return null; } ",
+        "  token(): " + baseTokenType + " { return null; } ",
         "",
         ""].join("\n"));
     genclss.push("");
