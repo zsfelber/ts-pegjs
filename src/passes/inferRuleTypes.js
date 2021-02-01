@@ -22,15 +22,15 @@ function generate(ast) {
     ast.fields = [];
     function ot(node) {
         var outputType;
-        switch (node.kind) {
-            case lib_1.PNodeKind.RULE:
-                outputType = ((node.kind === lib_1.PNodeKind.RULE || node.kind === lib_1.PNodeKind.TERMINAL) && options && options.returnTypes) ?
-                    options.returnTypes[node.rule] : "";
-                break;
-            case lib_1.PNodeKind.TERMINAL:
-                outputType = ((node.kind === lib_1.PNodeKind.RULE || node.kind === lib_1.PNodeKind.TERMINAL) && options && options.returnTypes) ?
-                    options.returnTypes[node.rule] : "";
-                break;
+        if (options && options.returnTypes) {
+            switch (node.kind) {
+                case lib_1.PNodeKind.RULE:
+                    outputType = options.returnTypes[node.rule];
+                    break;
+                case lib_1.PNodeKind.TERMINAL:
+                    outputType = options.returnTypes["Ł" + node.rule];
+                    break;
+            }
         }
         outputType = outputType ? ": " + outputType : "";
         return outputType;
@@ -47,6 +47,7 @@ function generate(ast) {
             if (node.kind === lib_1.PNodeKind.SEQUENCE) {
                 sresult.push("    var result = [");
             }
+            var condret = 0;
             node.children.forEach(function (child) {
                 var tmpChildFuncName;
                 switch (child.kind) {
@@ -62,6 +63,7 @@ function generate(ast) {
                 }
                 switch (node.kind) {
                     case lib_1.PNodeKind.CHOICE:
+                        condret = 1;
                         sresult.push("    if (theVeryNothing['randomVar']===" + (j++) + ") {");
                         sresult.push("      return this." + tmpChildFuncName + "();");
                         sresult.push("    }");
@@ -81,6 +83,9 @@ function generate(ast) {
             if (node.kind === lib_1.PNodeKind.SEQUENCE) {
                 sresult.push("    ];");
                 sresult.push("    return result;");
+            }
+            else if (condret) {
+                sresult.push("    return undefined;");
             }
             sresult.push("  }");
             sresult.push("");
@@ -132,6 +137,7 @@ function generate(ast) {
                     name = rule.name;
                 }
                 if (rule.ruleActions.length) {
+                    var condret = 0;
                     sresult.push("  $_" + name + "()" + outputType + " {  // (" + rule.kind + ") " + rule.name);
                     rule.children.forEach(function (child) {
                         if (child.action && child.action.kind === lib_1.PActionKind.RULE) {
@@ -144,6 +150,7 @@ function generate(ast) {
                             }
                             switch (rule.kind) {
                                 case lib_1.PNodeKind.CHOICE:
+                                    condret = 1;
                                     sresult.push("    if (theVeryNothing['randomVar']===" + (j++) + ") {");
                                     sresult.push("      return this.$_" + aname + "();");
                                     sresult.push("    }");
@@ -154,6 +161,9 @@ function generate(ast) {
                             }
                         }
                     });
+                    if (condret) {
+                        sresult.push("    return undefined;");
+                    }
                     sresult.push("  }");
                     sresult.push("");
                 }
@@ -170,7 +180,6 @@ function generate(ast) {
     }
     var genclss = [];
     genclss.push("import { IFilePosition, IFileRange, ILiteralExpectation, IClassParts, IClassExpectation, IAnyExpectation, IEndExpectation, IOtherExpectation, Expectation, SyntaxError, ITraceEvent, DefaultTracer, ICached, IPegjsParseStream, PegjsParseStream, IPegjsBuffer, IToken } from 'ts-pegjs/lib';");
-    import { ACCEPT_TOKEN } from '../../lib/index';
     if (options.tspegjs.customHeader) {
         genclss.push(options.tspegjs.customHeader.length ? options.tspegjs.customHeader.join("\n") : options.tspegjs.customHeader + "");
     }

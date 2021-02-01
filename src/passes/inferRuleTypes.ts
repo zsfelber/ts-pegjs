@@ -49,6 +49,7 @@ function generate(ast, ...args) {
       if (node.kind === PNodeKind.SEQUENCE) {
         sresult.push("    var result = [");
       }
+      var condret = 0;
       node.children.forEach(child => {
         var tmpChildFuncName: string;
         switch (child.kind) {
@@ -64,6 +65,7 @@ function generate(ast, ...args) {
         }
         switch (node.kind) {
           case PNodeKind.CHOICE:
+            condret = 1;
             sresult.push("    if (theVeryNothing['randomVar']===" + (j++) + ") {");
             sresult.push("      return this." + tmpChildFuncName + "();");
             sresult.push("    }");
@@ -83,6 +85,8 @@ function generate(ast, ...args) {
       if (node.kind === PNodeKind.SEQUENCE) {
         sresult.push("    ];");
         sresult.push("    return result;");
+      } else if (condret) {
+        sresult.push("    return undefined;");
       }
       sresult.push("  }");
       sresult.push("");
@@ -139,6 +143,7 @@ function generate(ast, ...args) {
         }
 
         if (rule.ruleActions.length) {
+          var condret = 0;
           sresult.push("  $_" + name + "()" + outputType + " {  // ("+rule.kind+") " + rule.name);
           rule.children.forEach(child => {
 
@@ -152,6 +157,7 @@ function generate(ast, ...args) {
       
               switch (rule.kind) {
                 case PNodeKind.CHOICE:
+                  condret = 1;
                   sresult.push("    if (theVeryNothing['randomVar']===" + (j++) + ") {");
                   sresult.push("      return this.$_" + aname + "();");
                   sresult.push("    }");
@@ -162,7 +168,9 @@ function generate(ast, ...args) {
               }
             }
           });
-
+          if (condret) {
+            sresult.push("    return undefined;");
+          }
           sresult.push("  }");
           sresult.push("");
         } else {
@@ -183,7 +191,6 @@ function generate(ast, ...args) {
 
   var genclss = [];
   genclss.push("import { IFilePosition, IFileRange, ILiteralExpectation, IClassParts, IClassExpectation, IAnyExpectation, IEndExpectation, IOtherExpectation, Expectation, SyntaxError, ITraceEvent, DefaultTracer, ICached, IPegjsParseStream, PegjsParseStream, IPegjsBuffer, IToken } from 'ts-pegjs/lib';");
-import { ACCEPT_TOKEN } from '../../lib/index';
 
   if (options.tspegjs.customHeader) {
     genclss.push(options.tspegjs.customHeader.length ? options.tspegjs.customHeader.join("\n") : options.tspegjs.customHeader + "");
