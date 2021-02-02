@@ -221,7 +221,7 @@ function pushc(cache: any, item: any): any {
       [
         '',
         '',
-        'export class PegjsParser<T extends '+baseTokenType+', I extends PegjsParseStream<T>> extends PackratRunner {',
+        'export class PegjsParser<T extends ' + baseTokenType + ', I extends PegjsParseStream<T>> extends PackratRunner {',
         '',
         '  options: IParseOptions;',
         '  input: I;',
@@ -334,13 +334,23 @@ function pushc(cache: any, item: any): any {
         '    return this.input.tokenAt(this.input.currPos);',
         '  }',
         '',
-         get pos(): number;
-         set pos(topos: number);
-        
-         get numRules(): number;
-         next(): IToken;
-         rule(id: string): PRule;
-      
+        '  next() {',
+        '    return this.input.tokenAt(++this.input.currPos);',
+        '  }',
+        '',
+        '  get pos(): number {',
+        '    return this.input.currPos;',
+        '  }',
+        '  set pos(topos: number) {',
+        '    this.input.currPos = topos;',
+        '  }',
+        '  get numRules(): number {',
+        '    return ...;',
+        '  }',
+        '  rule(index: number): PRule {',
+        '    return this.peg$rules[index];',
+        '  }',
+        '',
         '  peg$failure() {',
         '    return {  maxFailExpected:     this.maxFailExpected,',
         '              absoluteFailPos:     this.peg$absoluteFailPos(),',

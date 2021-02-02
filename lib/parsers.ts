@@ -212,6 +212,19 @@ class RuleProcessStack {
   }
 }
 
+
+//
+// This is the entry point ..
+//
+//   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+//   !!                                                               !!
+//   !!     NOTE     HERE is the main entry point                     !!
+//   !!                                                               !!
+//   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+//   !!
+//   ..   r  o  c  e  s  s  o  r     object
+//   !!
+//
 export interface IParseRunner {
 
   readonly pos: number; 
@@ -504,7 +517,7 @@ class TerminalRefParser extends EmptyParser {
 }
 
 //
-// This is the ** of entry point
+// This is the entry point ..
 //
 //   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 //   !!                                                               !!
@@ -512,7 +525,7 @@ class TerminalRefParser extends EmptyParser {
 //   !!                                                               !!
 //   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 //   !!
-//   **   A   R   S   E   R
+//   ..   A   R   S   E   R
 //   !!
 //
 export class EntryPointParser extends SingleParser {
