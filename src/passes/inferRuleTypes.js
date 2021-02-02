@@ -18,6 +18,7 @@ function generate(ast) {
     //console.log("inferred types:"+JSON.stringify(inferredTypes, null, "   "));
     var baseTokenType = options.baseTokenType ? options.baseTokenType : "IToken";
     var inferredTypes = {};
+    var generatedFuncs = new Map;
     ast.inferredTypes = inferredTypes;
     ast.fields = [];
     function ot(node) {
@@ -42,6 +43,7 @@ function generate(ast) {
         function genTmpFunc(node, tmpfuncname, outputType, extraComments) {
             if (extraComments === void 0) { extraComments = ""; }
             var sresult = [];
+            generatedFuncs.set(tmpfuncname, node.nodeIdx);
             sresult.push("  " + tmpfuncname + "()" + outputType + " { // generated action for " + node.toString() + extraComments);
             var j = 0;
             if (node.kind === lib_1.PNodeKind.SEQUENCE) {
@@ -106,6 +108,7 @@ function generate(ast) {
                         outputType = action.kind === lib_1.PActionKind.RULE ? "" : ": boolean";
                         break;
                 }
+                generatedFuncs.set("$_" + name, action.target.nodeIdx);
                 sresult.push("  $_" + name + "()" + outputType + " {  // " + action.target.kind + "/" + action.kind + " action#" + action.index);
                 action.args.forEach(function (a) {
                     var argFuncName, inf;
@@ -140,6 +143,7 @@ function generate(ast) {
                 }
                 if (rule.ruleActions.length) {
                     var condret = 0;
+                    generatedFuncs.set("$_" + name, rule.nodeIdx);
                     sresult.push("  $_" + name + "()" + outputType + " {  // (" + rule.kind + ") " + rule.symbol + (rule.index !== undefined ? " rule#" + rule.index : ""));
                     if (rule.ruleActions.length === 1) {
                         var action = rule.ruleActions[0];
@@ -174,6 +178,7 @@ function generate(ast) {
                     sresult.push("");
                 }
                 else if (rule.kind === lib_1.PNodeKind.TERMINAL) {
+                    generatedFuncs.set("$_" + name, rule.nodeIdx);
                     sresult.push("  $_" + name + "()" + outputType + " {  // generated terminal action " + rule.symbol);
                     sresult.push("    return this.token()" + ass + ";");
                     sresult.push("  }");
@@ -264,10 +269,16 @@ function generate(ast) {
         if (ts.isClassDeclaration(cl)) {
             cl.members.forEach(function (method) {
                 if (ts.isMethodDeclaration(method)) {
-                    var nodeId = /_(\d+)$/.exec(method.name.getText(tsrc))[1];
-                    //var tp = checker.getTypeAtLocation(fun);
-                    var tp = checker.getReturnTypeOfSignature(checker.getSignatureFromDeclaration(method));
-                    inferredTypes[Number(nodeId)] = generateFullName(tp);
+                    var mn = method.name.getText(tsrc);
+                    var nodeId = generatedFuncs.get(mn);
+                    if (nodeId === undefined) {
+                        console.warn("No generated method for : " + mn);
+                    }
+                    else {
+                        //var tp = checker.getTypeAtLocation(fun);
+                        var tp = checker.getReturnTypeOfSignature(checker.getSignatureFromDeclaration(method));
+                        inferredTypes[nodeId] = generateFullName(tp);
+                    }
                 }
             });
         }

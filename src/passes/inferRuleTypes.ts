@@ -19,6 +19,7 @@ function generate(ast, ...args) {
   const baseTokenType = options.baseTokenType ? options.baseTokenType : "IToken";
 
   var inferredTypes = {};
+  var generatedFuncs: Map<string,number> = new Map;
 
   ast.inferredTypes = inferredTypes;
   ast.fields = [];
@@ -46,6 +47,7 @@ function generate(ast, ...args) {
 
     function genTmpFunc(node: PNode, tmpfuncname: string, outputType: string, extraComments="") {
       var sresult = [];
+      generatedFuncs.set(tmpfuncname, node.nodeIdx);
       sresult.push("  " + tmpfuncname + "()" + outputType + " { // generated action for " + node.toString()+extraComments);
       var j = 0;
       if (node.kind === PNodeKind.SEQUENCE) {
@@ -112,6 +114,7 @@ function generate(ast, ...args) {
             break;
         }
 
+        generatedFuncs.set("$_"+name, action.target.nodeIdx);
         sresult.push("  $_" + name + "()" + outputType + " {  // " + action.target.kind + "/" + action.kind+" action#"+action.index);
         action.args.forEach(a => {
           var argFuncName, inf;
@@ -147,6 +150,7 @@ function generate(ast, ...args) {
 
         if (rule.ruleActions.length) {
           var condret = 0;
+          generatedFuncs.set("$_"+name, rule.nodeIdx);
           sresult.push("  $_" + name + "()" + outputType + " {  // (" + rule.kind + ") " + rule.symbol+(rule.index!==undefined?" rule#"+rule.index:""));
           if (rule.ruleActions.length === 1) {
             var action = rule.ruleActions[0];
@@ -179,6 +183,7 @@ function generate(ast, ...args) {
           sresult.push("  }");
           sresult.push("");
         } else if (rule.kind === PNodeKind.TERMINAL) {
+          generatedFuncs.set("$_"+name, rule.nodeIdx);
           sresult.push("  $_" + name + "()" + outputType + " {  // generated terminal action " + rule.symbol);
           sresult.push("    return this.token()" + ass + ";");
           sresult.push("  }");
@@ -282,12 +287,16 @@ function generate(ast, ...args) {
     if (ts.isClassDeclaration(cl)) {
       cl.members.forEach(method => {
         if (ts.isMethodDeclaration(method)) {
-          var nodeId = /_(\d+)$/.exec(method.name.getText(tsrc))[1];
+          var mn = method.name.getText(tsrc);
+          var nodeId = generatedFuncs.get(mn);
+          if (nodeId === undefined) {
+            console.warn("No generated method for : "+mn);
+          } else {
+            //var tp = checker.getTypeAtLocation(fun);
 
-          //var tp = checker.getTypeAtLocation(fun);
-
-          var tp = checker.getReturnTypeOfSignature(checker.getSignatureFromDeclaration(method));
-          inferredTypes[Number(nodeId)] = generateFullName(tp);
+            var tp = checker.getReturnTypeOfSignature(checker.getSignatureFromDeclaration(method));
+            inferredTypes[nodeId] = generateFullName(tp);
+          }
         }
       });
     }

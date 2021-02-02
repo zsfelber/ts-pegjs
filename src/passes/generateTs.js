@@ -462,4 +462,4 @@ function generateTS(ast) {
     ].join('\n');
 }
 module.exports = generateTS;
-//# sourceMappingURL=generate-ts.js.map
+//# sourceMappingURL=generateTs.js.map
