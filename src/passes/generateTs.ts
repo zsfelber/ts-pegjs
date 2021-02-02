@@ -523,8 +523,8 @@ function pushc(cache: any, item: any): any {
       "}",
       '',
       'function peg$rule(s: string): PRule {',
-      '  var code = []: number[];',
-      '  for (var i=0; i<s.length; i+=2) code[i] = HTOD[ch.charAt(i)]<<4 + HTOD[ch.charAt(i+1)];',
+      '  var code: number[] = [];',
+      '  for (var i=0; i<s.length; i+=2) code[i] = HTOD[s.charAt(i)]<<4 + HTOD[s.charAt(i+1)];',
       '  var node = PNode.deseralize(code);',
       '  return node as PRule;',
       '}',
@@ -557,7 +557,7 @@ function pushc(cache: any, item: any): any {
       ['const peg$rules = [',
       grammar.rules.map(rule=>
         'peg$rule("' +
-        CodeTblToHex(rule.ser().map((b) => String.fromCharCode(b)).join('')) +
+        CodeTblToHex(rule.ser()).join('') +
         '")'
       ).join(", "),
       "];"

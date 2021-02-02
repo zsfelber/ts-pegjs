@@ -424,8 +424,8 @@ function generateTS(ast) {
             "}",
             '',
             'function peg$rule(s: string): PRule {',
-            '  var code = []: number[];',
-            '  for (var i=0; i<s.length; i+=2) code[i] = HTOD[ch.charAt(i)]<<4 + HTOD[ch.charAt(i+1)];',
+            '  var code: number[] = [];',
+            '  for (var i=0; i<s.length; i+=2) code[i] = HTOD[s.charAt(i)]<<4 + HTOD[s.charAt(i+1)];',
             '  var node = PNode.deseralize(code);',
             '  return node as PRule;',
             '}',
@@ -447,7 +447,7 @@ function generateTS(ast) {
         // peg$rules
         tables.push(['const peg$rules = [', grammar.rules.map(function (rule) {
                 return 'peg$rule("' +
-                    lib_1.CodeTblToHex(rule.ser().map(function (b) { return String.fromCharCode(b); }).join('')) +
+                    lib_1.CodeTblToHex(rule.ser()).join('') +
                     '")';
             }).join(", "), "];"].join('\n'));
         tables.push([

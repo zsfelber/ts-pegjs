@@ -450,12 +450,13 @@ export function JSstringEscape(s) {
     .replace(/[\u1000-\uFFFF]/g,      function(ch) { return '\\u'  + hex(ch); });
 }
 
-export function CodeTblToHex(s) {
-  return s
-    .replace(/[\x00-\x0F]/g,          function(ch) { return '0' + hex(ch); })
-    .replace(/[\x10-\xFF]/g,          function(ch) { return ''  + hex(ch); })
-    .replace(/[\u0100-\uFFFF]/g,      function(ch) { return '??'; });
-  ;
+export function CodeTblToHex(s: number[]) {
+  var r = s.map(c=>{
+    if (c < 16) return '0' + c.toString(16).toUpperCase();
+    else if (c < 256) return '' + c.toString(16).toUpperCase();
+    else return "??"
+  });
+  return r;
 }
 
 function hex(ch) {
