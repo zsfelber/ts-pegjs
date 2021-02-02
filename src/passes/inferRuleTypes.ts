@@ -120,15 +120,15 @@ function generate(ast, ...args) {
         action.args.forEach(a => {
           var argFuncName, inf;
           if (a.evaluate.kind === PNodeKind.RULE_REF) {
-            argFuncName = "$_" + (a.evaluate as PRuleRef).rule;
             var rr = a.evaluate as PRuleRef;
+            argFuncName = "$_" + rr.rule;
             var frefs = referenceNodes.get(argFuncName);
             if (!frefs) referenceNodes.set(argFuncName, frefs = []);
             frefs.push(rr.nodeIdx);
             inf = "rule";
           } else if (a.evaluate.kind === PNodeKind.TERMINAL_REF) {
-            argFuncName = "$_$" + (a.evaluate as PTerminalRef).terminal;
             var tr = a.evaluate as PTerminalRef;
+            argFuncName = "$_$" + tr.terminal;
             var frefs = referenceNodes.get(argFuncName);
             if (!frefs) referenceNodes.set(argFuncName, frefs = []);
             frefs.push(tr.nodeIdx);
@@ -306,7 +306,7 @@ function generate(ast, ...args) {
             var gname = generateFullName(tp);
             inferredTypes[nodeId] = gname;
 
-            var refs = referenceNodes[mn];
+            var refs = referenceNodes.get(mn);
             if (refs) refs.forEach(refNodeId=>{
               inferredTypes[refNodeId] = gname;
             });

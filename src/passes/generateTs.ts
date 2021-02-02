@@ -339,7 +339,7 @@ function pushc(cache: any, item: any): any {
         '  }',
         '',
         '  cacheKey(rule: EntryPointParser) {',
-        '    const key = this.input.currPos * '+grammar.rules.length+' + rule.index;',
+        '    return this.input.currPos * '+grammar.rules.length+' + rule.index;',
         '  }',
         '',
         '  get pos(): number {',
