@@ -201,11 +201,11 @@ export class PLogicNode extends PNode {
   action?: PFunction;
 
   ser(): number[] {
-    return super.ser().concat([this.action?this.action.index:-1]);
+    return super.ser().concat([this.action?this.action.index+1:0]);
   }
   deser(arr: number[], pos: number): number {
     pos = super.deser(arr, pos);
-    var actidx = arr[pos++];
+    var actidx = arr[pos++] - 1;
     if (actidx !== -1) {
       var fun = SerDeser.functionTable[actidx];
       this.action = new PFunction();

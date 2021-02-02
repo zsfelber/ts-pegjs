@@ -450,6 +450,14 @@ export function JSstringEscape(s) {
     .replace(/[\u1000-\uFFFF]/g,      function(ch) { return '\\u'  + hex(ch); });
 }
 
+export function CodeTblToHex(s) {
+  return s
+    .replace(/[\x00-\x0F]/g,          function(ch) { return '0' + hex(ch); })
+    .replace(/[\x10-\xFF]/g,          function(ch) { return ''  + hex(ch); })
+    .replace(/[\u0100-\uFFFF]/g,      function(ch) { return '??'; });
+  ;
+}
+
 function hex(ch) {
   return ch.charCodeAt(0).toString(16).toUpperCase();
 }

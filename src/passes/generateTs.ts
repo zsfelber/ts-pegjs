@@ -7,7 +7,7 @@
 
 import * as pack from '../../package.json';
 import * as ppack from 'pegjs/package.json';
-import {JSstringEscape, PGrammar, PRule, PFunction,
+import {JSstringEscape, CodeTblToHex, PGrammar, PRule, PFunction,
   PNodeKind, PActionKind, PRuleRef, PTerminalRef} from "../../lib";
 
 // Generates parser JavaScript code.
@@ -516,13 +516,15 @@ function pushc(cache: any, item: any): any {
       'function peg$otherExpectation(description: string): IOtherExpectation {',
       '  return { type: "other", description: description };',
       '}',
-      '',
-      'function peg$decode(s: string): number[] {',
-      '  return s.split("").map((ch) =>  ch.charCodeAt(0) - 32 );',
-      '}',
+      "var HTOD = {",
+      "  '0': 0,'1': 1,'2': 2,'3': 3,'4': 4,",
+      "  '5': 5,'6': 6,'7': 7,'8': 8,'9': 9,",
+      "  'A': 10,'B': 11,'C': 12,'D': 13,'E': 14,'F': 15,",
+      "}",
       '',
       'function peg$rule(s: string): PRule {',
-      '  var code = s.split("").map((ch) =>  ch.charCodeAt(0) - 32 );',
+      '  var code = []: number[];',
+      '  for (var i=0; i<s.length; i+=2) code[i] = HTOD[ch.charAt(i)]<<4 + HTOD[ch.charAt(i+1)];',
       '  var node = PNode.deseralize(code);',
       '  return node as PRule;',
       '}',
@@ -555,9 +557,7 @@ function pushc(cache: any, item: any): any {
       ['const peg$rules = [',
       grammar.rules.map(rule=>
         'peg$rule("' +
-        JSstringEscape(
-          rule.ser().map((b) => String.fromCharCode(b + 32)).join('')
-        ) +
+        CodeTblToHex(rule.ser().map((b) => String.fromCharCode(b)).join('')) +
         '")'
       ).join(", "),
       "];"

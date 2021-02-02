@@ -417,13 +417,15 @@ function generateTS(ast) {
             'function peg$otherExpectation(description: string): IOtherExpectation {',
             '  return { type: "other", description: description };',
             '}',
-            '',
-            'function peg$decode(s: string): number[] {',
-            '  return s.split("").map((ch) =>  ch.charCodeAt(0) - 32 );',
-            '}',
+            "var HTOD = {",
+            "  '0': 0,'1': 1,'2': 2,'3': 3,'4': 4,",
+            "  '5': 5,'6': 6,'7': 7,'8': 8,'9': 9,",
+            "  'A': 10,'B': 11,'C': 12,'D': 13,'E': 14,'F': 15,",
+            "}",
             '',
             'function peg$rule(s: string): PRule {',
-            '  var code = s.split("").map((ch) =>  ch.charCodeAt(0) - 32 );',
+            '  var code = []: number[];',
+            '  for (var i=0; i<s.length; i+=2) code[i] = HTOD[ch.charAt(i)]<<4 + HTOD[ch.charAt(i+1)];',
             '  var node = PNode.deseralize(code);',
             '  return node as PRule;',
             '}',
@@ -445,7 +447,7 @@ function generateTS(ast) {
         // peg$rules
         tables.push(['const peg$rules = [', grammar.rules.map(function (rule) {
                 return 'peg$rule("' +
-                    lib_1.JSstringEscape(rule.ser().map(function (b) { return String.fromCharCode(b + 32); }).join('')) +
+                    lib_1.CodeTblToHex(rule.ser().map(function (b) { return String.fromCharCode(b); }).join('')) +
                     '")';
             }).join(", "), "];"].join('\n'));
         tables.push([
