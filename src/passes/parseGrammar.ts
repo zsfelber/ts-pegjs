@@ -75,7 +75,9 @@ function generate(ast, ...args) {
     grammar: PGrammar;
     rule: PActContainer;
     ruleRefs: PRuleRef[] = [];
+    terminalRefs: PTerminalRef[] = [];
     rules: Map<string,PRule> = new Map;
+    terminals: Map<string,PTerminal> = new Map;
 
     pushIdxNode<T extends PNode>(cons:new (parent:PNode, index:number) => T, index: number, kind?: PNodeKind): T {
       var child: T = new cons(this.current, index);
@@ -142,6 +144,7 @@ function generate(ast, ...args) {
         ctx.grammar = node.grammar = ctx.pushNode(PGrammar);
         ctx.grammar.actions = [];
         ctx.grammar.ruleActions = [];
+        ctx.grammar.rules = [];
         node.rules.forEach(rule => {
           parseGrammarAst(node, rule);
         });
@@ -153,11 +156,13 @@ function generate(ast, ...args) {
           var t = ctx.pushNode(PTerminal);
           t.terminal = node.name.substring(1);
           ctx.rule = t;
+          ctx.terminals.set(t.terminal, t);
         } else {
           var r = ctx.pushIdxNode(PRule, ctx.ruleIndices++);
           r.rule = node.name;
           ctx.rule = r;
           ctx.rules.set(r.rule, r);
+          ctx.grammar.rules.push(r);
         }
         ctx.rule.actions = [];
         ctx.rule.ruleActions = [];
@@ -225,6 +230,7 @@ function generate(ast, ...args) {
           var tr = ctx.pushNode(PTerminalRef);
           tr.terminal = node.name.substring(1);
           tr.value = terminalConsts.get(tr.terminal);
+          ctx.terminalRefs.push(tr);
         } else {
           var rr = ctx.pushNode(PRuleRef);
           rr.rule = node.name;
@@ -249,6 +255,15 @@ function generate(ast, ...args) {
       rr.ruleIndex = target.index;
     } else {
       console.error("No rule for rule ref : "+rr.rule);
+      err = 1;
+    }
+  });
+  ctx.terminalRefs.forEach(tr=>{
+    var target = ctx.terminals.get(tr.terminal);
+    if (target) {
+      //tr.terminalIndex = target.index;
+    } else {
+      console.error("No terminal for terminal ref : "+tr.terminal);
       err = 1;
     }
   });

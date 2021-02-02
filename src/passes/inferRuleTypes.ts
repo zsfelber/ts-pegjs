@@ -1,7 +1,7 @@
 import * as ts from "typescript";
 import * as fs from "fs";
 import {
-  PNodeKind, PActionKind, PNode, PGrammar, PFunction, PCallArg, PRule,
+  PNodeKind, PActionKind, PNode, PGrammar, PRef, PFunction, PCallArg, PRule,
   PRuleRef, PTerminalRef, PActContainer
 } from "../../lib";
 
@@ -20,6 +20,7 @@ function generate(ast, ...args) {
 
   var inferredTypes = {};
   var generatedFuncs: Map<string,number> = new Map;
+  var referenceNodes: Map<string,number[]> = new Map;
 
   ast.inferredTypes = inferredTypes;
   ast.fields = [];
@@ -120,9 +121,17 @@ function generate(ast, ...args) {
           var argFuncName, inf;
           if (a.evaluate.kind === PNodeKind.RULE_REF) {
             argFuncName = "$_" + (a.evaluate as PRuleRef).rule;
+            var rr = a.evaluate as PRuleRef;
+            var frefs = referenceNodes.get(argFuncName);
+            if (!frefs) referenceNodes.set(argFuncName, frefs = []);
+            frefs.push(rr.nodeIdx);
             inf = "rule";
           } else if (a.evaluate.kind === PNodeKind.TERMINAL_REF) {
             argFuncName = "$_$" + (a.evaluate as PTerminalRef).terminal;
+            var tr = a.evaluate as PTerminalRef;
+            var frefs = referenceNodes.get(argFuncName);
+            if (!frefs) referenceNodes.set(argFuncName, frefs = []);
+            frefs.push(tr.nodeIdx);
             inf = "term";
           } else {
             argFuncName = genTmpFunc(a.evaluate, "$_" + a.evaluate.nodeIdx, "");
@@ -204,7 +213,7 @@ function generate(ast, ...args) {
 
 
   var genclss = [];
-  genclss.push("import { IFilePosition, IFileRange, IAnyExpectation, IEndExpectation, IOtherExpectation, Expectation, SyntaxError, ITraceEvent, DefaultTracer, ICached, IPegjsParseStream, PegjsParseStream, IPegjsBuffer, IToken } from 'ts-pegjs/lib';");
+  genclss.push("import { IFilePosition, IFileRange, IAnyExpectation, IEndExpectation, IOtherExpectation, Expectation, SyntaxError, ITraceEvent, DefaultTracer, ICached, PegjsParseStream, IToken } from 'ts-pegjs/lib';");
 
   if (options.tspegjs.customHeader) {
     genclss.push(options.tspegjs.customHeader.length ? options.tspegjs.customHeader.join("\n") : options.tspegjs.customHeader + "");
@@ -216,9 +225,9 @@ function generate(ast, ...args) {
   genclss.push("const theVeryNothing = new Object();");
   genclss.push("");
   genclss.push("class UselessClassJustToResolveTypes<T extends " + baseTokenType + "> {");
-  genclss.push(["",
-    '  input: IPegjsParseStream<T>;',
-    '  inputBuf: IPegjsBuffer<T>;',
+  genclss.push([
+    "",
+    '  input: PegjsParseStream<T>;',
     "",
     "  peg$maxFailPos = 0;",
     "  peg$maxFailExpected: Expectation[] = [];",
@@ -235,19 +244,12 @@ function generate(ast, ...args) {
     genclss.push("");
   }
 
-  genclss = genclss.concat(generateTmpClasses());
+  var tmpc = [];
+  tmpc = generateTmpClasses();
+  genclss = genclss.concat(tmpc);
 
   genclss.push("");
   genclss.push("}");
-
-  genclss = genclss.filter((elem: string) => {
-    if (!elem) {
-      return false;
-    }
-    elem = elem.replace(/^(\s|\n)+/g, "");
-    elem = elem.replace(/(\s|\n)+$/g, "");
-    return elem;
-  });
 
   const fnm = options.tmppref + "$$infer$tmp.ts";
   fs.writeFileSync(fnm, genclss.join("\n"));
@@ -271,13 +273,19 @@ function generate(ast, ...args) {
       } else {
         inferredTp = chs.join("&");
       }
-      if (inferredTp === "true|false") {
+      if (inferredTp === "true|false" || inferredTp === "false|true") {
         inferredTp = "boolean";
       } else if (parenthisize && tp.types.length >= 2) {
         inferredTp = "(" + inferredTp + ")";
       }
     } else {
       inferredTp = checker.typeToString(tp);
+      if (/\[\]$/.exec(inferredTp)) {
+        const typeArgs = checker.getTypeArguments(tp as ts.TypeReference);
+        const elementType = typeArgs[0];
+        var e = generateFullName(elementType, true);
+        inferredTp = e + "[]";
+      }
     }
 
     return inferredTp;
@@ -295,7 +303,13 @@ function generate(ast, ...args) {
             //var tp = checker.getTypeAtLocation(fun);
 
             var tp = checker.getReturnTypeOfSignature(checker.getSignatureFromDeclaration(method));
-            inferredTypes[nodeId] = generateFullName(tp);
+            var gname = generateFullName(tp);
+            inferredTypes[nodeId] = gname;
+
+            var refs = referenceNodes[mn];
+            if (refs) refs.forEach(refNodeId=>{
+              inferredTypes[refNodeId] = gname;
+            });
           }
         }
       });

@@ -28,6 +28,7 @@ function generateTS(ast) {
     function indent12(code) {
         return code.replace(/^(.+)$/gm, '            $1');
     }
+    var grammar = ast.grammar;
     function generateRuleHeader(ruleNameCode, ruleIndexCode) {
         var parts = [];
         parts.push('');
@@ -185,6 +186,7 @@ function generateTS(ast) {
         parts.push([
             '',
             '  constructor(' + param0 + 'input: I, options?: IParseOptions) {',
+            '    super();',
             '    this.input = input;',
             '    this.options = options !== undefined ? options : {};',
             '',
@@ -196,6 +198,7 @@ function generateTS(ast) {
             parts.push(indent4(options.tspegjs.customInit.join('\n')));
         }
         parts.push([
+            '    this.init();',
             '  }',
             '',
             '  parse(silent: boolean, peg$startRuleIndex: RuleId = 0): IFailure {',
@@ -261,6 +264,10 @@ function generateTS(ast) {
             '    return this.input.tokenAt(++this.input.currPos);',
             '  }',
             '',
+            '  cacheKey(rule: EntryPointParser) {',
+            '    const key = this.input.currPos * ' + grammar.rules.length + ' + rule.index;',
+            '  }',
+            '',
             '  get pos(): number {',
             '    return this.input.currPos;',
             '  }',
@@ -268,7 +275,7 @@ function generateTS(ast) {
             '    this.input.currPos = topos;',
             '  }',
             '  get numRules(): number {',
-            '    return ...;',
+            '    return ' + grammar.rules.length + ';',
             '  }',
             '  rule(index: number): PRule {',
             '    return this.peg$rules[index];',
@@ -330,7 +337,7 @@ function generateTS(ast) {
             var sresult = [];
             var sargs = [];
             action.args.forEach(function (a) {
-                var argName = a.evaluate.label;
+                var argName = a.label;
                 var argType = ast.inferredTypes[a.evaluate.nodeIdx];
                 sargs.push(argName + ": " + argType);
             });
@@ -339,14 +346,13 @@ function generateTS(ast) {
             if (action.ownerRule.symbol) {
                 name = action.ownerRule.symbol;
             }
-            name += "$" + action.target.nodeIdx;
-            sresult.push("  " + name + "(" + sargs.push(", ") + "): " + outputType + " {  // " + action.target.kind + (action.kind === lib_1.PActionKind.PREDICATE ? "/" + action.kind : ""));
+            name += "$" + action.index;
+            sresult.push("  " + name + "(" + sargs.join(", ") + "): " + outputType + " {  // " + action.target.kind + (action.kind === lib_1.PActionKind.PREDICATE ? "/" + action.kind : ""));
             sresult = sresult.concat(action.code.map(function (line) { return "    " + line; }));
             sresult.push("  }");
             sresult.push("");
             return sresult;
         }
-        var grammar = ast.grammar;
         grammar.actions.forEach(function (action) {
             parts = parts.concat(genMainFunc(action));
         });
@@ -426,13 +432,9 @@ function generateTS(ast) {
         if (options.trace) {
             tables.push(['const peg$tracer = new DefaultTracer(' + options.trace + ');', ''].join('\n'));
         }
-        var grammar = ast.grammar;
         grammar.actions.forEach(function (action) {
         });
-        grammar.children.forEach(function (_rule) {
-            var rule = _rule.as(lib_1.PRule);
-            if (rule) {
-            }
+        grammar.rules.forEach(function (rule) {
         });
         //TODO
         /*

@@ -66,7 +66,9 @@ function generate(ast) {
             this.ruleIndices = 0;
             this.functionIndices = 0;
             this.ruleRefs = [];
+            this.terminalRefs = [];
             this.rules = new Map;
+            this.terminals = new Map;
         }
         Context.prototype.pushIdxNode = function (cons, index, kind) {
             var child = new cons(this.current, index);
@@ -130,6 +132,7 @@ function generate(ast) {
                 ctx.grammar = node.grammar = ctx.pushNode(lib_1.PGrammar);
                 ctx.grammar.actions = [];
                 ctx.grammar.ruleActions = [];
+                ctx.grammar.rules = [];
                 node.rules.forEach(function (rule) {
                     parseGrammarAst(node, rule);
                 });
@@ -140,12 +143,14 @@ function generate(ast) {
                     var t = ctx.pushNode(lib_1.PTerminal);
                     t.terminal = node.name.substring(1);
                     ctx.rule = t;
+                    ctx.terminals.set(t.terminal, t);
                 }
                 else {
                     var r = ctx.pushIdxNode(lib_1.PRule, ctx.ruleIndices++);
                     r.rule = node.name;
                     ctx.rule = r;
                     ctx.rules.set(r.rule, r);
+                    ctx.grammar.rules.push(r);
                 }
                 ctx.rule.actions = [];
                 ctx.rule.ruleActions = [];
@@ -197,6 +202,7 @@ function generate(ast) {
                     var tr = ctx.pushNode(lib_1.PTerminalRef);
                     tr.terminal = node.name.substring(1);
                     tr.value = terminalConsts.get(tr.terminal);
+                    ctx.terminalRefs.push(tr);
                 }
                 else {
                     var rr = ctx.pushNode(lib_1.PRuleRef);
@@ -219,6 +225,16 @@ function generate(ast) {
         }
         else {
             console.error("No rule for rule ref : " + rr.rule);
+            err = 1;
+        }
+    });
+    ctx.terminalRefs.forEach(function (tr) {
+        var target = ctx.terminals.get(tr.terminal);
+        if (target) {
+            //tr.terminalIndex = target.index;
+        }
+        else {
+            console.error("No terminal for terminal ref : " + tr.terminal);
             err = 1;
         }
     });

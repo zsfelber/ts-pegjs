@@ -79,6 +79,7 @@ export class PActContainer extends PNode {
 export class PGrammar extends PActContainer {
   kind = PNodeKind.GRAMMAR;
   children: PActContainer[];
+  rules: PRule[];
 }
 
 export class PRule extends PActContainer {
@@ -271,17 +272,27 @@ export interface IParseRunner {
 }
 
 export abstract class PackratRunner implements IParseRunner {
+
+  _numRules: number;
+  
+  constructor() {
+  }
+  init() {
+    this._numRules = this.numRules;
+  }
+
   readonly peg$resultsCache: {[id: number]: ICached} = {};
 
   abstract get pos(): number;
   abstract set pos(topos: number);
   
   abstract get numRules(): number;
+  abstract cacheKey(rule: EntryPointParser): number;
   abstract next(): IToken;
   abstract rule(index: number): PRule;
   
   run(rule: EntryPointParser): any {
-    const key = this.pos * this.numRules + rule.index;
+    const key = this.cacheKey(rule);
     const cached: ICached = this.peg$resultsCache[key];
     if (cached) {
       this.pos = cached.nextPos;
