@@ -257,9 +257,13 @@ export abstract class PackratRunner implements IParseRunner {
   }
 }
 
+//
 // TODO for graph traverser parse tree generator
+// As I was thinking it is possible / even trivial 
+// !!!
 //export abstract class CollectJumpStatesRunner implements IParseRunner {
 //}
+//
 
 
 // NOTE Not exported.  The only exported one is EntryPointParser
