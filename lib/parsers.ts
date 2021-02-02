@@ -257,8 +257,9 @@ export abstract class PackratRunner implements IParseRunner {
   }
 }
 
-export abstract class CollectJumpStatesRunner implements IParseRunner {
-}
+// TODO for graph traverser parse tree generator
+//export abstract class CollectJumpStatesRunner implements IParseRunner {
+//}
 
 
 // NOTE Not exported.  The only exported one is EntryPointParser
@@ -497,13 +498,18 @@ class TerminalRefParser extends EmptyParser {
   }
 }
 
-// The entry point  **
+//
+// This is the ** of entry point
+//
 //   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-//   !!                                                               **
-//   !!     NOTE     HERE is the only exported Parser                 **
-//   !!                                                               **
+//   !!                                                               !!
+//   !!     NOTE     HERE is the only exported Parser                 !!
+//   !!                                                               !!
 //   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-//   ** A R S E R
+//   !!
+//   **   A   R   S   E   R
+//   !!
+//
 export class EntryPointParser extends SingleParser {
 
   node: PRuleRef;
