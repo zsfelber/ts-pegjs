@@ -280,6 +280,16 @@ export abstract class RuleParser {
   checkConstructFailed(parser): any {
   }
 
+  getResult(stack: RuleProcessStack) {
+    var r;
+    if (this.node.action) {
+      r = this.node.action.fun.apply(stack.parser, stack.argsToLeft);
+    } else {
+      r = stack.argsToLeft;
+    }
+    return r;
+  }
+
   abstract parseImpl(stack: RuleProcessStack): any;
 }
 
@@ -314,17 +324,12 @@ class SequenceParser extends RuleParser {
         args.push(r);
       }
     });
-    var r: any;
-    if (this.node.action) {
-      r = this.node.action.fun.apply(stack.parser, args);
-    } else {
-      r = args;
-    }
+    var r = this.getResult(stack);
     return r;
   }
 }
 
-abstract class SingleParser extends RuleParser {
+abstract class SingleCollectionParser extends RuleParser {
   
   child: RuleParser;
 
@@ -338,6 +343,19 @@ abstract class SingleParser extends RuleParser {
       return 1;
     }
     this.child = this.children[0];
+  }
+}
+
+abstract class SingleParser extends SingleCollectionParser {
+
+  getResult(stack: RuleProcessStack) {
+    var r;
+    if (this.node.action) {
+      r = this.node.action.fun.apply(stack.parser, stack.argsToLeft);
+    } else {
+      r = stack.argsToLeft[0];
+    }
+    return r;
   }
 }
 
@@ -372,16 +390,12 @@ class OptionalParser extends SingleParser {
       args.push(r);
     }
 
-    if (this.node.action) {
-      var r = this.node.action.fun.apply(stack.parser, args);
-      return r;
-    } else {
-      return args[0];
-    }
+    var r = this.getResult(stack);
+    return r;
   }
 }
 
-class ZeroOrMoreParser extends SingleParser {
+class ZeroOrMoreParser extends SingleCollectionParser {
 
   parseImpl(stack: RuleProcessStack) {
 
@@ -397,16 +411,12 @@ class ZeroOrMoreParser extends SingleParser {
       }
     }
 
-    if (this.node.action) {
-      var r = this.node.action.fun.apply(stack.parser, [items]);
-      return r;
-    } else {
-      return items;
-    }
+    var r = this.getResult(stack);
+    return r;
   }
 }
 
-class OneOrMoreParser extends SingleParser {
+class OneOrMoreParser extends SingleCollectionParser {
 
   parseImpl(stack: RuleProcessStack) {
 
@@ -427,12 +437,8 @@ class OneOrMoreParser extends SingleParser {
       }
     }
 
-    if (this.node.action) {
-      var r = this.node.action.fun.apply(stack.parser, [items]);
-      return r;
-    } else {
-      return items;
-    }
+    var r = this.getResult(stack);
+    return r;
   }
 }
 
