@@ -81,7 +81,7 @@ function generate(ast, ...args) {
       return generatedNode;
     }
     generateAction(target: PLogicNode, argumentsOwner: PNode, kind: PActionKind, node) {
-      var action: PFunction = { name:"", kind, ownerRule:ctx.rule, target, code: gencode(node.code), index: this.rule.actions.length, args: new Map, argsarr: [] };
+      var action: PFunction = { name:"", kind, ownerRule:ctx.rule, target, code: gencode(node.code), index: this.rule.actions.length, args: [] };
       action.name = ctx.rule.symbol + "$" + action.index;
 
       target.action = action;
@@ -95,8 +95,7 @@ function generate(ast, ...args) {
       const addlabels = (chch: PValueNode) => {
         if (chch.label) {
           var a = { label: chch.label, index: i, evaluate: chch };
-          action.args.set(chch.label, a);
-          action.argsarr.push(a);
+          action.args.push(a);
         } else {
           //child.action.args.set(chch.label, {label: "$"+i, index: i, evaluate: chch});
         }
