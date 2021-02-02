@@ -39,9 +39,10 @@ function generate(ast) {
         var grammar = ast.grammar;
         var result = [];
         var subTmpFuncs = [];
-        function genTmpFunc(node, tmpfuncname, outputType) {
+        function genTmpFunc(node, tmpfuncname, outputType, extraComments) {
+            if (extraComments === void 0) { extraComments = ""; }
             var sresult = [];
-            sresult.push("  " + tmpfuncname + "()" + outputType + " { // Tmp " + node.toString());
+            sresult.push("  " + tmpfuncname + "()" + outputType + " { // Tmp " + node.toString() + extraComments);
             var j = 0;
             if (node.kind === lib_1.PNodeKind.SEQUENCE) {
                 sresult.push("    var result = [");
@@ -105,7 +106,7 @@ function generate(ast) {
                         outputType = action.kind === lib_1.PActionKind.RULE ? "" : ": boolean";
                         break;
                 }
-                sresult.push("  $_" + name + "()" + outputType + " {  // " + action.target.kind + "/" + action.kind);
+                sresult.push("  $_" + name + "()" + outputType + " {  // " + action.target.kind + "/" + action.kind + " action#" + action.index);
                 action.args.forEach(function (a) {
                     var argFuncName, inf;
                     if (a.evaluate.kind === lib_1.PNodeKind.RULE_REF) {
@@ -139,7 +140,7 @@ function generate(ast) {
                 }
                 if (rule.ruleActions.length) {
                     var condret = 0;
-                    sresult.push("  $_" + name + "()" + outputType + " {  // (" + rule.kind + ") " + rule.symbol);
+                    sresult.push("  $_" + name + "()" + outputType + " {  // (" + rule.kind + ") " + rule.symbol + (rule.index !== undefined ? " rule#" + rule.index : ""));
                     if (rule.ruleActions.length === 1) {
                         var action = rule.ruleActions[0];
                         var aname;
@@ -178,7 +179,7 @@ function generate(ast) {
                     sresult.push("  }");
                 }
                 else {
-                    genTmpFunc(rule, "$_" + name, outputType);
+                    genTmpFunc(rule, "$_" + name, outputType, (rule.index !== undefined ? " rule#" + rule.index : ""));
                 }
             });
             return sresult;

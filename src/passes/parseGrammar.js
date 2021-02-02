@@ -64,6 +64,7 @@ function generate(ast) {
         function Context() {
             this.nodeIdxs = 0;
             this.ruleIndices = 0;
+            this.functionIndices = 0;
             this.ruleRefs = [];
             this.rules = new Map;
         }
@@ -89,7 +90,8 @@ function generate(ast) {
             return generatedNode;
         };
         Context.prototype.generateAction = function (target, argumentsOwner, kind, node) {
-            var action = { kind: kind, ownerRule: ctx.rule, target: target, code: gencode(node.code), args: [], fun: null };
+            var action = { kind: kind, ownerRule: ctx.rule, target: target, index: ctx.functionIndices++,
+                code: gencode(node.code), args: [], fun: null };
             target.action = action;
             this.grammar.actions.push(action);
             this.rule.actions.push(action);
