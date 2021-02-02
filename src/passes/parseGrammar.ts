@@ -65,23 +65,32 @@ function generate(ast, ...args) {
     return result;
   }
   class Context {
+    ind = 0;
     current: PNode;
     grammar: PGrammar;
     rule: PActContainer;
 
+    pushIdxNode<T extends PNode>(cons:new (parent:PNode, index:number) => T, kind?: PNodeKind): T {
+
+      var child: T = new cons(this.current, this.ind++);
+      if (kind !== undefined) child.kind = kind;
+      this.current = child;
+      return child;
+    }
     pushNode<T extends PNode>(cons:new (parent:PNode) => T, kind?: PNodeKind): T {
       var child: T = new cons(this.current);
       if (kind !== undefined) child.kind = kind;
       this.current = child;
       return child;
     }
+
     popNode() {
       var generatedNode = this.current;
       this.current = this.current.parent;
       return generatedNode;
     }
     generateAction(target: PLogicNode, argumentsOwner: PNode, kind: PActionKind, node) {
-      var action: PFunction = { name:"", kind, ownerRule:ctx.rule, target, code: gencode(node.code), index: this.rule.actions.length, args: [] };
+      var action: PFunction = { name:"", kind, ownerRule:ctx.rule, target, code: gencode(node.code), index: this.rule.actions.length, args: [], fun: null };
       action.name = ctx.rule.symbol + "$" + action.index;
 
       target.action = action;
@@ -136,7 +145,7 @@ function generate(ast, ...args) {
           t.terminal = node.name.substring(1);
           ctx.rule = t;
         } else {
-          var r = ctx.pushNode(PRule);
+          var r = ctx.pushIdxNode(PRule);
           ctx.rule = r;
           r.rule = node.name;
         }
