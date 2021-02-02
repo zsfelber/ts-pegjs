@@ -41,7 +41,6 @@ function generate(ast, ...args) {
   function generateTmpClasses(): string[] {
     var grammar: PGrammar = ast.grammar;
     var result = [];
-    var i = 0;
     var subTmpFuncs = [];
 
     function genTmpFunc(node: PNode, tmpfuncname: string, outputType: string) {
@@ -56,13 +55,13 @@ function generate(ast, ...args) {
         var tmpChildFuncName: string;
         switch (child.kind) {
           case PNodeKind.RULE_REF:
-            tmpChildFuncName = "$_" + (child as PRuleRef).rule;
+            tmpChildFuncName = "$_" + (child as PRuleRef).rule +"_"+child.index;
             break;
           case PNodeKind.TERMINAL_REF:
-            tmpChildFuncName = "$_$" + (child as PTerminalRef).terminal;
+            tmpChildFuncName = "$_$" + (child as PTerminalRef).terminal +"_"+child.index;
             break;
           default:
-            tmpChildFuncName = genTmpFunc(child, "$_" + (i++), "");
+            tmpChildFuncName = genTmpFunc(child, "$_" + child.index, "");
             break;
         }
         switch (node.kind) {
@@ -118,13 +117,13 @@ function generate(ast, ...args) {
         action.args.forEach(a => {
           var argFuncName, inf;
           if (a.evaluate.kind === PNodeKind.RULE_REF) {
-            argFuncName = "$_" + (a.evaluate as PRuleRef).rule;
+            argFuncName = "$_" + (a.evaluate as PRuleRef).rule+"_"+a.evaluate.index;
             inf = "rule";
           } else if (a.evaluate.kind === PNodeKind.TERMINAL_REF) {
-            argFuncName = "$_$" + (a.evaluate as PTerminalRef).terminal;
+            argFuncName = "$_$" + (a.evaluate as PTerminalRef).terminal+"_"+a.evaluate.index;
             inf = "term";
           } else {
-            argFuncName = genTmpFunc(a.evaluate, "$_" + (i++), "");
+            argFuncName = genTmpFunc(a.evaluate, "$_" + a.evaluate.index, "");
             inf = "tmp";
           }
           sresult.push("    let " + a.label + " = this." + argFuncName + "(); // " + inf);
@@ -140,10 +139,10 @@ function generate(ast, ...args) {
         var outputType = ot(rule);
         var name, ass;
         if (rule.kind === PNodeKind.TERMINAL) {
-          name = "$"+rule.symbol;
+          name = "$"+rule.symbol+"_"+rule.index;
           ass = outputType.replace(":", " as ");
         } else {
-          name = rule.symbol;
+          name = rule.symbol+"_"+rule.index;
           ass = "";
         }
 
@@ -241,28 +240,44 @@ function generate(ast, ...args) {
   var tsrc = program.getSourceFile(fnm);
 
   const checker = program.getTypeChecker();
+  
+  function generateFullName(tp: ts.Type, parenthisize = false) {
+    var inferredTp: string;
+
+    if (tp.isUnionOrIntersection() && tp.types && tp.types.length > 1) {
+      var chs = [];
+      tp.types.forEach(cht=>{
+        var ch = generateFullName(cht, true);
+        chs.push(ch);
+      });
+      if (tp.isUnion()) {
+        inferredTp = chs.join("|");
+      } else {
+        inferredTp = chs.join("&");
+      }
+      if (inferredTp==="true|false") {
+        inferredTp = "boolean";
+      } else if (parenthisize && tp.types.length>=2) {
+        inferredTp =  "(" + inferredTp + ")";
+      }
+    } else {
+      inferredTp = checker.typeToString(tp);
+    }
+
+    return inferredTp;
+  }
+
   tsrc.statements.forEach(cl => {
     if (ts.isClassDeclaration(cl)) {
       cl.members.forEach(method => {
         if (ts.isMethodDeclaration(method)) {
-          var fname = method.name.getText(tsrc).substring(2);
+          var nodeId = /_(\d+)$/.exec(method.name.getText(tsrc))[1];
+
           //var tp = checker.getTypeAtLocation(fun);
-          var outputType = (options && options.returnTypes) ? options.returnTypes[fname] : "";
-          if (!outputType) {
-            var tp = checker.getReturnTypeOfSignature(checker.getSignatureFromDeclaration(method));
-            outputType = checker.typeToString(tp);
 
-            if (tp.isUnionOrIntersection()) {
-              if (tp.types && tp.types.length > 1) {
-                if (outputType.indexOf(" | ") !== -1 || outputType.indexOf(" & ") !== -1) {
-                  outputType = "(" + outputType + ")";
-                }
-              }
-            }
-
-          }
-
-          inferredTypes[fname] = outputType;
+          var tp = checker.getReturnTypeOfSignature(checker.getSignatureFromDeclaration(method));
+          var inferredTp = generateFullName(tp);
+          inferredTypes[Number(nodeId)] = inferredTp;
         }
       });
     }

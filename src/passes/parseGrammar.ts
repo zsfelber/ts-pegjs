@@ -66,24 +66,27 @@ function generate(ast, ...args) {
     return result;
   }
   class Context {
-    ind = 0;
+    nodeIdxs = 0;
+    ruleIndices = 0;
+
     current: PNode;
     grammar: PGrammar;
     rule: PActContainer;
     ruleRefs: PRuleRef[] = [];
     rules: Map<string,PRule> = new Map;
 
-    pushIdxNode<T extends PNode>(cons:new (parent:PNode, index:number) => T, kind?: PNodeKind): T {
-
-      var child: T = new cons(this.current, this.ind++);
+    pushIdxNode<T extends PNode>(cons:new (parent:PNode, index:number) => T, index: number, kind?: PNodeKind): T {
+      var child: T = new cons(this.current, index);
       if (kind !== undefined) child.kind = kind;
       this.current = child;
+      child.nodeIdx = this.nodeIdxs++;
       return child;
     }
     pushNode<T extends PNode>(cons:new (parent:PNode) => T, kind?: PNodeKind): T {
       var child: T = new cons(this.current);
       if (kind !== undefined) child.kind = kind;
       this.current = child;
+      child.nodeIdx = this.nodeIdxs++;
       return child;
     }
 
@@ -148,7 +151,7 @@ function generate(ast, ...args) {
           t.terminal = node.name.substring(1);
           ctx.rule = t;
         } else {
-          var r = ctx.pushIdxNode(PRule);
+          var r = ctx.pushIdxNode(PRule, ctx.ruleIndices++);
           ctx.rule = r;
           ctx.rules.set(r.rule, r);
           r.rule = node.name;

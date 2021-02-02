@@ -1,4 +1,5 @@
 import { ICached, IToken } from './index';
+import { Grammar } from '../../../Financial/ChartsPlaygrond/src/main/typescript/modules/grammar/impl/grammar';
 
 
 const peg$FAILED: Readonly<any> = {};
@@ -25,15 +26,38 @@ export enum PActionKind {
   PREDICATE = "PREDICATE"
 }
 
+const ExpextedPNodeTypes = [];
+const ExpextedPNodeKinds = [];
+
+
 export class PNode {
   parent: PNode;
   kind: PNodeKind;
   children: PNode[] = [];
   index: number;
+  nodeIdx: number;
+
+  static xkind = PNodeKind.GRAMMAR;
 
   constructor(parent: PNode) {
     
     if (parent) parent.children.push(this);
+  }
+
+  as<P extends PNode>(cons:new (parent:PNode, ...etc)=>P) : P {
+    if (this["__proto"] === cons) {
+      return this as any;
+    } else {
+      return null;
+    }
+  }
+
+  ass<P extends PNode>(cons:new (parent:PNode, ...etc)=>P) : P {
+    if (this["__proto"] === cons) {
+      return this as any;
+    } else {
+      throw new Error("Invalid class cast from : "+this);
+    }
   }
 
   toString() {
@@ -136,6 +160,17 @@ export class PSemanticNot extends PLogicNode {
   kind = PNodeKind.SEMANTIC_NOT;
 
 }
+
+
+ExpextedPNodeTypes[PNodeKind.GRAMMAR] = PGrammar;
+ExpextedPNodeTypes[PNodeKind.RULE] = PRule;
+ExpextedPNodeTypes[PNodeKind.CHOICE] = PValueNode;
+ExpextedPNodeTypes[PNodeKind.SEQUENCE] = PValueNode;
+ExpextedPNodeTypes[PNodeKind.OPTIONAL] = PValueNode;
+ExpextedPNodeTypes[PNodeKind.ONE_OR_MORE] = PValueNode;
+ExpextedPNodeTypes[PNodeKind.ZERO_OR_MORE] = PValueNode;
+ExpextedPNodeTypes[PNodeKind.SEMANTIC_AND] = PSemanticAnd;
+ExpextedPNodeTypes[PNodeKind.SEMANTIC_NOT] = PSemanticNot;
 
 export class PFunction {
   name: string;
