@@ -339,7 +339,7 @@ function generateTS(ast) {
             action.args.forEach(function (a) {
                 var argName = a.label;
                 var argType = ast.inferredTypes[a.evaluate.nodeIdx];
-                sargs.push(argName + ": " + argType);
+                sargs.push(argName + ": " + argType + "/*" + a.evaluate.nodeIdx + "*/");
             });
             var outputType = ast.inferredTypes[action.target.nodeIdx];
             var name = "";
@@ -347,7 +347,7 @@ function generateTS(ast) {
                 name = action.ownerRule.symbol;
             }
             name += "$" + action.index;
-            sresult.push("  " + name + "(" + sargs.join(", ") + "): " + outputType + " {  // " + action.target.kind + (action.kind === lib_1.PActionKind.PREDICATE ? "/" + action.kind : ""));
+            sresult.push("  " + name + "(" + sargs.join(", ") + "): " + outputType + "/*" + action.target.nodeIdx + "*/" + " {  // " + action.target.kind + (action.kind === lib_1.PActionKind.PREDICATE ? "/" + action.kind : ""));
             sresult = sresult.concat(action.code.map(function (line) { return "    " + line; }));
             sresult.push("  }");
             sresult.push("");

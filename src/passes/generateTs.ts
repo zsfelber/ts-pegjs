@@ -417,7 +417,7 @@ function pushc(cache: any, item: any): any {
       action.args.forEach(a => {
         var argName = a.label;
         var argType = ast.inferredTypes[a.evaluate.nodeIdx];
-        sargs.push(argName+": "+argType);
+        sargs.push(argName+": "+argType+"/*"+a.evaluate.nodeIdx+"*/");
       });
 
       var outputType = ast.inferredTypes[action.target.nodeIdx];
@@ -427,7 +427,7 @@ function pushc(cache: any, item: any): any {
       }
       name += "$" + action.index;
 
-      sresult.push("  " + name + "("+sargs.join(", ")+"): " + outputType + " {  // " + action.target.kind + (action.kind===PActionKind.PREDICATE?"/" + action.kind:""));
+      sresult.push("  " + name + "("+sargs.join(", ")+"): " + outputType+"/*"+action.target.nodeIdx+"*/" + " {  // " + action.target.kind + (action.kind===PActionKind.PREDICATE?"/" + action.kind:""));
       sresult = sresult.concat(action.code.map(line => "    " + line));
       sresult.push("  }");
       sresult.push("");

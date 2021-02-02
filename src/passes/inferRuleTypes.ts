@@ -125,14 +125,14 @@ function generate(ast, ...args) {
             var frefs = referenceNodes.get(argFuncName);
             if (!frefs) referenceNodes.set(argFuncName, frefs = []);
             frefs.push(rr.nodeIdx);
-            inf = "rule";
+            inf = "rule ref#"+rr.nodeIdx;
           } else if (a.evaluate.kind === PNodeKind.TERMINAL_REF) {
             var tr = a.evaluate as PTerminalRef;
             argFuncName = "$_$" + tr.terminal;
             var frefs = referenceNodes.get(argFuncName);
             if (!frefs) referenceNodes.set(argFuncName, frefs = []);
             frefs.push(tr.nodeIdx);
-            inf = "term";
+            inf = "term ref#"+tr.nodeIdx;
           } else {
             argFuncName = genTmpFunc(a.evaluate, "$_" + a.evaluate.nodeIdx, "");
             inf = "tmp";

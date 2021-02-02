@@ -120,7 +120,7 @@ function generate(ast) {
                         if (!frefs)
                             referenceNodes.set(argFuncName, frefs = []);
                         frefs.push(rr.nodeIdx);
-                        inf = "rule";
+                        inf = "rule ref#" + rr.nodeIdx;
                     }
                     else if (a.evaluate.kind === lib_1.PNodeKind.TERMINAL_REF) {
                         var tr = a.evaluate;
@@ -129,7 +129,7 @@ function generate(ast) {
                         if (!frefs)
                             referenceNodes.set(argFuncName, frefs = []);
                         frefs.push(tr.nodeIdx);
-                        inf = "term";
+                        inf = "term ref#" + tr.nodeIdx;
                     }
                     else {
                         argFuncName = genTmpFunc(a.evaluate, "$_" + a.evaluate.nodeIdx, "");
