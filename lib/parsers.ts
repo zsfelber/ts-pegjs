@@ -248,22 +248,26 @@ export abstract class PackratRunner implements IParseRunner {
     // TODO
     var ruleMaxFailPos = 0;
 
-    var result = rule.parseImpl(stack);
+    var result = rule.child.parseImpl(stack);
 
     this.peg$resultsCache[key] = { nextPos: this.pos, maxFailPos: ruleMaxFailPos, 
       result };
   }
-
 }
+
+export abstract class CollectJumpStatesRunner implements IParseRunner {
+}
+
 
 export abstract class RuleParser {
 
+  readonly parser: IParseRunner;
   readonly parent: RuleParser;
   readonly node: PValueNode;
   readonly children: RuleParser[] = [];
 
   constructor(parser: IParseRunner, node: PValueNode) {
-    
+    this.parser = parser;
     this.node = node;
     this.node.children.forEach(n => {
       this.children.push(Factory.createParser(parser, n));
@@ -455,8 +459,8 @@ class RuleRefParser extends EmptyParser {
   }
 
   parseImpl(stack: RuleProcessStack) {
-    // NOTE new entry point  parseImpl is not implemented / not adequate 
-    return this.rule.parse(stack.parser);
+    // NOTE new entry point
+    return this.parser.run(this.rule);
   }
 }
 
@@ -491,34 +495,11 @@ class TerminalRefParser extends EmptyParser {
 class EntryPointParser extends SingleParser {
 
   node: PRuleRef;
-  rule: RuleParser;
   index: number;
 
   constructor(parser: IParseRunner, node: PRule) {
     super(parser, node);
     this.index = node.index;
-  }
-
-  checkConstructFailed(parser: IParseRunner) {
-    var dirty = super.checkConstructFailed(parser);
-    if (!this.rule) {
-      console.error("no this.rule  " + this.node);
-      dirty = 1;
-    }
-    return dirty;
-  }
-
-  
-  parse(parser: IParseRunner): any {
-    const cached = parser.applyCachedResult(this);
-    if (cached) {
-      return cached.result;
-    }
-
-    var stack = new RuleProcessStack(parser, null, []);
-    var result = this.rule.parseImpl(stack);
-
-    parser.trackRuleFinished(this, result);
   }
 
   parseImpl(stack: RuleProcessStack) {
