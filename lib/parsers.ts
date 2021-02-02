@@ -171,6 +171,8 @@ ExpextedPNodeTypes[PNodeKind.SEMANTIC_AND] = PSemanticAnd;
 ExpextedPNodeTypes[PNodeKind.SEMANTIC_NOT] = PSemanticNot;
 
 export class PFunction {
+  nodeIdx: number;
+
   ownerRule: PActContainer;
   target: PLogicNode;
   index: number;

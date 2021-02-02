@@ -99,7 +99,7 @@ function generate(ast) {
             var sresult = [];
             grammar.actions.forEach(function (action) {
                 var outputType;
-                var name = action.ownerRule.symbol + "_" + action.target.nodeIdx;
+                var name = action.ownerRule.symbol + "_" + action.nodeIdx;
                 switch (action.ownerRule.kind) {
                     case lib_1.PNodeKind.RULE:
                         outputType = action.kind === lib_1.PActionKind.RULE ? ot(action.ownerRule)
@@ -109,7 +109,7 @@ function generate(ast) {
                         outputType = action.kind === lib_1.PActionKind.RULE ? "" : ": boolean";
                         break;
                 }
-                generatedFuncs.set("$_" + name, action.target.nodeIdx);
+                generatedFuncs.set("$_" + name, action.nodeIdx);
                 sresult.push("  $_" + name + "()" + outputType + " {  // " + action.target.kind + "/" + action.kind + " action#" + action.index);
                 action.args.forEach(function (a) {
                     var argFuncName, inf;
@@ -160,10 +160,10 @@ function generate(ast) {
                         var action = rule.ruleActions[0];
                         var aname;
                         if (rule.kind === lib_1.PNodeKind.TERMINAL) {
-                            aname = "$" + action.ownerRule.symbol + "_" + action.target.nodeIdx;
+                            aname = "$" + action.ownerRule.symbol + "_" + action.nodeIdx;
                         }
                         else {
-                            aname = action.ownerRule.symbol + "_" + action.target.nodeIdx;
+                            aname = action.ownerRule.symbol + "_" + action.nodeIdx;
                         }
                         sresult.push("    return this.$_" + aname + "()" + ass + ";");
                     }
@@ -171,10 +171,10 @@ function generate(ast) {
                         rule.ruleActions.forEach(function (action) {
                             var aname;
                             if (rule.kind === lib_1.PNodeKind.TERMINAL) {
-                                aname = "$" + action.ownerRule.symbol + "_" + action.target.nodeIdx;
+                                aname = "$" + action.ownerRule.symbol + "_" + action.nodeIdx;
                             }
                             else {
-                                aname = action.ownerRule.symbol + "_" + action.target.nodeIdx;
+                                aname = action.ownerRule.symbol + "_" + action.nodeIdx;
                             }
                             condret = 1;
                             sresult.push("    if (theVeryNothing['butSomething']===" + (j++) + ") {");

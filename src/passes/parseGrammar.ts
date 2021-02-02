@@ -101,7 +101,7 @@ function generate(ast, ...args) {
     }
     generateAction(target: PLogicNode, argumentsOwner: PNode, kind: PActionKind, node) {
       var action: PFunction = { kind, ownerRule:ctx.rule, target, 
-          index: ctx.functionIndices++,
+          nodeIdx: this.nodeIdxs++, index: ctx.functionIndices++,
           code: gencode(node.code), args: [], fun: null };
 
       target.action = action;

@@ -299,11 +299,8 @@ function pushc(cache: any, item: any): any {
     parts.push('');
     parts.push('');
 
-    if (options.optimize === 'size') {
-      parts.push('    this.peg$result = this.peg$parseRule(peg$startRuleIndex);');
-    } else {
-      parts.push('    this.peg$result = this.peg$startRuleFunction();');
-    }
+    parts.push('    var entry = new EntryPointParser(peg$startRuleIndex);');
+    parts.push('    this.peg$result = this.peg$parseRule(peg$startRuleIndex);');
 
     parts.push(
       [
@@ -420,14 +417,14 @@ function pushc(cache: any, item: any): any {
         sargs.push(argName+": "+argType+"/*"+a.evaluate.nodeIdx+"*/");
       });
 
-      var outputType = ast.inferredTypes[action.target.nodeIdx];
+      var outputType = ast.inferredTypes[action.nodeIdx];
       var name = "";
       if (action.ownerRule.symbol) {
         name = action.ownerRule.symbol;
       }
       name += "$" + action.index;
 
-      sresult.push("  " + name + "("+sargs.join(", ")+"): " + outputType+"/*"+action.target.nodeIdx+"*/" + " {  // " + action.target.kind + (action.kind===PActionKind.PREDICATE?"/" + action.kind:""));
+      sresult.push("  " + name + "("+sargs.join(", ")+"): " + outputType+"/*"+action.nodeIdx+"*/" + " {  // " + action.target.kind + (action.kind===PActionKind.PREDICATE?"/" + action.kind:""));
       sresult = sresult.concat(action.code.map(line => "    " + line));
       sresult.push("  }");
       sresult.push("");

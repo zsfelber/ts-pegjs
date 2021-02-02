@@ -92,7 +92,7 @@ function generate(ast) {
             return generatedNode;
         };
         Context.prototype.generateAction = function (target, argumentsOwner, kind, node) {
-            var action = { kind: kind, ownerRule: ctx.rule, target: target, index: ctx.functionIndices++,
+            var action = { kind: kind, ownerRule: ctx.rule, target: target, nodeIdx: this.nodeIdxs++, index: ctx.functionIndices++,
                 code: gencode(node.code), args: [], fun: null };
             target.action = action;
             this.grammar.actions.push(action);

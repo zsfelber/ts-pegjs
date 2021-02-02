@@ -104,7 +104,7 @@ function generate(ast, ...args) {
       grammar.actions.forEach(action => {
 
         var outputType;
-        var name = action.ownerRule.symbol + "_" + action.target.nodeIdx;
+        var name = action.ownerRule.symbol + "_" + action.nodeIdx;
         switch (action.ownerRule.kind) {
           case PNodeKind.RULE:
             outputType = action.kind === PActionKind.RULE ? ot(action.ownerRule)
@@ -115,7 +115,7 @@ function generate(ast, ...args) {
             break;
         }
 
-        generatedFuncs.set("$_"+name, action.target.nodeIdx);
+        generatedFuncs.set("$_"+name, action.nodeIdx);
         sresult.push("  $_" + name + "()" + outputType + " {  // " + action.target.kind + "/" + action.kind+" action#"+action.index);
         action.args.forEach(a => {
           var argFuncName, inf;
@@ -165,9 +165,9 @@ function generate(ast, ...args) {
             var action = rule.ruleActions[0];
             var aname;
             if (rule.kind === PNodeKind.TERMINAL) {
-              aname = "$" + action.ownerRule.symbol + "_" + action.target.nodeIdx;
+              aname = "$" + action.ownerRule.symbol + "_" + action.nodeIdx;
             } else {
-              aname = action.ownerRule.symbol + "_" + action.target.nodeIdx;
+              aname = action.ownerRule.symbol + "_" + action.nodeIdx;
             }
 
             sresult.push("    return this.$_" + aname + "()" + ass + ";");
@@ -175,9 +175,9 @@ function generate(ast, ...args) {
             rule.ruleActions.forEach(action => {
               var aname;
               if (rule.kind === PNodeKind.TERMINAL) {
-                aname = "$" + action.ownerRule.symbol + "_" + action.target.nodeIdx;
+                aname = "$" + action.ownerRule.symbol + "_" + action.nodeIdx;
               } else {
-                aname = action.ownerRule.symbol + "_" + action.target.nodeIdx;
+                aname = action.ownerRule.symbol + "_" + action.nodeIdx;
               }
 
               condret = 1;
