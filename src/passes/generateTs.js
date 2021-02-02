@@ -229,7 +229,7 @@ function generateTS(ast) {
         }
         parts.push('');
         parts.push('');
-        parts.push('    var entry = new EntryPointParser(this, peg$rules[peg$startRuleIndex]);');
+        parts.push('    var entry = peg$rules[peg$startRuleIndex];');
         parts.push('    this.peg$result = this.run(entry);');
         parts.push([
             '',
@@ -257,7 +257,10 @@ function generateTS(ast) {
             '  }',
             '',
             '  next() {',
-            '    return this.input.tokenAt(++this.input.currPos);',
+            '    const input = this.input;',
+            '    input.currPos++;',
+            '    if (input.currPos >= input.length) return undefined;',
+            '    return input.tokenAt(input.currPos);',
             '  }',
             '',
             '  cacheKey(rule: EntryPointParser) {',
@@ -273,7 +276,7 @@ function generateTS(ast) {
             '  get numRules(): number {',
             '    return ' + grammar.rules.length + ';',
             '  }',
-            '  rule(index: number): PRule {',
+            '  rule(index: number): EntryPointParser {',
             '    return peg$rules[index];',
             '  }',
             '',
@@ -423,11 +426,13 @@ function generateTS(ast) {
             "  'A': 10,'B': 11,'C': 12,'D': 13,'E': 14,'F': 15,",
             "}",
             '',
-            'function peg$rule(s: string): PRule {',
+            'function peg$rule(s: string): EntryPointParser {',
             '  var code: number[] = [];',
             '  for (var i=0; i<s.length; i+=2) code[i] = HTOD[s.charAt(i)]<<4 + HTOD[s.charAt(i+1)];',
             '  var node = PNode.deseralize(code);',
-            '  return node as PRule;',
+            '  var rule = node as PRule;',
+            '  var entry = new EntryPointParser(rule);',
+            '  return entry;',
             '}',
             '',
             'const peg$FAILED: Readonly<any> = {};',

@@ -7,8 +7,10 @@
 
 import * as pack from '../../package.json';
 import * as ppack from 'pegjs/package.json';
-import {JSstringEscape, CodeTblToHex, PGrammar, PRule, PFunction,
-  PNodeKind, PActionKind, PRuleRef, PTerminalRef} from "../../lib";
+import {
+  JSstringEscape, CodeTblToHex, PGrammar, PRule, PFunction,
+  PNodeKind, PActionKind, PRuleRef, PTerminalRef
+} from "../../lib";
 
 // Generates parser JavaScript code.
 function generateTS(ast, ...args) {
@@ -299,7 +301,7 @@ function pushc(cache: any, item: any): any {
     parts.push('');
     parts.push('');
 
-    parts.push('    var entry = new EntryPointParser(this, peg$rules[peg$startRuleIndex]);');
+    parts.push('    var entry = peg$rules[peg$startRuleIndex];');
     parts.push('    this.peg$result = this.run(entry);');
 
     parts.push(
@@ -332,11 +334,14 @@ function pushc(cache: any, item: any): any {
         '  }',
         '',
         '  next() {',
-        '    return this.input.tokenAt(++this.input.currPos);',
+        '    const input = this.input;',
+        '    input.currPos++;',
+        '    if (input.currPos >= input.length) return undefined;',
+        '    return input.tokenAt(input.currPos);',
         '  }',
         '',
         '  cacheKey(rule: EntryPointParser) {',
-        '    return this.input.currPos * '+grammar.rules.length+' + rule.index;',
+        '    return this.input.currPos * ' + grammar.rules.length + ' + rule.index;',
         '  }',
         '',
         '  get pos(): number {',
@@ -346,9 +351,9 @@ function pushc(cache: any, item: any): any {
         '    this.input.currPos = topos;',
         '  }',
         '  get numRules(): number {',
-        '    return '+grammar.rules.length+';',
+        '    return ' + grammar.rules.length + ';',
         '  }',
-        '  rule(index: number): PRule {',
+        '  rule(index: number): EntryPointParser {',
         '    return peg$rules[index];',
         '  }',
         '',
@@ -406,7 +411,7 @@ function pushc(cache: any, item: any): any {
       ].join('\n')
     );
 
-    
+
     function genMainFunc(action: PFunction) {
 
       var sresult = [];
@@ -414,7 +419,7 @@ function pushc(cache: any, item: any): any {
       action.args.forEach(a => {
         var argName = a.label;
         var argType = ast.inferredTypes[a.evaluate.nodeIdx];
-        sargs.push(argName+": "+argType+"/*"+a.evaluate.nodeIdx+"*/");
+        sargs.push(argName + ": " + argType + "/*" + a.evaluate.nodeIdx + "*/");
       });
 
       var outputType = ast.inferredTypes[action.nodeIdx];
@@ -424,7 +429,7 @@ function pushc(cache: any, item: any): any {
       }
       name += "$" + action.index;
 
-      sresult.push("  " + name + "("+sargs.join(", ")+"): " + outputType+"/*"+action.nodeIdx+"*/" + " {  // " + action.target.kind + (action.kind===PActionKind.PREDICATE?"/" + action.kind:""));
+      sresult.push("  " + name + "(" + sargs.join(", ") + "): " + outputType + "/*" + action.nodeIdx + "*/" + " {  // " + action.target.kind + (action.kind === PActionKind.PREDICATE ? "/" + action.kind : ""));
       sresult = sresult.concat(action.code.map(line => "    " + line));
       sresult.push("  }");
       sresult.push("");
@@ -432,7 +437,7 @@ function pushc(cache: any, item: any): any {
       return sresult;
     }
 
-    grammar.actions.forEach(action=>{
+    grammar.actions.forEach(action => {
       parts = parts.concat(genMainFunc(action));
     });
 
@@ -522,11 +527,13 @@ function pushc(cache: any, item: any): any {
       "  'A': 10,'B': 11,'C': 12,'D': 13,'E': 14,'F': 15,",
       "}",
       '',
-      'function peg$rule(s: string): PRule {',
+      'function peg$rule(s: string): EntryPointParser {',
       '  var code: number[] = [];',
       '  for (var i=0; i<s.length; i+=2) code[i] = HTOD[s.charAt(i)]<<4 + HTOD[s.charAt(i+1)];',
       '  var node = PNode.deseralize(code);',
-      '  return node as PRule;',
+      '  var rule = node as PRule;',
+      '  var entry = new EntryPointParser(rule);',
+      '  return entry;',
       '}',
       '',
       'const peg$FAILED: Readonly<any> = {};',
@@ -541,27 +548,27 @@ function pushc(cache: any, item: any): any {
 
     tables.push(
       ['const peg$functions = [',
-      grammar.actions.map(action=>{
-        var name = "";
-        if (action.ownerRule.symbol) {
-          name = action.ownerRule.symbol;
-        }
-        name += "$" + action.index;
-        return "PegjsParser.prototype."+name;
-      }).join(", "),
-      "];"
-    ].join('\n'));
+        grammar.actions.map(action => {
+          var name = "";
+          if (action.ownerRule.symbol) {
+            name = action.ownerRule.symbol;
+          }
+          name += "$" + action.index;
+          return "PegjsParser.prototype." + name;
+        }).join(", "),
+        "];"
+      ].join('\n'));
 
     // peg$rules
     tables.push(
       ['const peg$rules = [',
-      grammar.rules.map(rule=>
-        'peg$rule("' +
-        CodeTblToHex(rule.ser()).join('') +
-        '")'
-      ).join(", "),
-      "];"
-    ].join('\n'));
+        grammar.rules.map(rule =>
+          'peg$rule("' +
+          CodeTblToHex(rule.ser()).join('') +
+          '")'
+        ).join(", "),
+        "];"
+      ].join('\n'));
 
     tables.push([
       "SerDeser.functionTable = peg$functions;",

@@ -2,6 +2,8 @@ import { ICached, IToken } from './index';
 
 const peg$FAILED: Readonly<any> = {};
 
+const peg$ACTION: Readonly<any> = {};
+
 const Codes = [], Strings = [];
 
 export enum PNodeKind {
@@ -61,7 +63,7 @@ export namespace SerDeser {
 
   export var functionTable: ((...etc)=>any)[];
 
-  export var ruleTable: PRule[];
+  export var ruleTable: EntryPointParser[];
 
 }
 
@@ -101,16 +103,6 @@ export abstract class PNode {
     return r;
   }
 
-  private static desone(arr: number[], res: PNode[], pos) {
-    var kind = arr[pos];
-    var ekind = Strings[kind];
-    var cons = PConss[ekind] as new (parent:PNode, ...etc)=>PNode;
-    var node = new cons(null);
-    res[0] = node;
-    pos = node.deser(arr, pos);
-    return pos;
-  }
-
   deschildren<T extends PNode>(arr: number[], pos): number {
     var length = arr[pos];
     pos++;
@@ -120,6 +112,16 @@ export abstract class PNode {
       pos = PNode.desone(arr, cs, pos);
       this.children.push(cs[0]);
     }
+    return pos;
+  }
+
+  private static desone(arr: number[], res: PNode[], pos) {
+    var kind = arr[pos];
+    var ekind = Strings[kind];
+    var cons = PConss[ekind] as new (parent:PNode, ...etc)=>PNode;
+    var node = new cons(null);
+    res[0] = node;
+    pos = node.deser(arr, pos+1);
     return pos;
   }
 
@@ -248,7 +250,7 @@ export class PRuleRef extends PRef {
   deser(arr: number[], pos: number): number {
     pos = super.deser(arr, pos);
     this.ruleIndex = arr[pos++];
-    this.rule = SerDeser.ruleTable[this.ruleIndex].rule;
+    this.rule = SerDeser.ruleTable[this.ruleIndex].node.rule;
     return pos;
   }
 }
@@ -329,29 +331,29 @@ export const PConss = {
 // NOTE The only exported Parser is EntryPointParser
 namespace Factory {
 
-  export function createParser(parser: IParseRunner, node: PValueNode) {
+  export function createParser(node: PValueNode) {
     switch (node.kind) {
       case PNodeKind.CHOICE:
-        return new ChoiceParser(parser, node);
+        return new ChoiceParser(node);
       case PNodeKind.SEQUENCE:
       case PNodeKind.SINGLE:
-        return new SequenceParser(parser, node);
+        return new SequenceParser(node);
       case PNodeKind.OPTIONAL:
-        return new OptionalParser(parser, node);
+        return new OptionalParser(node);
       case PNodeKind.SEMANTIC_AND:
-        return new SemanticAndParser(parser, node);
+        return new SemanticAndParser(node);
       case PNodeKind.SEMANTIC_NOT:
-        return new SemanticNotParser(parser, node);
+        return new SemanticNotParser(node);
       case PNodeKind.ZERO_OR_MORE:
-        return new ZeroOrMoreParser(parser, node);
+        return new ZeroOrMoreParser(node);
       case PNodeKind.ONE_OR_MORE:
-        return new OneOrMoreParser(parser, node);
+        return new OneOrMoreParser(node);
       case PNodeKind.RULE_REF:
-        return new RuleRefParser(parser, node as PRuleRef);
+        return new RuleRefParser(node as PRuleRef);
       case PNodeKind.TERMINAL_REF:
-        return new TerminalRefParser(parser, node as PTerminalRef);
+        return new TerminalRefParser(node as PTerminalRef);
       case PNodeKind.RULE:
-        return new EntryPointParser(parser, node as PRule);
+        return new EntryPointParser(node as PRule);
   
     }
   }
@@ -394,15 +396,15 @@ class RuleProcessStack {
 //
 export interface IParseRunner {
 
-  readonly pos: number; 
+  pos: number; 
   readonly numRules: number;
 
-  next(): IToken;
+  next(): IToken|undefined;
 
 
-  rule(index: number): PRule;
+  rule(index: number): EntryPointParser;
 
-  run(rule: RuleParser): any;
+  run(rule: RuleElementParser): any;
 
 }
 
@@ -424,7 +426,7 @@ export abstract class PackratRunner implements IParseRunner {
   abstract get numRules(): number;
   abstract cacheKey(rule: EntryPointParser): number;
   abstract next(): IToken;
-  abstract rule(index: number): PRule;
+  abstract rule(index: number): EntryPointParser;
   
   run(rule: EntryPointParser): any {
     const key = this.cacheKey(rule);
@@ -441,7 +443,10 @@ export abstract class PackratRunner implements IParseRunner {
     // TODO
     var ruleMaxFailPos = 0;
 
-    var result = rule.child.parseImpl(stack);
+    var result = rule.child.parse(stack);
+    if (result === peg$FAILED) {
+
+    }
 
     this.peg$resultsCache[key] = { nextPos: this.pos, maxFailPos: ruleMaxFailPos, 
       result };
@@ -458,48 +463,55 @@ export abstract class PackratRunner implements IParseRunner {
 
 
 // NOTE Not exported.  The only exported one is EntryPointParser
-abstract class RuleParser {
+abstract class RuleElementParser {
 
-  readonly parser: IParseRunner;
-  readonly parent: RuleParser;
+  readonly parent: RuleElementParser;
   readonly node: PValueNode;
-  readonly children: RuleParser[] = [];
+  readonly children: RuleElementParser[] = [];
 
-  constructor(parser: IParseRunner, node: PValueNode) {
-    this.parser = parser;
+  constructor(node: PValueNode) {
     this.node = node;
     this.node.children.forEach(n => {
-      this.children.push(Factory.createParser(parser, n));
+      this.children.push(Factory.createParser(n));
     });
-    if (this.checkConstructFailed(parser)) {
+    if (this.checkConstructFailed()) {
       throw new Error("Ast construction failed.");
     }
   }
 
-  checkConstructFailed(parser): any {
+  checkConstructFailed(): any {
   }
 
-  getResult(stack: RuleProcessStack) {
-    var r;
-    if (this.node.action) {
-      r = this.node.action.fun.apply(stack.parser, stack.argsToLeft);
+  parse(stack: RuleProcessStack) {
+    var pos = stack.parser.pos;
+    var r0 = this.parse(stack);
+    if (r0 === peg$FAILED) {
+      stack.parser.pos = pos;
+      return r0;
+    } else if (r0 === peg$ACTION) {
+      var r;
+      if (this.node.action) {
+        r = this.node.action.fun.apply(stack.parser, stack.argsToLeft);
+      } else {
+        r = stack.argsToLeft;
+      }
+      return r;
     } else {
-      r = stack.argsToLeft;
+      return r0;
     }
-    return r;
-  }
+}
+
 
   abstract parseImpl(stack: RuleProcessStack): any;
 }
 
 
 // NOTE Not exported.  The only exported one is EntryPointParser
-class ChoiceParser extends RuleParser {
+class ChoiceParser extends RuleElementParser {
 
   parseImpl(stack: RuleProcessStack) {
-
     this.children.forEach(n => {
-      var r = n.parseImpl(stack);
+      var r = n.parse(stack);
       if (r !== peg$FAILED) {
         return r;
       }
@@ -509,7 +521,7 @@ class ChoiceParser extends RuleParser {
 }
 
 // NOTE Not exported.  The only exported one is EntryPointParser
-class SequenceParser extends RuleParser {
+class SequenceParser extends RuleElementParser {
 
   parseImpl(stack: RuleProcessStack) {
 
@@ -517,24 +529,23 @@ class SequenceParser extends RuleParser {
     stack = stack.push(stack, args);
 
     this.children.forEach(n => {
-      var r = n.parseImpl(stack);
+      var r = n.parse(stack);
       if (r === peg$FAILED) {
         return peg$FAILED;
       } else if (n.node.label) {
         args.push(r);
       }
     });
-    var r = this.getResult(stack);
-    return r;
+    return peg$ACTION;
   }
 }
 
 // NOTE Not exported.  The only exported one is EntryPointParser
-abstract class SingleCollectionParser extends RuleParser {
+abstract class SingleCollectionParser extends RuleElementParser {
   
-  child: RuleParser;
+  child: RuleElementParser;
 
-  checkConstructFailed(parser: IParseRunner) {
+  checkConstructFailed() {
     if (this.children.length !== 1) {
       console.error("parser.children.length !== 1  " + this.node);
       return 1;
@@ -559,9 +570,9 @@ abstract class SingleParser extends SingleCollectionParser {
 
 
 // NOTE Not exported.  The only exported one is EntryPointParser
-abstract class EmptyParser extends RuleParser {
+abstract class EmptyParser extends RuleElementParser {
   
-  checkConstructFailed(parser: IParseRunner) {
+  checkConstructFailed() {
     if (this.children.length !== 0) {
       console.error("parser.children.length !== 0  " + this.node);
       return 1;
@@ -578,7 +589,7 @@ class OptionalParser extends SingleParser {
     var args = [];
     stack = stack.push(stack, args);
 
-    var r = this.child.parseImpl(stack);
+    var r = this.child.parse(stack);
     if (r === peg$FAILED) {
       return null;
     } else {
@@ -599,7 +610,7 @@ class ZeroOrMoreParser extends SingleCollectionParser {
     stack = stack.push(stack, items);
 
     while (true) {
-      var r = this.child.parseImpl(stack);
+      var r = this.child.parse(stack);
       if (r === peg$FAILED) {
         break;
       } else {
@@ -607,8 +618,7 @@ class ZeroOrMoreParser extends SingleCollectionParser {
       }
     }
 
-    var r = this.getResult(stack);
-    return r;
+    return peg$ACTION;
   }
 }
 
@@ -620,13 +630,13 @@ class OneOrMoreParser extends SingleCollectionParser {
     var items = [];
     stack = stack.push(stack, items);
 
-    var r = this.child.parseImpl(stack);
+    var r = this.child.parse(stack);
     if (r === peg$FAILED) {
       return peg$FAILED;
     }
     items.push(r);
     while (true) {
-      r = this.child.parseImpl(stack);
+      r = this.child.parse(stack);
       if (r === peg$FAILED) {
         break;
       } else {
@@ -634,8 +644,7 @@ class OneOrMoreParser extends SingleCollectionParser {
       }
     }
 
-    var r = this.getResult(stack);
-    return r;
+    return peg$ACTION;
   }
 }
 
@@ -643,20 +652,17 @@ class OneOrMoreParser extends SingleCollectionParser {
 class RuleRefParser extends EmptyParser {
 
   node: PRuleRef;
-  rule0: PRule;
   ruleEntryParser: EntryPointParser;
 
-  constructor(parser: IParseRunner, node: PRuleRef) {
-    super(parser, node);
-    this.rule0 = parser.rule(node.ruleIndex);
+  constructor(node: PRuleRef) {
+    super(node);
+    this.ruleEntryParser = SerDeser.ruleTable[node.ruleIndex];
   }
 
-  checkConstructFailed(parser: IParseRunner) {
-    var dirty = super.checkConstructFailed(parser);
-    if (this.rule0) {
-      this.ruleEntryParser = Factory.createParser(parser, this.rule0) as EntryPointParser;
-    } else {
-      console.error("no this.rule  " + this.node);
+  checkConstructFailed() {
+    var dirty = super.checkConstructFailed();
+    if (!this.ruleEntryParser) {
+      console.error("no this.ruleEntryParser  " + this.node);
       dirty = 1;
     }
     return dirty;
@@ -664,7 +670,7 @@ class RuleRefParser extends EmptyParser {
 
   parseImpl(stack: RuleProcessStack) {
     // NOTE new entry point
-    return this.parser.run(this.ruleEntryParser);
+    return stack.parser.run(this.ruleEntryParser);
   }
 }
 
@@ -674,8 +680,8 @@ class TerminalRefParser extends EmptyParser {
 
   node: PTerminalRef;
 
-  checkConstructFailed(parser: IParseRunner) {
-    var dirty = super.checkConstructFailed(parser);
+  checkConstructFailed() {
+    var dirty = super.checkConstructFailed();
     if (!this.node.terminal) {
       console.error("no this.node.terminal  " + this.node);
       dirty = 1;
@@ -685,7 +691,7 @@ class TerminalRefParser extends EmptyParser {
 
   parseImpl(stack: RuleProcessStack) {
     var token = stack.parser.next();
-    if (token.tokenId === this.node.value) {
+    if (token && token.tokenId === this.node.value) {
       return token;
     } else {
       return peg$FAILED;
@@ -707,11 +713,11 @@ class TerminalRefParser extends EmptyParser {
 //
 export class EntryPointParser extends SingleParser {
 
-  node: PRuleRef;
+  node: PRule;
   index: number;
 
-  constructor(parser: IParseRunner, node: PRule) {
-    super(parser, node);
+  constructor(node: PRule) {
+    super(node);
     this.index = node.index;
   }
 
@@ -723,8 +729,8 @@ export class EntryPointParser extends SingleParser {
 
 // NOTE Not exported.  The only exported one is EntryPointParser
 abstract class SemanticParser extends SingleParser {
-  checkConstructFailed(parser: IParseRunner) {
-    var dirty = super.checkConstructFailed(parser);
+  checkConstructFailed() {
+    var dirty = super.checkConstructFailed();
     if (!this.node.action || !this.node.action.fun) {
       console.error("No parser.node.action or .action.fun");
       dirty = 1;
