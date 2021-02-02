@@ -32,7 +32,6 @@ export class PNode {
   parent: PNode;
   kind: PNodeKind;
   children: PNode[] = [];
-  index: number;
   nodeIdx: number;
 
   static xkind = PNodeKind.GRAMMAR;
@@ -171,11 +170,9 @@ ExpextedPNodeTypes[PNodeKind.SEMANTIC_AND] = PSemanticAnd;
 ExpextedPNodeTypes[PNodeKind.SEMANTIC_NOT] = PSemanticNot;
 
 export class PFunction {
-  name: string;
   ownerRule: PActContainer;
   target: PLogicNode;
 
-  index: number;
   args: PCallArg[];
 
   generatedMemberName?: string;

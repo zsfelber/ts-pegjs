@@ -1,8 +1,9 @@
 import * as ts from "typescript";
 import * as fs from "fs";
-import { PNodeKind, PActionKind, PNode, PGrammar, PFunction, PCallArg, PRule,
+import {
+  PNodeKind, PActionKind, PNode, PGrammar, PFunction, PCallArg, PRule,
   PRuleRef, PTerminalRef, PActContainer
- } from "../../lib";
+} from "../../lib";
 
 // Generates parser JavaScript code.
 function generate(ast, ...args) {
@@ -30,7 +31,7 @@ function generate(ast, ...args) {
           outputType = options.returnTypes[node.symbol];
           break;
         case PNodeKind.TERMINAL:
-          outputType = options.returnTypes["Ł"+node.symbol];
+          outputType = options.returnTypes["Ł" + node.symbol];
           break;
       }
     }
@@ -55,13 +56,13 @@ function generate(ast, ...args) {
         var tmpChildFuncName: string;
         switch (child.kind) {
           case PNodeKind.RULE_REF:
-            tmpChildFuncName = "$_" + (child as PRuleRef).rule +"_"+child.index;
+            tmpChildFuncName = "$_" + (child as PRuleRef).rule + "_" + child.nodeIdx;
             break;
           case PNodeKind.TERMINAL_REF:
-            tmpChildFuncName = "$_$" + (child as PTerminalRef).terminal +"_"+child.index;
+            tmpChildFuncName = "$_$" + (child as PTerminalRef).terminal + "_" + child.nodeIdx;
             break;
           default:
-            tmpChildFuncName = genTmpFunc(child, "$_" + child.index, "");
+            tmpChildFuncName = genTmpFunc(child, "$_" + child.nodeIdx, "");
             break;
         }
         switch (node.kind) {
@@ -100,30 +101,28 @@ function generate(ast, ...args) {
       grammar.actions.forEach(action => {
 
         var outputType;
-        var name;
+        var name = action.ownerRule.symbol + "_" + action.target.nodeIdx;
         switch (action.ownerRule.kind) {
           case PNodeKind.RULE:
             outputType = action.kind === PActionKind.RULE ? ot(action.ownerRule)
               : ": boolean";
-            name = action.name;
             break;
           default:
             outputType = action.kind === PActionKind.RULE ? "" : ": boolean";
-            name = "$"+action.name;
             break;
-        } 
+        }
 
         sresult.push("  $_" + name + "()" + outputType + " {  // " + action.target.kind + "/" + action.kind);
         action.args.forEach(a => {
           var argFuncName, inf;
           if (a.evaluate.kind === PNodeKind.RULE_REF) {
-            argFuncName = "$_" + (a.evaluate as PRuleRef).rule+"_"+a.evaluate.index;
+            argFuncName = "$_" + (a.evaluate as PRuleRef).rule + "_" + a.evaluate.nodeIdx;
             inf = "rule";
           } else if (a.evaluate.kind === PNodeKind.TERMINAL_REF) {
-            argFuncName = "$_$" + (a.evaluate as PTerminalRef).terminal+"_"+a.evaluate.index;
+            argFuncName = "$_$" + (a.evaluate as PTerminalRef).terminal + "_" + a.evaluate.nodeIdx;
             inf = "term";
           } else {
-            argFuncName = genTmpFunc(a.evaluate, "$_" + a.evaluate.index, "");
+            argFuncName = genTmpFunc(a.evaluate, "$_" + a.evaluate.nodeIdx, "");
             inf = "tmp";
           }
           sresult.push("    let " + a.label + " = this." + argFuncName + "(); // " + inf);
@@ -139,37 +138,49 @@ function generate(ast, ...args) {
         var outputType = ot(rule);
         var name, ass;
         if (rule.kind === PNodeKind.TERMINAL) {
-          name = "$"+rule.symbol+"_"+rule.index;
+          name = "$" + rule.symbol;
           ass = outputType.replace(":", " as ");
         } else {
-          name = rule.symbol+"_"+rule.index;
+          name = rule.symbol;
           ass = "";
         }
 
         if (rule.ruleActions.length) {
           var condret = 0;
-          sresult.push("  $_" + name + "()" + outputType + " {  // ("+rule.kind+") " + rule.symbol);
-          rule.ruleActions.forEach(action => {
+          sresult.push("  $_" + name + "()" + outputType + " {  // (" + rule.kind + ") " + rule.symbol);
+          if (rule.ruleActions.length === 1) {
+            var action = rule.ruleActions[0];
             var aname;
             if (rule.kind === PNodeKind.TERMINAL) {
-              aname = "$"+action.name;
+              aname = "$" + action.ownerRule.symbol + "_" + action.ownerRule.nodeIdx;
             } else {
-              aname = action.name;
+              aname = action.ownerRule.symbol + "_" + action.ownerRule.nodeIdx;
             }
 
-            condret = 1;
-            sresult.push("    if (theVeryNothing['butSomething']===" + (j++) + ") {");
-            sresult.push("      return this.$_" + aname + "()"+ass+";");
-            sresult.push("    }");
-          });
+            sresult.push("    return this.$_" + aname + "()" + ass + ";");
+          } else {
+            rule.ruleActions.forEach(action => {
+              var aname;
+              if (rule.kind === PNodeKind.TERMINAL) {
+                aname = "$" + action.ownerRule.symbol + "_" + action.ownerRule.nodeIdx;
+              } else {
+                aname = action.ownerRule.symbol + "_" + action.ownerRule.nodeIdx;
+              }
+
+              condret = 1;
+              sresult.push("    if (theVeryNothing['butSomething']===" + (j++) + ") {");
+              sresult.push("      return this.$_" + aname + "()" + ass + ";");
+              sresult.push("    }");
+            });
+          }
           if (condret) {
             sresult.push("    return undefined;");
           }
           sresult.push("  }");
           sresult.push("");
         } else if (rule.kind === PNodeKind.TERMINAL) {
-          sresult.push("  $_" + name + "()" + outputType + " {  // generated ("+rule.kind+") " + rule.symbol);
-          sresult.push("    return this.token()"+ass+";");
+          sresult.push("  $_" + name + "()" + outputType + " {  // generated (" + rule.kind + ") " + rule.symbol);
+          sresult.push("    return this.token()" + ass + ";");
           sresult.push("  }");
         } else {
           genTmpFunc(rule, "$_" + name, outputType);
@@ -208,7 +219,7 @@ function generate(ast, ...args) {
     "  peg$maxFailExpected: Expectation[] = [];",
     "  peg$silentFails = 0;", // 0 = report failures, > 0 = silence failures
     "",
-    "  token(): "+baseTokenType+" { return null; } ",
+    "  token(): " + baseTokenType + " { return null; } ",
     "",
     ""].join("\n"));
   genclss.push("");
@@ -240,13 +251,13 @@ function generate(ast, ...args) {
   var tsrc = program.getSourceFile(fnm);
 
   const checker = program.getTypeChecker();
-  
+
   function generateFullName(tp: ts.Type, parenthisize = false) {
     var inferredTp: string;
 
     if (tp.isUnionOrIntersection() && tp.types && tp.types.length > 1) {
       var chs = [];
-      tp.types.forEach(cht=>{
+      tp.types.forEach(cht => {
         var ch = generateFullName(cht, true);
         chs.push(ch);
       });
@@ -255,10 +266,10 @@ function generate(ast, ...args) {
       } else {
         inferredTp = chs.join("&");
       }
-      if (inferredTp==="true|false") {
+      if (inferredTp === "true|false") {
         inferredTp = "boolean";
-      } else if (parenthisize && tp.types.length>=2) {
-        inferredTp =  "(" + inferredTp + ")";
+      } else if (parenthisize && tp.types.length >= 2) {
+        inferredTp = "(" + inferredTp + ")";
       }
     } else {
       inferredTp = checker.typeToString(tp);

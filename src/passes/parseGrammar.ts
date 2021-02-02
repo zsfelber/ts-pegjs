@@ -97,8 +97,7 @@ function generate(ast, ...args) {
       return generatedNode;
     }
     generateAction(target: PLogicNode, argumentsOwner: PNode, kind: PActionKind, node) {
-      var action: PFunction = { name:"", kind, ownerRule:ctx.rule, target, code: gencode(node.code), index: this.rule.actions.length, args: [], fun: null };
-      action.name = ctx.rule.symbol + "$" + action.index;
+      var action: PFunction = { kind, ownerRule:ctx.rule, target, code: gencode(node.code), args: [], fun: null };
 
       target.action = action;
       this.grammar.actions.push(action);
@@ -153,9 +152,9 @@ function generate(ast, ...args) {
           ctx.rule = t;
         } else {
           var r = ctx.pushIdxNode(PRule, ctx.ruleIndices++);
+          r.rule = node.name;
           ctx.rule = r;
           ctx.rules.set(r.rule, r);
-          r.rule = node.name;
         }
         ctx.rule.actions = [];
         ctx.rule.ruleActions = [];

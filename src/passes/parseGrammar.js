@@ -89,8 +89,7 @@ function generate(ast) {
             return generatedNode;
         };
         Context.prototype.generateAction = function (target, argumentsOwner, kind, node) {
-            var action = { name: "", kind: kind, ownerRule: ctx.rule, target: target, code: gencode(node.code), index: this.rule.actions.length, args: [], fun: null };
-            action.name = ctx.rule.symbol + "$" + action.index;
+            var action = { kind: kind, ownerRule: ctx.rule, target: target, code: gencode(node.code), args: [], fun: null };
             target.action = action;
             this.grammar.actions.push(action);
             this.rule.actions.push(action);
@@ -142,9 +141,9 @@ function generate(ast) {
                 }
                 else {
                     var r = ctx.pushIdxNode(lib_1.PRule, ctx.ruleIndices++);
+                    r.rule = node.name;
                     ctx.rule = r;
                     ctx.rules.set(r.rule, r);
-                    r.rule = node.name;
                 }
                 ctx.rule.actions = [];
                 ctx.rule.ruleActions = [];

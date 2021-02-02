@@ -51,13 +51,13 @@ function generate(ast) {
                 var tmpChildFuncName;
                 switch (child.kind) {
                     case lib_1.PNodeKind.RULE_REF:
-                        tmpChildFuncName = "$_" + child.rule + "_" + child.index;
+                        tmpChildFuncName = "$_" + child.rule + "_" + child.nodeIdx;
                         break;
                     case lib_1.PNodeKind.TERMINAL_REF:
-                        tmpChildFuncName = "$_$" + child.terminal + "_" + child.index;
+                        tmpChildFuncName = "$_$" + child.terminal + "_" + child.nodeIdx;
                         break;
                     default:
-                        tmpChildFuncName = genTmpFunc(child, "$_" + child.index, "");
+                        tmpChildFuncName = genTmpFunc(child, "$_" + child.nodeIdx, "");
                         break;
                 }
                 switch (node.kind) {
@@ -95,31 +95,29 @@ function generate(ast) {
             var sresult = [];
             grammar.actions.forEach(function (action) {
                 var outputType;
-                var name;
+                var name = action.ownerRule.symbol + "_" + action.target.nodeIdx;
                 switch (action.ownerRule.kind) {
                     case lib_1.PNodeKind.RULE:
                         outputType = action.kind === lib_1.PActionKind.RULE ? ot(action.ownerRule)
                             : ": boolean";
-                        name = action.name;
                         break;
                     default:
                         outputType = action.kind === lib_1.PActionKind.RULE ? "" : ": boolean";
-                        name = "$" + action.name;
                         break;
                 }
                 sresult.push("  $_" + name + "()" + outputType + " {  // " + action.target.kind + "/" + action.kind);
                 action.args.forEach(function (a) {
                     var argFuncName, inf;
                     if (a.evaluate.kind === lib_1.PNodeKind.RULE_REF) {
-                        argFuncName = "$_" + a.evaluate.rule + "_" + a.evaluate.index;
+                        argFuncName = "$_" + a.evaluate.rule + "_" + a.evaluate.nodeIdx;
                         inf = "rule";
                     }
                     else if (a.evaluate.kind === lib_1.PNodeKind.TERMINAL_REF) {
-                        argFuncName = "$_$" + a.evaluate.terminal + "_" + a.evaluate.index;
+                        argFuncName = "$_$" + a.evaluate.terminal + "_" + a.evaluate.nodeIdx;
                         inf = "term";
                     }
                     else {
-                        argFuncName = genTmpFunc(a.evaluate, "$_" + a.evaluate.index, "");
+                        argFuncName = genTmpFunc(a.evaluate, "$_" + a.evaluate.nodeIdx, "");
                         inf = "tmp";
                     }
                     sresult.push("    let " + a.label + " = this." + argFuncName + "(); // " + inf);
@@ -132,29 +130,42 @@ function generate(ast) {
                 var outputType = ot(rule);
                 var name, ass;
                 if (rule.kind === lib_1.PNodeKind.TERMINAL) {
-                    name = "$" + rule.symbol + "_" + rule.index;
+                    name = "$" + rule.symbol;
                     ass = outputType.replace(":", " as ");
                 }
                 else {
-                    name = rule.symbol + "_" + rule.index;
+                    name = rule.symbol;
                     ass = "";
                 }
                 if (rule.ruleActions.length) {
                     var condret = 0;
                     sresult.push("  $_" + name + "()" + outputType + " {  // (" + rule.kind + ") " + rule.symbol);
-                    rule.ruleActions.forEach(function (action) {
+                    if (rule.ruleActions.length === 1) {
+                        var action = rule.ruleActions[0];
                         var aname;
                         if (rule.kind === lib_1.PNodeKind.TERMINAL) {
-                            aname = "$" + action.name;
+                            aname = "$" + action.ownerRule.symbol + "_" + action.ownerRule.nodeIdx;
                         }
                         else {
-                            aname = action.name;
+                            aname = action.ownerRule.symbol + "_" + action.ownerRule.nodeIdx;
                         }
-                        condret = 1;
-                        sresult.push("    if (theVeryNothing['butSomething']===" + (j++) + ") {");
-                        sresult.push("      return this.$_" + aname + "()" + ass + ";");
-                        sresult.push("    }");
-                    });
+                        sresult.push("    return this.$_" + aname + "()" + ass + ";");
+                    }
+                    else {
+                        rule.ruleActions.forEach(function (action) {
+                            var aname;
+                            if (rule.kind === lib_1.PNodeKind.TERMINAL) {
+                                aname = "$" + action.ownerRule.symbol + "_" + action.ownerRule.nodeIdx;
+                            }
+                            else {
+                                aname = action.ownerRule.symbol + "_" + action.ownerRule.nodeIdx;
+                            }
+                            condret = 1;
+                            sresult.push("    if (theVeryNothing['butSomething']===" + (j++) + ") {");
+                            sresult.push("      return this.$_" + aname + "()" + ass + ";");
+                            sresult.push("    }");
+                        });
+                    }
                     if (condret) {
                         sresult.push("    return undefined;");
                     }

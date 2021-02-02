@@ -413,6 +413,11 @@ function pushc(cache: any, item: any): any {
       });
 
       var outputType = ast.inferredTypes[action.target.nodeIdx];
+      var name = "";
+      if (action.ownerRule.symbol) {
+        name = action.ownerRule.symbol;
+      }
+      name += "$" + action.target.nodeIdx;
 
       sresult.push("  " + name + "("+sargs.push(", ")+"): " + outputType + " {  // " + action.target.kind + (action.kind===PActionKind.PREDICATE?"/" + action.kind:""));
       sresult = sresult.concat(action.code.map(line => "    " + line));

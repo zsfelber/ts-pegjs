@@ -335,6 +335,11 @@ function generateTS(ast) {
                 sargs.push(argName + ": " + argType);
             });
             var outputType = ast.inferredTypes[action.target.nodeIdx];
+            var name = "";
+            if (action.ownerRule.symbol) {
+                name = action.ownerRule.symbol;
+            }
+            name += "$" + action.target.nodeIdx;
             sresult.push("  " + name + "(" + sargs.push(", ") + "): " + outputType + " {  // " + action.target.kind + (action.kind === lib_1.PActionKind.PREDICATE ? "/" + action.kind : ""));
             sresult = sresult.concat(action.code.map(function (line) { return "    " + line; }));
             sresult.push("  }");
