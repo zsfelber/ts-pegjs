@@ -114,8 +114,8 @@ function generate(ast) {
                 action.args.forEach(function (a) {
                     var argFuncName, inf;
                     if (a.evaluate.kind === lib_1.PNodeKind.RULE_REF) {
-                        argFuncName = "$_" + a.evaluate.rule;
                         var rr = a.evaluate;
+                        argFuncName = "$_" + rr.rule;
                         var frefs = referenceNodes.get(argFuncName);
                         if (!frefs)
                             referenceNodes.set(argFuncName, frefs = []);
@@ -123,8 +123,8 @@ function generate(ast) {
                         inf = "rule";
                     }
                     else if (a.evaluate.kind === lib_1.PNodeKind.TERMINAL_REF) {
-                        argFuncName = "$_$" + a.evaluate.terminal;
                         var tr = a.evaluate;
+                        argFuncName = "$_$" + tr.terminal;
                         var frefs = referenceNodes.get(argFuncName);
                         if (!frefs)
                             referenceNodes.set(argFuncName, frefs = []);
@@ -291,7 +291,7 @@ function generate(ast) {
                         var tp = checker.getReturnTypeOfSignature(checker.getSignatureFromDeclaration(method));
                         var gname = generateFullName(tp);
                         inferredTypes[nodeId] = gname;
-                        var refs = referenceNodes[mn];
+                        var refs = referenceNodes.get(mn);
                         if (refs)
                             refs.forEach(function (refNodeId) {
                                 inferredTypes[refNodeId] = gname;
