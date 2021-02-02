@@ -2,7 +2,7 @@ import { ICached, IToken } from './index';
 
 const peg$FAILED: Readonly<any> = {};
 
-const peg$ACTION: Readonly<any> = {};
+const peg$SUCCESS: Readonly<any> = {};
 
 const Codes = [], Strings = [];
 
@@ -444,9 +444,6 @@ export abstract class PackratRunner implements IParseRunner {
     var ruleMaxFailPos = 0;
 
     var result = rule.child.parse(stack);
-    if (result === peg$FAILED) {
-
-    }
 
     this.peg$resultsCache[key] = { nextPos: this.pos, maxFailPos: ruleMaxFailPos, 
       result };
@@ -483,12 +480,15 @@ abstract class RuleElementParser {
   }
 
   parse(stack: RuleProcessStack) {
+
     var pos = stack.parser.pos;
-    var r0 = this.parse(stack);
+
+    var r0 = this.parseImpl(stack);
+
     if (r0 === peg$FAILED) {
       stack.parser.pos = pos;
       return r0;
-    } else if (r0 === peg$ACTION) {
+    } else if (r0 === peg$SUCCESS) {
       var r;
       if (this.node.action) {
         r = this.node.action.fun.apply(stack.parser, stack.argsToLeft);
@@ -499,7 +499,7 @@ abstract class RuleElementParser {
     } else {
       return r0;
     }
-}
+  }
 
 
   abstract parseImpl(stack: RuleProcessStack): any;
@@ -536,7 +536,7 @@ class SequenceParser extends RuleElementParser {
         args.push(r);
       }
     });
-    return peg$ACTION;
+    return peg$SUCCESS;
   }
 }
 
@@ -557,15 +557,29 @@ abstract class SingleCollectionParser extends RuleElementParser {
 // NOTE Not exported.  The only exported one is EntryPointParser
 abstract class SingleParser extends SingleCollectionParser {
 
-  getResult(stack: RuleProcessStack) {
-    var r;
-    if (this.node.action) {
-      r = this.node.action.fun.apply(stack.parser, stack.argsToLeft);
+  
+  parse(stack: RuleProcessStack) {
+
+    var pos = stack.parser.pos;
+
+    var r0 = this.parseImpl(stack);
+
+    if (r0 === peg$FAILED) {
+      stack.parser.pos = pos;
+      return r0;
+    } else if (r0 === peg$SUCCESS) {
+      var r;
+      if (this.node.action) {
+        r = this.node.action.fun.apply(stack.parser, stack.argsToLeft);
+      } else {
+        r = stack.argsToLeft[0];
+      }
+      return r;
     } else {
-      r = stack.argsToLeft[0];
+      return r0;
     }
-    return r;
   }
+
 }
 
 
@@ -596,8 +610,7 @@ class OptionalParser extends SingleParser {
       args.push(r);
     }
 
-    var r = this.getResult(stack);
-    return r;
+    return peg$SUCCESS;
   }
 }
 
@@ -618,7 +631,7 @@ class ZeroOrMoreParser extends SingleCollectionParser {
       }
     }
 
-    return peg$ACTION;
+    return peg$SUCCESS;
   }
 }
 
@@ -644,7 +657,7 @@ class OneOrMoreParser extends SingleCollectionParser {
       }
     }
 
-    return peg$ACTION;
+    return peg$SUCCESS;
   }
 }
 
