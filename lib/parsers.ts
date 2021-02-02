@@ -38,7 +38,7 @@ export class PNode {
   static xkind = PNodeKind.GRAMMAR;
 
   constructor(parent: PNode) {
-    
+    this.parent = parent;
     if (parent) parent.children.push(this);
   }
 
