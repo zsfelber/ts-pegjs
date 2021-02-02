@@ -1,4 +1,3 @@
-import { prependListener } from "process";
 
 export const MATCH_TOKEN = 40;
 export const ACCEPT_TOKEN = 41;

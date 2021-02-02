@@ -38,7 +38,6 @@ function generate(ast) {
     function generateTmpClasses() {
         var grammar = ast.grammar;
         var result = [];
-        var i = 0;
         var subTmpFuncs = [];
         function genTmpFunc(node, tmpfuncname, outputType) {
             var sresult = [];
@@ -52,13 +51,13 @@ function generate(ast) {
                 var tmpChildFuncName;
                 switch (child.kind) {
                     case lib_1.PNodeKind.RULE_REF:
-                        tmpChildFuncName = "$_" + child.rule;
+                        tmpChildFuncName = "$_" + child.rule + "_" + child.index;
                         break;
                     case lib_1.PNodeKind.TERMINAL_REF:
-                        tmpChildFuncName = "$_$" + child.terminal;
+                        tmpChildFuncName = "$_$" + child.terminal + "_" + child.index;
                         break;
                     default:
-                        tmpChildFuncName = genTmpFunc(child, "$_" + (i++), "");
+                        tmpChildFuncName = genTmpFunc(child, "$_" + child.index, "");
                         break;
                 }
                 switch (node.kind) {
@@ -112,15 +111,15 @@ function generate(ast) {
                 action.args.forEach(function (a) {
                     var argFuncName, inf;
                     if (a.evaluate.kind === lib_1.PNodeKind.RULE_REF) {
-                        argFuncName = "$_" + a.evaluate.rule;
+                        argFuncName = "$_" + a.evaluate.rule + "_" + a.evaluate.index;
                         inf = "rule";
                     }
                     else if (a.evaluate.kind === lib_1.PNodeKind.TERMINAL_REF) {
-                        argFuncName = "$_$" + a.evaluate.terminal;
+                        argFuncName = "$_$" + a.evaluate.terminal + "_" + a.evaluate.index;
                         inf = "term";
                     }
                     else {
-                        argFuncName = genTmpFunc(a.evaluate, "$_" + (i++), "");
+                        argFuncName = genTmpFunc(a.evaluate, "$_" + a.evaluate.index, "");
                         inf = "tmp";
                     }
                     sresult.push("    let " + a.label + " = this." + argFuncName + "(); // " + inf);
@@ -133,11 +132,11 @@ function generate(ast) {
                 var outputType = ot(rule);
                 var name, ass;
                 if (rule.kind === lib_1.PNodeKind.TERMINAL) {
-                    name = "$" + rule.symbol;
+                    name = "$" + rule.symbol + "_" + rule.index;
                     ass = outputType.replace(":", " as ");
                 }
                 else {
-                    name = rule.symbol;
+                    name = rule.symbol + "_" + rule.index;
                     ass = "";
                 }
                 if (rule.ruleActions.length) {
@@ -179,7 +178,7 @@ function generate(ast) {
         return result;
     }
     var genclss = [];
-    genclss.push("import { IFilePosition, IFileRange, ILiteralExpectation, IClassParts, IClassExpectation, IAnyExpectation, IEndExpectation, IOtherExpectation, Expectation, SyntaxError, ITraceEvent, DefaultTracer, ICached, IPegjsParseStream, PegjsParseStream, IPegjsBuffer, IToken } from 'ts-pegjs/lib';");
+    genclss.push("import { IFilePosition, IFileRange, IAnyExpectation, IEndExpectation, IOtherExpectation, Expectation, SyntaxError, ITraceEvent, DefaultTracer, ICached, IPegjsParseStream, PegjsParseStream, IPegjsBuffer, IToken } from 'ts-pegjs/lib';");
     if (options.tspegjs.customHeader) {
         genclss.push(options.tspegjs.customHeader.length ? options.tspegjs.customHeader.join("\n") : options.tspegjs.customHeader + "");
     }
@@ -222,25 +221,41 @@ function generate(ast) {
     var program = ts.createProgram([fnm], {});
     var tsrc = program.getSourceFile(fnm);
     var checker = program.getTypeChecker();
+    function generateFullName(tp, parenthisize) {
+        if (parenthisize === void 0) { parenthisize = false; }
+        var inferredTp;
+        if (tp.isUnionOrIntersection() && tp.types && tp.types.length > 1) {
+            var chs = [];
+            tp.types.forEach(function (cht) {
+                var ch = generateFullName(cht, true);
+                chs.push(ch);
+            });
+            if (tp.isUnion()) {
+                inferredTp = chs.join("|");
+            }
+            else {
+                inferredTp = chs.join("&");
+            }
+            if (inferredTp === "true|false") {
+                inferredTp = "boolean";
+            }
+            else if (parenthisize && tp.types.length >= 2) {
+                inferredTp = "(" + inferredTp + ")";
+            }
+        }
+        else {
+            inferredTp = checker.typeToString(tp);
+        }
+        return inferredTp;
+    }
     tsrc.statements.forEach(function (cl) {
         if (ts.isClassDeclaration(cl)) {
             cl.members.forEach(function (method) {
                 if (ts.isMethodDeclaration(method)) {
-                    var fname = method.name.getText(tsrc).substring(2);
+                    var nodeId = /_(\d+)$/.exec(method.name.getText(tsrc))[1];
                     //var tp = checker.getTypeAtLocation(fun);
-                    var outputType = (options && options.returnTypes) ? options.returnTypes[fname] : "";
-                    if (!outputType) {
-                        var tp = checker.getReturnTypeOfSignature(checker.getSignatureFromDeclaration(method));
-                        outputType = checker.typeToString(tp);
-                        if (tp.isUnionOrIntersection()) {
-                            if (tp.types && tp.types.length > 1) {
-                                if (outputType.indexOf(" | ") !== -1 || outputType.indexOf(" & ") !== -1) {
-                                    outputType = "(" + outputType + ")";
-                                }
-                            }
-                        }
-                    }
-                    inferredTypes[fname] = outputType;
+                    var tp = checker.getReturnTypeOfSignature(checker.getSignatureFromDeclaration(method));
+                    inferredTypes[Number(nodeId)] = generateFullName(tp);
                 }
             });
         }

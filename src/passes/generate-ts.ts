@@ -5,13 +5,10 @@
 // Adapted from base: (original file: generate-bycode.js for codegen JS)
 // Adapted for Typescript codegen (c) 2017, Pedro J. Molina
 
-import * as asts from 'pegjs/lib/compiler/asts';
-import * as op from 'pegjs/lib/compiler/opcodes';
 import * as pack from '../../package.json';
 import * as ppack from 'pegjs/package.json';
-import {MATCH_TOKEN, ACCEPT_TOKEN, JSstringEscape, PGrammar, PRule, PFunction,
+import {JSstringEscape, PGrammar, PRule, PFunction,
   PNodeKind, PActionKind, PRuleRef, PTerminalRef} from "../../lib";
-import { setFlagsFromString } from 'v8';
 
 // Generates parser JavaScript code.
 function generateTS(ast, ...args) {

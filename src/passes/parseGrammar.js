@@ -1,9 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-var lib_1 = require("../../lib");
 var compiler_1 = require("pegjs/lib/compiler");
-var lib_2 = require("../../lib");
-var index_1 = require("../../lib/index");
+var lib_1 = require("../../lib");
 // Generates parser JavaScript code.
 function generate(ast) {
     var args = [];
@@ -36,15 +34,15 @@ function generate(ast) {
     });
     findTerminals(ast);
     var KT = {
-        "grammar": lib_2.PGrammar,
-        "rule": lib_2.PRule,
-        "choice": index_1.PValueNode,
-        "sequence": index_1.PValueNode,
-        "optional": index_1.PValueNode,
-        "one_or_more": index_1.PValueNode,
-        "zero_or_more": index_1.PValueNode,
-        "semantic_and": index_1.PSemanticAnd,
-        "semantic_not": index_1.PSemanticNot
+        "grammar": lib_1.PGrammar,
+        "rule": lib_1.PRule,
+        "choice": lib_1.PValueNode,
+        "sequence": lib_1.PValueNode,
+        "optional": lib_1.PValueNode,
+        "one_or_more": lib_1.PValueNode,
+        "zero_or_more": lib_1.PValueNode,
+        "semantic_and": lib_1.PSemanticAnd,
+        "semantic_not": lib_1.PSemanticNot
     };
     var KK = {
         "grammar": lib_1.PNodeKind.GRAMMAR,
@@ -64,12 +62,25 @@ function generate(ast) {
     }
     var Context = /** @class */ (function () {
         function Context() {
+            this.nodeIdxs = 0;
+            this.ruleIndices = 0;
+            this.ruleRefs = [];
+            this.rules = new Map;
         }
+        Context.prototype.pushIdxNode = function (cons, index, kind) {
+            var child = new cons(this.current, index);
+            if (kind !== undefined)
+                child.kind = kind;
+            this.current = child;
+            child.nodeIdx = this.nodeIdxs++;
+            return child;
+        };
         Context.prototype.pushNode = function (cons, kind) {
             var child = new cons(this.current);
             if (kind !== undefined)
                 child.kind = kind;
             this.current = child;
+            child.nodeIdx = this.nodeIdxs++;
             return child;
         };
         Context.prototype.popNode = function () {
@@ -78,7 +89,7 @@ function generate(ast) {
             return generatedNode;
         };
         Context.prototype.generateAction = function (target, argumentsOwner, kind, node) {
-            var action = { name: "", kind: kind, ownerRule: ctx.rule, target: target, code: gencode(node.code), index: this.rule.actions.length, args: new Map, argsarr: [] };
+            var action = { name: "", kind: kind, ownerRule: ctx.rule, target: target, code: gencode(node.code), index: this.rule.actions.length, args: [], fun: null };
             action.name = ctx.rule.symbol + "$" + action.index;
             target.action = action;
             this.grammar.actions.push(action);
@@ -91,8 +102,7 @@ function generate(ast) {
             var addlabels = function (chch) {
                 if (chch.label) {
                     var a = { label: chch.label, index: i, evaluate: chch };
-                    action.args.set(chch.label, a);
-                    action.argsarr.push(a);
+                    action.args.push(a);
                 }
                 else {
                     //child.action.args.set(chch.label, {label: "$"+i, index: i, evaluate: chch});
@@ -116,7 +126,7 @@ function generate(ast) {
         var child;
         switch (node.type) {
             case "grammar":
-                ctx.grammar = node.grammar = ctx.pushNode(lib_2.PGrammar);
+                ctx.grammar = node.grammar = ctx.pushNode(lib_1.PGrammar);
                 ctx.grammar.actions = [];
                 ctx.grammar.ruleActions = [];
                 node.rules.forEach(function (rule) {
@@ -126,13 +136,14 @@ function generate(ast) {
             case "rule":
                 // terminal/nonterminal 
                 if (/^Ł/.exec(node.name)) {
-                    var t = ctx.pushNode(lib_2.PTerminal);
+                    var t = ctx.pushNode(lib_1.PTerminal);
                     t.terminal = node.name.substring(1);
                     ctx.rule = t;
                 }
                 else {
-                    var r = ctx.pushNode(lib_2.PRule);
+                    var r = ctx.pushIdxNode(lib_1.PRule, ctx.ruleIndices++);
                     ctx.rule = r;
+                    ctx.rules.set(r.rule, r);
                     r.rule = node.name;
                 }
                 ctx.rule.actions = [];
@@ -144,13 +155,13 @@ function generate(ast) {
                 ctx.generateAction(child, child, lib_1.PActionKind.RULE, node);
                 break;
             case "choice":
-                var choice = ctx.pushNode(index_1.PValueNode, lib_1.PNodeKind.CHOICE);
+                var choice = ctx.pushNode(lib_1.PValueNode, lib_1.PNodeKind.CHOICE);
                 node.alternatives.forEach(function (elem) {
                     parseGrammarAst(node, elem);
                 });
                 return ctx.popNode();
             case "sequence":
-                var sequence = ctx.pushNode(index_1.PValueNode, lib_1.PNodeKind.SEQUENCE);
+                var sequence = ctx.pushNode(lib_1.PValueNode, lib_1.PNodeKind.SEQUENCE);
                 node.elements.forEach(function (elem) {
                     parseGrammarAst(node, elem);
                 });
@@ -182,22 +193,37 @@ function generate(ast) {
             case "rule_ref":
                 // terminal rule
                 if (/^Ł/.exec(node.name)) {
-                    var tr = ctx.pushNode(index_1.PTerminalRef);
+                    var tr = ctx.pushNode(lib_1.PTerminalRef);
                     tr.terminal = node.name.substring(1);
                     tr.value = terminalConsts.get(tr.terminal);
                 }
                 else {
-                    var rr = ctx.pushNode(index_1.PRuleRef);
+                    var rr = ctx.pushNode(lib_1.PRuleRef);
                     rr.rule = node.name;
+                    ctx.ruleRefs.push(rr);
                 }
                 return ctx.popNode();
             case "literal":
-                ctx.pushNode(index_1.PValueNode, lib_1.PNodeKind.EMPTY);
+                ctx.pushNode(lib_1.PValueNode, lib_1.PNodeKind.EMPTY);
                 return ctx.popNode();
         }
         return child;
     }
     parseGrammarAst(null, ast);
+    var err = 0;
+    ctx.ruleRefs.forEach(function (rr) {
+        var target = ctx.rules.get(rr.rule);
+        if (target) {
+            rr.ruleIndex = target.index;
+        }
+        else {
+            console.error("No rule for rule ref : " + rr.rule);
+            err = 1;
+        }
+    });
+    if (err) {
+        throw new Error("Grammar parsing error(s).");
+    }
     //console.log("parsed grammar : "+stringify(ctx.grammar, ""));
 }
 var i = 0;

@@ -1,6 +1,4 @@
 import { ICached, IToken } from './index';
-import { Grammar } from '../../../Financial/ChartsPlaygrond/src/main/typescript/modules/grammar/impl/grammar';
-
 
 const peg$FAILED: Readonly<any> = {};
 

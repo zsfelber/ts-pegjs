@@ -1,9 +1,10 @@
-import { PNodeKind, PActionKind, PNode, PFunction, PCallArg } from "../../lib";
 import { visitor } from "pegjs/lib/compiler";
-import { PRule, PGrammar, PTerminal, PActContainer } from '../../lib';
-import { PLogicNode, PValueNode, PSemanticAnd, PSemanticNot, PTerminalRef, PRuleRef } from '../../lib/index';
-import { type } from 'os';
-import { consoleTestResultHandler } from "tslint/lib/test";
+import {
+  PActContainer, PActionKind, PFunction,
+  PGrammar,  PLogicNode, PNode, PNodeKind, PRule,
+  PRuleRef, PSemanticAnd, PSemanticNot, PTerminal,
+  PTerminalRef, PValueNode
+} from '../../lib';
 
 // Generates parser JavaScript code.
 function generate(ast, ...args) {
