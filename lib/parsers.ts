@@ -158,9 +158,10 @@ export class PCallArg {
   evaluate: PValueNode;
 }
 
-export namespace Factory {
+// NOTE The only exported Parser is EntryPointParser
+namespace Factory {
 
-  export function createParser(parser: IParseRunner, node: PValueNode) {
+  function createParser(parser: IParseRunner, node: PValueNode) {
     switch (node.kind) {
       case PNodeKind.CHOICE:
         return new ChoiceParser(parser, node);
@@ -189,6 +190,7 @@ export namespace Factory {
 }
 
 
+// NOTE Not exported.  The only exported one is EntryPointParser
 class RuleProcessStack {
   parser: IParseRunner;
   parent: RuleProcessStack;
@@ -209,7 +211,7 @@ class RuleProcessStack {
   }
 }
 
-interface IParseRunner {
+export interface IParseRunner {
 
   readonly pos: number; 
   readonly numRules: number;
@@ -259,7 +261,8 @@ export abstract class CollectJumpStatesRunner implements IParseRunner {
 }
 
 
-export abstract class RuleParser {
+// NOTE Not exported.  The only exported one is EntryPointParser
+abstract class RuleParser {
 
   readonly parser: IParseRunner;
   readonly parent: RuleParser;
@@ -294,7 +297,7 @@ export abstract class RuleParser {
 }
 
 
-
+// NOTE Not exported.  The only exported one is EntryPointParser
 class ChoiceParser extends RuleParser {
 
   parseImpl(stack: RuleProcessStack) {
@@ -309,6 +312,7 @@ class ChoiceParser extends RuleParser {
   }
 }
 
+// NOTE Not exported.  The only exported one is EntryPointParser
 class SequenceParser extends RuleParser {
 
   parseImpl(stack: RuleProcessStack) {
@@ -329,6 +333,7 @@ class SequenceParser extends RuleParser {
   }
 }
 
+// NOTE Not exported.  The only exported one is EntryPointParser
 abstract class SingleCollectionParser extends RuleParser {
   
   child: RuleParser;
@@ -346,6 +351,7 @@ abstract class SingleCollectionParser extends RuleParser {
   }
 }
 
+// NOTE Not exported.  The only exported one is EntryPointParser
 abstract class SingleParser extends SingleCollectionParser {
 
   getResult(stack: RuleProcessStack) {
@@ -360,6 +366,7 @@ abstract class SingleParser extends SingleCollectionParser {
 }
 
 
+// NOTE Not exported.  The only exported one is EntryPointParser
 abstract class EmptyParser extends RuleParser {
   
 
@@ -376,6 +383,7 @@ abstract class EmptyParser extends RuleParser {
 }
 
 
+// NOTE Not exported.  The only exported one is EntryPointParser
 class OptionalParser extends SingleParser {
 
   parseImpl(stack: RuleProcessStack) {
@@ -395,6 +403,7 @@ class OptionalParser extends SingleParser {
   }
 }
 
+// NOTE Not exported.  The only exported one is EntryPointParser
 class ZeroOrMoreParser extends SingleCollectionParser {
 
   parseImpl(stack: RuleProcessStack) {
@@ -416,6 +425,7 @@ class ZeroOrMoreParser extends SingleCollectionParser {
   }
 }
 
+// NOTE Not exported.  The only exported one is EntryPointParser
 class OneOrMoreParser extends SingleCollectionParser {
 
   parseImpl(stack: RuleProcessStack) {
@@ -442,6 +452,7 @@ class OneOrMoreParser extends SingleCollectionParser {
   }
 }
 
+// NOTE Not exported.  The only exported one is EntryPointParser
 class RuleRefParser extends EmptyParser {
 
   node: PRuleRef;
@@ -471,6 +482,7 @@ class RuleRefParser extends EmptyParser {
 }
 
 
+// NOTE Not exported.  The only exported one is EntryPointParser
 class TerminalRefParser extends EmptyParser {
 
   node: PTerminalRef;
@@ -498,7 +510,10 @@ class TerminalRefParser extends EmptyParser {
   }
 }
 
-class EntryPointParser extends SingleParser {
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// !!     NOTE     HERE is the only exported Parser
+// !!
+export class EntryPointParser extends SingleParser {
 
   node: PRuleRef;
   index: number;
@@ -514,7 +529,7 @@ class EntryPointParser extends SingleParser {
 }
 
 
-
+// NOTE Not exported.  The only exported one is EntryPointParser
 abstract class SemanticParser extends SingleParser {
   checkConstructFailed(parser: IParseRunner) {
     var dirty = super.checkConstructFailed(parser);
@@ -526,6 +541,7 @@ abstract class SemanticParser extends SingleParser {
   }
 }
 
+// NOTE Not exported.  The only exported one is EntryPointParser
 class SemanticAndParser extends SemanticParser {
   parseImpl(stack: RuleProcessStack) {
     var boolres = this.node.action.fun.apply(stack.parser, stack);
@@ -536,6 +552,7 @@ class SemanticAndParser extends SemanticParser {
   }
 }
 
+// NOTE Not exported.  The only exported one is EntryPointParser
 class SemanticNotParser extends SingleParser {
   parseImpl(stack: RuleProcessStack) {
     var boolres = this.node.action.fun.apply(stack.parser, stack);
