@@ -3,6 +3,7 @@ import { visitor } from "pegjs/lib/compiler";
 import { PRule, PGrammar, PTerminal, PActContainer } from '../../lib';
 import { PLogicNode, PValueNode, PSemanticAnd, PSemanticNot, PTerminalRef, PRuleRef } from '../../lib/index';
 import { type } from 'os';
+import { consoleTestResultHandler } from "tslint/lib/test";
 
 // Generates parser JavaScript code.
 function generate(ast, ...args) {
@@ -70,6 +71,7 @@ function generate(ast, ...args) {
     grammar: PGrammar;
     rule: PActContainer;
     ruleRefs: PRuleRef[] = [];
+    rules: Map<string,PRule> = new Map;
 
     pushIdxNode<T extends PNode>(cons:new (parent:PNode, index:number) => T, kind?: PNodeKind): T {
 
@@ -148,6 +150,7 @@ function generate(ast, ...args) {
         } else {
           var r = ctx.pushIdxNode(PRule);
           ctx.rule = r;
+          ctx.rules.set(r.rule, r);
           r.rule = node.name;
         }
         ctx.rule.actions = [];
@@ -233,11 +236,20 @@ function generate(ast, ...args) {
 
   parseGrammarAst(null, ast);
 
+  var err = 0;
   ctx.ruleRefs.forEach(rr=>{
-    var target = ctx.rules[rr.rule];
-    rr.ruleIndex =
-  })
+    var target = ctx.rules.get(rr.rule);
+    if (target) {
+      rr.ruleIndex = target.index;
+    } else {
+      console.error("No rule for rule ref : "+rr.rule);
+      err = 1;
+    }
+  });
 
+  if (err) {
+    throw new Error("Grammar parsing error(s).");
+  }
 
   //console.log("parsed grammar : "+stringify(ctx.grammar, ""));
 

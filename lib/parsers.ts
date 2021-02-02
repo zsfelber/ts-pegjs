@@ -454,7 +454,7 @@ class RuleRefParser extends EmptyParser {
 
   node: PRuleRef;
   rule0: PRule;
-  rule: EntryPointParser;
+  ruleEntryParser: EntryPointParser;
 
   constructor(parser: IParseRunner, node: PRuleRef) {
     super(parser, node);
@@ -464,7 +464,7 @@ class RuleRefParser extends EmptyParser {
   checkConstructFailed(parser: IParseRunner) {
     var dirty = super.checkConstructFailed(parser);
     if (this.rule0) {
-      this.rule = Factory.createParser(parser, this.rule0) as EntryPointParser;
+      this.ruleEntryParser = Factory.createParser(parser, this.rule0) as EntryPointParser;
     } else {
       console.error("no this.rule  " + this.node);
       dirty = 1;
@@ -474,7 +474,7 @@ class RuleRefParser extends EmptyParser {
 
   parseImpl(stack: RuleProcessStack) {
     // NOTE new entry point
-    return this.parser.run(this.rule);
+    return this.parser.run(this.ruleEntryParser);
   }
 }
 
