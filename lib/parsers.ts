@@ -59,7 +59,7 @@ export enum PActionKind {
 
 export namespace SerDeser {
 
-  export var functionTable: PFunction[];
+  export var functionTable: ((...etc)=>any)[];
 
   export var ruleTable: PRule[];
 
@@ -93,7 +93,7 @@ export abstract class PNode {
     return pos;
   }
 
-  serchildren<T>(): number[] {
+  serchildren(): number[] {
     var r = [this.children.length];
     this.children.forEach(itm=>{
       r = r.concat(itm.ser());
@@ -158,7 +158,7 @@ export class PActContainer extends PNode {
   }
 
   ser(): number[] {
-    return super.ser().concat[this.index];
+    return super.ser().concat([this.index]);
   }
   deser(arr: number[], pos: number): number {
     pos = super.deser(arr, pos);
@@ -201,12 +201,16 @@ export class PLogicNode extends PNode {
   action?: PFunction;
 
   ser(): number[] {
-    return super.ser().concat[this.action.index];
+    return super.ser().concat([this.action?this.action.index:-1]);
   }
   deser(arr: number[], pos: number): number {
     pos = super.deser(arr, pos);
     var actidx = arr[pos++];
-    this.action = SerDeser.functionTable[actidx];
+    if (actidx !== -1) {
+      var fun = SerDeser.functionTable[actidx];
+      this.action = new PFunction();
+      this.action.fun = fun;
+    }
     return pos;
   }
 }
@@ -239,7 +243,7 @@ export class PRuleRef extends PRef {
   }
 
   ser(): number[] {
-    return super.ser().concat[this.ruleIndex];
+    return super.ser().concat([this.ruleIndex]);
   }
   deser(arr: number[], pos: number): number {
     pos = super.deser(arr, pos);
@@ -259,7 +263,7 @@ export class PTerminalRef extends PRef {
     return this.terminal;
   }
   ser(): number[] {
-    return super.ser().concat[this.value];
+    return super.ser().concat([this.value]);
   }
   deser(arr: number[], pos: number): number {
     pos = super.deser(arr, pos);
