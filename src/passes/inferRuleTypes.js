@@ -259,7 +259,7 @@ function generate(ast) {
             else {
                 inferredTp = chs.join("&");
             }
-            if (inferredTp === "true|false") {
+            if (inferredTp === "true|false" || inferredTp === "false|true") {
                 inferredTp = "boolean";
             }
             else if (parenthisize && tp.types.length >= 2) {
@@ -268,6 +268,12 @@ function generate(ast) {
         }
         else {
             inferredTp = checker.typeToString(tp);
+            if (/\[\]$/.exec(inferredTp)) {
+                var typeArgs = checker.getTypeArguments(tp);
+                var elementType = typeArgs[0];
+                var e = generateFullName(elementType, true);
+                inferredTp = e + "[]";
+            }
         }
         return inferredTp;
     }
