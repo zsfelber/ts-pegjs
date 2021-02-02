@@ -161,7 +161,7 @@ export class PCallArg {
 // NOTE The only exported Parser is EntryPointParser
 namespace Factory {
 
-  function createParser(parser: IParseRunner, node: PValueNode) {
+  export function createParser(parser: IParseRunner, node: PValueNode) {
     switch (node.kind) {
       case PNodeKind.CHOICE:
         return new ChoiceParser(parser, node);
@@ -338,10 +338,6 @@ abstract class SingleCollectionParser extends RuleParser {
   
   child: RuleParser;
 
-  constructor(parser: IParseRunner, node: PValueNode) {
-    super(parser, node);
-  }
-
   checkConstructFailed(parser: IParseRunner) {
     if (this.children.length !== 1) {
       console.error("parser.children.length !== 1  " + this.node);
@@ -369,11 +365,6 @@ abstract class SingleParser extends SingleCollectionParser {
 // NOTE Not exported.  The only exported one is EntryPointParser
 abstract class EmptyParser extends RuleParser {
   
-
-  constructor(parser: IParseRunner, node: PValueNode) {
-    super(parser, node);
-  }
-
   checkConstructFailed(parser: IParseRunner) {
     if (this.children.length !== 0) {
       console.error("parser.children.length !== 0  " + this.node);
@@ -487,10 +478,6 @@ class TerminalRefParser extends EmptyParser {
 
   node: PTerminalRef;
 
-  constructor(parser: IParseRunner, node: PTerminalRef) {
-    super(parser, node);
-  }
-
   checkConstructFailed(parser: IParseRunner) {
     var dirty = super.checkConstructFailed(parser);
     if (!this.node.terminal) {
@@ -510,9 +497,13 @@ class TerminalRefParser extends EmptyParser {
   }
 }
 
-// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-// !!     NOTE     HERE is the only exported Parser
-// !!
+// The entry point  **
+//   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+//   !!                                                               **
+//   !!     NOTE     HERE is the only exported Parser                 **
+//   !!                                                               **
+//   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+//   ** A R S E R
 export class EntryPointParser extends SingleParser {
 
   node: PRuleRef;
