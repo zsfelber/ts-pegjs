@@ -69,6 +69,7 @@ function generate(ast, ...args) {
     current: PNode;
     grammar: PGrammar;
     rule: PActContainer;
+    ruleRefs: PRuleRef[] = [];
 
     pushIdxNode<T extends PNode>(cons:new (parent:PNode, index:number) => T, kind?: PNodeKind): T {
 
@@ -218,6 +219,7 @@ function generate(ast, ...args) {
         } else {
           var rr = ctx.pushNode(PRuleRef);
           rr.rule = node.name;
+          ctx.ruleRefs.push(rr);
         }
         return ctx.popNode();
 
@@ -230,6 +232,12 @@ function generate(ast, ...args) {
   }
 
   parseGrammarAst(null, ast);
+
+  ctx.ruleRefs.forEach(rr=>{
+    var target = ctx.rules[rr.rule];
+    rr.ruleIndex =
+  })
+
 
   //console.log("parsed grammar : "+stringify(ctx.grammar, ""));
 

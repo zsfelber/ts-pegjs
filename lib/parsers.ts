@@ -109,6 +109,7 @@ export class PRef extends PValueNode {
 export class PRuleRef extends PRef {
   kind = PNodeKind.RULE_REF;
   rule?: string;
+  ruleIndex?: number;
 
   get symbol() {
     return this.rule;
@@ -219,7 +220,7 @@ export interface IParseRunner {
   next(): IToken;
 
 
-  rule(id: string): PRule;
+  rule(index: number): PRule;
 
   run(rule: RuleParser): any;
 
@@ -233,7 +234,7 @@ export abstract class PackratRunner implements IParseRunner {
   
   abstract get numRules(): number;
   abstract next(): IToken;
-  abstract rule(id: string): PRule;
+  abstract rule(index: number): PRule;
   
   run(rule: EntryPointParser): any {
     const key = this.pos * this.numRules + rule.index;
@@ -457,7 +458,7 @@ class RuleRefParser extends EmptyParser {
 
   constructor(parser: IParseRunner, node: PRuleRef) {
     super(parser, node);
-    this.rule0 = parser.rule(node.rule);
+    this.rule0 = parser.rule(node.ruleIndex);
   }
 
   checkConstructFailed(parser: IParseRunner) {
