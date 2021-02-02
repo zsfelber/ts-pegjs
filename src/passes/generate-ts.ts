@@ -406,50 +406,29 @@ function pushc(cache: any, item: any): any {
 
     
     function genMainFunc(action: PFunction) {
+
       var sresult = [];
-
-      var outputType;
-      var name;
-      switch (action.ownerRule.kind) {
-        case PNodeKind.RULE:
-          outputType = action.kind === PActionKind.RULE ? ot(action.ownerRule)
-            : ": boolean";
-          name = action.name;
-          break;
-        default:
-          outputType = action.kind === PActionKind.RULE ? "" : ": boolean";
-          name = "$"+action.name;
-          break;
-      }
-
       var sargs = [];
       action.args.forEach(a => {
-        var argFuncName, inf;
-        if (a.evaluate.kind === PNodeKind.RULE_REF) {
-          argFuncName = (a.evaluate.ass(PRuleRef)).rule;
-          inf = "rule";
-        } else if (a.evaluate.kind === PNodeKind.TERMINAL_REF) {
-          argFuncName = (a.evaluate.ass(PTerminalRef)).terminal;
-          inf = "term";
-        } else {
-          argFuncName = genTmpFunc(a.evaluate, "$_" + (i++), "");
-          inf = "tmp";
-        }
-        sargs.push(argFuncName);
+        var argName = a.evaluate.label;
+        var argType = ast.inferredTypes[a.evaluate.nodeIdx];
+        sargs.push(argName+": "+argType);
       });
-      sresult.push("  " + name + "("+sargs.push(", ")+")" + outputType + " {  // " + action.target.kind + "/" + action.kind);
+
+      var outputType = ast.inferredTypes[action.target.nodeIdx];
+
+      sresult.push("  " + name + "("+sargs.push(", ")+"): " + outputType + " {  // " + action.target.kind + (action.kind===PActionKind.PREDICATE?"/" + action.kind:""));
       sresult = sresult.concat(action.code.map(line => "    " + line));
       sresult.push("  }");
+      sresult.push("");
 
       return sresult;
     }
 
     var grammar: PGrammar = ast.grammar;
     grammar.actions.forEach(action=>{
-
+      parts = parts.concat(genMainFunc(action));
     });
-    // TODO
-    // parts.push(generateInterpreter());
 
     parts.push(indent2(ast.fields.join('\n')));
 

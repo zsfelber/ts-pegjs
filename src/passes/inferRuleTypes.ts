@@ -276,8 +276,7 @@ function generate(ast, ...args) {
           //var tp = checker.getTypeAtLocation(fun);
 
           var tp = checker.getReturnTypeOfSignature(checker.getSignatureFromDeclaration(method));
-          var inferredTp = generateFullName(tp);
-          inferredTypes[Number(nodeId)] = inferredTp;
+          inferredTypes[Number(nodeId)] = generateFullName(tp);
         }
       });
     }
