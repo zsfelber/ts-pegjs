@@ -44,9 +44,9 @@ function generate(ast, ...args) {
     var result = [];
     var subTmpFuncs = [];
 
-    function genTmpFunc(node: PNode, tmpfuncname: string, outputType: string) {
+    function genTmpFunc(node: PNode, tmpfuncname: string, outputType: string, extraComments="") {
       var sresult = [];
-      sresult.push("  " + tmpfuncname + "()" + outputType + " { // Tmp " + node.toString());
+      sresult.push("  " + tmpfuncname + "()" + outputType + " { // Tmp " + node.toString()+extraComments);
       var j = 0;
       if (node.kind === PNodeKind.SEQUENCE) {
         sresult.push("    var result = [");
@@ -56,10 +56,10 @@ function generate(ast, ...args) {
         var tmpChildFuncName: string;
         switch (child.kind) {
           case PNodeKind.RULE_REF:
-            tmpChildFuncName = "$_" + (child as PRuleRef).rule + "_" + child.nodeIdx;
+            tmpChildFuncName = "$_" + (child as PRuleRef).rule;
             break;
           case PNodeKind.TERMINAL_REF:
-            tmpChildFuncName = "$_$" + (child as PTerminalRef).terminal + "_" + child.nodeIdx;
+            tmpChildFuncName = "$_$" + (child as PTerminalRef).terminal;
             break;
           default:
             tmpChildFuncName = genTmpFunc(child, "$_" + child.nodeIdx, "");
@@ -112,14 +112,14 @@ function generate(ast, ...args) {
             break;
         }
 
-        sresult.push("  $_" + name + "()" + outputType + " {  // " + action.target.kind + "/" + action.kind);
+        sresult.push("  $_" + name + "()" + outputType + " {  // " + action.target.kind + "/" + action.kind+" action#"+action.index);
         action.args.forEach(a => {
           var argFuncName, inf;
           if (a.evaluate.kind === PNodeKind.RULE_REF) {
-            argFuncName = "$_" + (a.evaluate as PRuleRef).rule + "_" + a.evaluate.nodeIdx;
+            argFuncName = "$_" + (a.evaluate as PRuleRef).rule;
             inf = "rule";
           } else if (a.evaluate.kind === PNodeKind.TERMINAL_REF) {
-            argFuncName = "$_$" + (a.evaluate as PTerminalRef).terminal + "_" + a.evaluate.nodeIdx;
+            argFuncName = "$_$" + (a.evaluate as PTerminalRef).terminal;
             inf = "term";
           } else {
             argFuncName = genTmpFunc(a.evaluate, "$_" + a.evaluate.nodeIdx, "");
@@ -147,14 +147,14 @@ function generate(ast, ...args) {
 
         if (rule.ruleActions.length) {
           var condret = 0;
-          sresult.push("  $_" + name + "()" + outputType + " {  // (" + rule.kind + ") " + rule.symbol);
+          sresult.push("  $_" + name + "()" + outputType + " {  // (" + rule.kind + ") " + rule.symbol+(rule.index!==undefined?" rule#"+rule.index:""));
           if (rule.ruleActions.length === 1) {
             var action = rule.ruleActions[0];
             var aname;
             if (rule.kind === PNodeKind.TERMINAL) {
-              aname = "$" + action.ownerRule.symbol + "_" + action.ownerRule.nodeIdx;
+              aname = "$" + action.ownerRule.symbol + "_" + action.target.nodeIdx;
             } else {
-              aname = action.ownerRule.symbol + "_" + action.ownerRule.nodeIdx;
+              aname = action.ownerRule.symbol + "_" + action.target.nodeIdx;
             }
 
             sresult.push("    return this.$_" + aname + "()" + ass + ";");
@@ -162,9 +162,9 @@ function generate(ast, ...args) {
             rule.ruleActions.forEach(action => {
               var aname;
               if (rule.kind === PNodeKind.TERMINAL) {
-                aname = "$" + action.ownerRule.symbol + "_" + action.ownerRule.nodeIdx;
+                aname = "$" + action.ownerRule.symbol + "_" + action.target.nodeIdx;
               } else {
-                aname = action.ownerRule.symbol + "_" + action.ownerRule.nodeIdx;
+                aname = action.ownerRule.symbol + "_" + action.target.nodeIdx;
               }
 
               condret = 1;
@@ -183,7 +183,7 @@ function generate(ast, ...args) {
           sresult.push("    return this.token()" + ass + ";");
           sresult.push("  }");
         } else {
-          genTmpFunc(rule, "$_" + name, outputType);
+          genTmpFunc(rule, "$_" + name, outputType, (rule.index!==undefined?" rule#"+rule.index:""));
         }
       });
       return sresult;

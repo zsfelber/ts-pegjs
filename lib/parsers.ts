@@ -65,6 +65,7 @@ export class PNode {
 export class PActContainer extends PNode {
   actions?: PFunction[];
   ruleActions?: PFunction[];
+  index: number;
 
   get symbol(): string {
     return null;
@@ -83,7 +84,6 @@ export class PGrammar extends PActContainer {
 export class PRule extends PActContainer {
   kind = PNodeKind.RULE;
   rule?: string;
-  index: number;
 
   constructor(parent: PNode, index: number) {
     super(parent);
@@ -172,6 +172,7 @@ ExpextedPNodeTypes[PNodeKind.SEMANTIC_NOT] = PSemanticNot;
 export class PFunction {
   ownerRule: PActContainer;
   target: PLogicNode;
+  index: number;
 
   args: PCallArg[];
 

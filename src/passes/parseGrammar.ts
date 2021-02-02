@@ -69,6 +69,7 @@ function generate(ast, ...args) {
   class Context {
     nodeIdxs = 0;
     ruleIndices = 0;
+    functionIndices = 0;
 
     current: PNode;
     grammar: PGrammar;
@@ -97,7 +98,9 @@ function generate(ast, ...args) {
       return generatedNode;
     }
     generateAction(target: PLogicNode, argumentsOwner: PNode, kind: PActionKind, node) {
-      var action: PFunction = { kind, ownerRule:ctx.rule, target, code: gencode(node.code), args: [], fun: null };
+      var action: PFunction = { kind, ownerRule:ctx.rule, target, 
+          index: ctx.functionIndices++,
+          code: gencode(node.code), args: [], fun: null };
 
       target.action = action;
       this.grammar.actions.push(action);

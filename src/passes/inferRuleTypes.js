@@ -51,10 +51,10 @@ function generate(ast) {
                 var tmpChildFuncName;
                 switch (child.kind) {
                     case lib_1.PNodeKind.RULE_REF:
-                        tmpChildFuncName = "$_" + child.rule + "_" + child.nodeIdx;
+                        tmpChildFuncName = "$_" + child.rule;
                         break;
                     case lib_1.PNodeKind.TERMINAL_REF:
-                        tmpChildFuncName = "$_$" + child.terminal + "_" + child.nodeIdx;
+                        tmpChildFuncName = "$_$" + child.terminal;
                         break;
                     default:
                         tmpChildFuncName = genTmpFunc(child, "$_" + child.nodeIdx, "");
@@ -109,11 +109,11 @@ function generate(ast) {
                 action.args.forEach(function (a) {
                     var argFuncName, inf;
                     if (a.evaluate.kind === lib_1.PNodeKind.RULE_REF) {
-                        argFuncName = "$_" + a.evaluate.rule + "_" + a.evaluate.nodeIdx;
+                        argFuncName = "$_" + a.evaluate.rule;
                         inf = "rule";
                     }
                     else if (a.evaluate.kind === lib_1.PNodeKind.TERMINAL_REF) {
-                        argFuncName = "$_$" + a.evaluate.terminal + "_" + a.evaluate.nodeIdx;
+                        argFuncName = "$_$" + a.evaluate.terminal;
                         inf = "term";
                     }
                     else {
@@ -144,10 +144,10 @@ function generate(ast) {
                         var action = rule.ruleActions[0];
                         var aname;
                         if (rule.kind === lib_1.PNodeKind.TERMINAL) {
-                            aname = "$" + action.ownerRule.symbol + "_" + action.ownerRule.nodeIdx;
+                            aname = "$" + action.ownerRule.symbol + "_" + action.target.nodeIdx;
                         }
                         else {
-                            aname = action.ownerRule.symbol + "_" + action.ownerRule.nodeIdx;
+                            aname = action.ownerRule.symbol + "_" + action.target.nodeIdx;
                         }
                         sresult.push("    return this.$_" + aname + "()" + ass + ";");
                     }
@@ -155,10 +155,10 @@ function generate(ast) {
                         rule.ruleActions.forEach(function (action) {
                             var aname;
                             if (rule.kind === lib_1.PNodeKind.TERMINAL) {
-                                aname = "$" + action.ownerRule.symbol + "_" + action.ownerRule.nodeIdx;
+                                aname = "$" + action.ownerRule.symbol + "_" + action.target.nodeIdx;
                             }
                             else {
-                                aname = action.ownerRule.symbol + "_" + action.ownerRule.nodeIdx;
+                                aname = action.ownerRule.symbol + "_" + action.target.nodeIdx;
                             }
                             condret = 1;
                             sresult.push("    if (theVeryNothing['butSomething']===" + (j++) + ") {");
