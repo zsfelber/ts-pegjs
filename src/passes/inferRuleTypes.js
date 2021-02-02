@@ -42,7 +42,7 @@ function generate(ast) {
         function genTmpFunc(node, tmpfuncname, outputType, extraComments) {
             if (extraComments === void 0) { extraComments = ""; }
             var sresult = [];
-            sresult.push("  " + tmpfuncname + "()" + outputType + " { // Tmp " + node.toString() + extraComments);
+            sresult.push("  " + tmpfuncname + "()" + outputType + " { // generated action for " + node.toString() + extraComments);
             var j = 0;
             if (node.kind === lib_1.PNodeKind.SEQUENCE) {
                 sresult.push("    var result = [");
@@ -174,7 +174,7 @@ function generate(ast) {
                     sresult.push("");
                 }
                 else if (rule.kind === lib_1.PNodeKind.TERMINAL) {
-                    sresult.push("  $_" + name + "()" + outputType + " {  // generated (" + rule.kind + ") " + rule.symbol);
+                    sresult.push("  $_" + name + "()" + outputType + " {  // generated terminal action " + rule.symbol);
                     sresult.push("    return this.token()" + ass + ";");
                     sresult.push("  }");
                 }
