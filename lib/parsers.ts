@@ -2,6 +2,7 @@ import { ICached, IToken } from './index';
 
 const peg$FAILED: Readonly<any> = {};
 
+const Codes = [], Strings = [];
 
 export enum PNodeKind {
   GRAMMAR = "grammar",
@@ -19,16 +20,52 @@ export enum PNodeKind {
   RULE_REF = "rule_ref",
   TERMINAL_REF = "terminal_ref"
 }
+
+Codes[PNodeKind.GRAMMAR] = 0;
+Codes[PNodeKind.RULE] = 1;
+Codes[PNodeKind.TERMINAL] = 2;
+Codes[PNodeKind.CHOICE] = 3;
+Codes[PNodeKind.SEQUENCE] = 4;
+Codes[PNodeKind.OPTIONAL] = 5;
+Codes[PNodeKind.ONE_OR_MORE] = 6;
+Codes[PNodeKind.ZERO_OR_MORE] = 7;
+Codes[PNodeKind.EMPTY] = 8;
+Codes[PNodeKind.SINGLE] = 9;
+Codes[PNodeKind.SEMANTIC_AND] = 10;
+Codes[PNodeKind.SEMANTIC_NOT] = 11;
+Codes[PNodeKind.RULE_REF] = 12;
+Codes[PNodeKind.TERMINAL_REF] = 13;
+
+Strings[0] = PNodeKind.GRAMMAR;
+Strings[1] = PNodeKind.RULE;
+Strings[2] = PNodeKind.TERMINAL;
+Strings[3] = PNodeKind.CHOICE;
+Strings[4] = PNodeKind.SEQUENCE;
+Strings[5] = PNodeKind.OPTIONAL;
+Strings[6] = PNodeKind.ONE_OR_MORE;
+Strings[7] = PNodeKind.ZERO_OR_MORE;
+Strings[8] = PNodeKind.EMPTY;
+Strings[9] = PNodeKind.SINGLE;
+Strings[10] = PNodeKind.SEMANTIC_AND;
+Strings[11] = PNodeKind.SEMANTIC_NOT;
+Strings[12] = PNodeKind.RULE_REF;
+Strings[13] = PNodeKind.TERMINAL_REF;
+
+
 export enum PActionKind {
   RULE = "RULE",
   PREDICATE = "PREDICATE"
 }
 
-const ExpextedPNodeTypes = [];
-const ExpextedPNodeKinds = [];
+export namespace SerDeser {
 
+  export var functionTable: PFunction[];
 
-export class PNode {
+  export var ruleTable: PRule[];
+
+}
+
+export abstract class PNode {
   parent: PNode;
   kind: PNodeKind;
   children: PNode[] = [];
@@ -39,6 +76,51 @@ export class PNode {
   constructor(parent: PNode) {
     this.parent = parent;
     if (parent) parent.children.push(this);
+  }
+
+  static deseralize(arr: number[]): PNode {
+    var res = [null];
+    var pos = PNode.desone(arr, res, 0);
+    if (pos !== arr.length) throw new Error("pos:"+pos+" !== "+arr.length);
+    return res[0];
+  }
+
+  ser(): number[] {
+    return [Codes[this.kind]].concat(this.serchildren());
+  }
+  deser(arr: number[], pos: number): number {
+    pos = this.deschildren(arr, pos);
+    return pos;
+  }
+
+  serchildren<T>(): number[] {
+    var r = [this.children.length];
+    this.children.forEach(itm=>{
+      r = r.concat(itm.ser());
+    });
+    return r;
+  }
+
+  private static desone(arr: number[], res: PNode[], pos) {
+    var kind = arr[pos];
+    var ekind = Strings[kind];
+    var cons = PConss[ekind] as new (parent:PNode, ...etc)=>PNode;
+    var node = new cons(null);
+    res[0] = node;
+    pos = node.deser(arr, pos);
+    return pos;
+  }
+
+  deschildren<T extends PNode>(arr: number[], pos): number {
+    var length = arr[pos];
+    pos++;
+    var r: T[] = [];
+    for (var i=0; i < length; i++) {
+      var cs = [null];
+      pos = PNode.desone(arr, cs, pos);
+      this.children.push(cs[0]);
+    }
+    return pos;
   }
 
   as<P extends PNode>(cons:new (parent:PNode, ...etc)=>P) : P {
@@ -74,6 +156,16 @@ export class PActContainer extends PNode {
   toString() {
     return this.kind + " " + this.symbol;
   }
+
+  ser(): number[] {
+    return super.ser().concat[this.index];
+  }
+  deser(arr: number[], pos: number): number {
+    pos = super.deser(arr, pos);
+    this.index = arr[pos++];
+    return pos;
+  }
+
 }
 
 export class PGrammar extends PActContainer {
@@ -108,6 +200,15 @@ export class PTerminal extends PActContainer {
 export class PLogicNode extends PNode {
   action?: PFunction;
 
+  ser(): number[] {
+    return super.ser().concat[this.action.index];
+  }
+  deser(arr: number[], pos: number): number {
+    pos = super.deser(arr, pos);
+    var actidx = arr[pos++];
+    this.action = SerDeser.functionTable[actidx];
+    return pos;
+  }
 }
 
 export class PValueNode extends PLogicNode {
@@ -136,6 +237,16 @@ export class PRuleRef extends PRef {
   get symbol() {
     return this.rule;
   }
+
+  ser(): number[] {
+    return super.ser().concat[this.ruleIndex];
+  }
+  deser(arr: number[], pos: number): number {
+    pos = super.deser(arr, pos);
+    this.ruleIndex = arr[pos++];
+    this.rule = SerDeser.ruleTable[this.ruleIndex].rule;
+    return pos;
+  }
 }
 
 export class PTerminalRef extends PRef {
@@ -146,6 +257,14 @@ export class PTerminalRef extends PRef {
 
   get symbol() {
     return this.terminal;
+  }
+  ser(): number[] {
+    return super.ser().concat[this.value];
+  }
+  deser(arr: number[], pos: number): number {
+    pos = super.deser(arr, pos);
+    this.value = arr[pos++];
+    return pos;
   }
 }
 
@@ -159,16 +278,6 @@ export class PSemanticNot extends PLogicNode {
 
 }
 
-
-ExpextedPNodeTypes[PNodeKind.GRAMMAR] = PGrammar;
-ExpextedPNodeTypes[PNodeKind.RULE] = PRule;
-ExpextedPNodeTypes[PNodeKind.CHOICE] = PValueNode;
-ExpextedPNodeTypes[PNodeKind.SEQUENCE] = PValueNode;
-ExpextedPNodeTypes[PNodeKind.OPTIONAL] = PValueNode;
-ExpextedPNodeTypes[PNodeKind.ONE_OR_MORE] = PValueNode;
-ExpextedPNodeTypes[PNodeKind.ZERO_OR_MORE] = PValueNode;
-ExpextedPNodeTypes[PNodeKind.SEMANTIC_AND] = PSemanticAnd;
-ExpextedPNodeTypes[PNodeKind.SEMANTIC_NOT] = PSemanticNot;
 
 export class PFunction {
   nodeIdx: number;
@@ -191,6 +300,26 @@ export class PCallArg {
   type?: string;
   index: number;
   evaluate: PValueNode;
+}
+
+
+export const PConss = {
+  "grammar": PGrammar,
+  "rule": PRule,
+  "choice": PValueNode,
+  "sequence": PValueNode,
+  "optional": PValueNode,
+  "one_or_more": PValueNode,
+  "zero_or_more": PValueNode,
+  "semantic_and": PSemanticAnd,
+  "semantic_not": PSemanticNot,
+
+   "terminal":PTerminal,
+   "empty":PValueNode,
+   "single":PValueNode,
+   "rule_ref":PRuleRef,
+   "terminal_ref":PTerminalRef
+
 }
 
 // NOTE The only exported Parser is EntryPointParser
