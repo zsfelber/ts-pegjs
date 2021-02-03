@@ -29,10 +29,19 @@ function generateParseTable(ast) {
             console.error("Something wrong '" + r + "' != '" + rule.rule + "'");
             throw new Error();
         }
-        var traverser = new analyzer_1.EntryPointTraverser(null, rule);
-        var parseTable = traverser.generateParseTreeTraversionTable();
+        var parseTable = analyzer_1.ParseTable.createForRule(rule);
         result.push("const Tbl" + r + ' = "' + lib_1.CodeTblToHex(parseTable.ser()).join('') + '";');
+        // var chi = 0;
+        // parseTable.dependencies.forEach(parseTable=>{
+        //   if (!ast.rules[parseTable.rule.rule]) {
+        //     result.push("const Tbl"+parseTable.rule.rule+' /*generated dependency*/ = "'+CodeTblToHex(parseTable.ser()).join('')+'";');
+        //   }
+        //   chi++;
+        // });
     });
+    if (lib_1.Analysis.ERRORS) {
+        console.error("Errors. Not generating (but for debugging only).");
+    }
     var fnm = options.tmppref + "_ParseTables.ts";
     fs.writeFileSync(fnm, result.join("\n"));
 }
