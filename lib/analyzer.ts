@@ -12,6 +12,8 @@ export namespace Analysis {
 
 namespace Factory {
 
+  export var parseTables = new Map<string, ParseTable>();
+
   export function createTraverser(parser: ParseTable, parent: RuleElementTraverser, node: PValueNode) {
     switch (node.kind) {
       case PNodeKind.CHOICE:
@@ -64,8 +66,18 @@ export class ParseTable {
   maxTokenId: number;
   dependencies: ParseTable[] = [];
   allTerminals: TerminalRefTraverser[] = [];
+  firstSteps: TerminalRefTraverser[];
 
-  constructor(rule: PRule, dependencyOf?: ParseTable) {
+  static createForRule(rule: PRule, dependencyOf?: ParseTable) {
+    var parseTable = Factory.parseTables.get(rule.rule);
+    if (!parseTable) {
+      parseTable = new ParseTable(rule, dependencyOf);
+      Factory.parseTables.set(rule.rule, parseTable);
+    }
+    return parseTable;
+  }
+
+  private constructor(rule: PRule, dependencyOf?: ParseTable) {
     this.rule = rule;
     this.dependencyOf = dependencyOf;
     if (dependencyOf) {
@@ -74,15 +86,15 @@ export class ParseTable {
 
     var traverser = new EntryPointTraverser(this, null, rule);
 
-    var firstSteps: TerminalRefTraverser[] = [];
-    traverser.possibleFirstSteps(firstSteps);
+    this.firstSteps = [];
+    traverser.possibleFirstSteps(this.firstSteps);
 
     var totalStates = new Map<number, boolean>();
     this.allTerminals.forEach(t=>{
       totalStates.set(t.node.nodeIdx, true);
     })
 
-    var previousSteps = firstSteps;
+    var previousSteps = this.firstSteps;
     var newTerminals: TerminalRefTraverser[];
     do {
 
@@ -103,7 +115,7 @@ export class ParseTable {
 
     } while (newTerminals.length);
 
-    var startingState = new GrammarAnalysisState(null, firstSteps);
+    var startingState = new GrammarAnalysisState(null, this.firstSteps);
 
     //var result = new ParseTable(rule, step0, Factory.allTerminals, Factory.maxTokenId);
     //, startingState : GrammarAnalysisState, allTerminals: TerminalRefTraverser[], maxTokenId: number
@@ -385,14 +397,18 @@ class RuleRefTraverser extends EmptyTraverser {
     var targetRule = Analysis.ruleTable[node.ruleIndex];
 
     if (recursive) {
-      this.dependentTable = new ParseTable(targetRule, parser);
+      this.dependentTable = ParseTable.createForRule(targetRule, parser);
     } else {
       this.ruleEntryTraverserDup = new EntryPointTraverser(parser, this, targetRule);
     }
   }
 
   possibleFirstSteps(firstSteps: TerminalRefTraverser[]) {
-    this.ruleEntryTraverserDup.possibleFirstSteps(firstSteps);
+    if (this.ruleEntryTraverserDup) {
+      this.ruleEntryTraverserDup.possibleFirstSteps(firstSteps);
+    } else {
+      firstSteps.push.apply(firstSteps, this.dependentTable.firstSteps);
+    }
   }
 
 
