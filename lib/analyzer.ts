@@ -99,12 +99,7 @@ abstract class RuleElementTraverser {
 // NOTE Not exported.  The only exported one is EntryPointTraverser
 class ChoiceTraverser extends RuleElementTraverser {
 
-  onChildReject(currentStep: TraversionStep, steppedState: LevelTraversionState): TraversionResult {
-    steppedState.positionInCurrent++;
-    return undefined;
-  }
-
-  
+ 
   possibleFirstSteps(firstSteps: TerminalRefTraverser[]) {
 
     this.children.forEach(ch=>{
