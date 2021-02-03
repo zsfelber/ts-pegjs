@@ -313,15 +313,6 @@ class RuleRefTraverser extends EmptyTraverser {
     this.ruleEntryTraverserDup = new EntryPointTraverser(this, Analysis.ruleTable[node.ruleIndex]);
   }
 
-  checkConstructFailed() {
-    var dirty = super.checkConstructFailed();
-    if (!this.ruleEntryTraverserDup) {
-      console.error("no this.ruleEntryTraverser  " + this.node);
-      dirty = 1;
-    }
-    return dirty;
-  }
-
   possibleFirstSteps(firstSteps: TerminalRefTraverser[]) {
     this.ruleEntryTraverserDup.possibleFirstSteps(firstSteps);
   }
