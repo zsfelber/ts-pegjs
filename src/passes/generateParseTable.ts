@@ -37,7 +37,7 @@ function generateParseTable(ast, ...args) {
       console.error("Something wrong '"+r+"' != '"+rule.rule+"'");
       throw new Error();
     }
-    var parseTable = ParseTable.generateEntryPoint(rule);
+    var parseTable = new ParseTable(rule);
     result.push("const Tbl"+r+' = "'+CodeTblToHex(parseTable.ser()).join('')+'";');
     var chi = 0;
     parseTable.dependencies.forEach(parseTable=>{

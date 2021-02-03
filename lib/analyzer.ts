@@ -57,6 +57,7 @@ function hex2(c) {
 export class ParseTable {
 
   rule: PRule;
+  dependencyOf: ParseTable;
   startingState : GrammarAnalysisState;
   // Map  Leaf parser nodeIdx -> 
   allStates: GrammarAnalysisState[] = [];
@@ -64,15 +65,12 @@ export class ParseTable {
   dependencies: ParseTable[] = [];
   allTerminals: TerminalRefTraverser[] = [];
 
-  static generateEntryPoint(rule: PRule): ParseTable {
-
-    var result = new ParseTable(rule);
-
-    return result;
-  }
-
-  constructor(rule: PRule) {
+  constructor(rule: PRule, dependencyOf?: ParseTable) {
     this.rule = rule;
+    this.dependencyOf = dependencyOf;
+    if (dependencyOf) {
+      dependencyOf.dependencies.push(this);
+    }
 
     var traverser = new EntryPointTraverser(this, null, rule);
 
@@ -84,7 +82,6 @@ export class ParseTable {
       totalStates.set(t.node.nodeIdx, true);
     })
 
-    var foundNewVirgin: boolean;
     var previousSteps = firstSteps;
     var newTerminals: TerminalRefTraverser[];
     do {
@@ -388,7 +385,7 @@ class RuleRefTraverser extends EmptyTraverser {
     var targetRule = Analysis.ruleTable[node.ruleIndex];
 
     if (recursive) {
-      this.dependentTable = ParseTable.generateEntryPoint(targetRule);
+      this.dependentTable = new ParseTable(targetRule, parser);
     } else {
       this.ruleEntryTraverserDup = new EntryPointTraverser(parser, this, targetRule);
     }
