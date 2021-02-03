@@ -46,81 +46,22 @@ function hex2(c) {
   else return "??"
 }
 
-var traversionSteps: TraversionStep[] = [];
+export class TraversionStep {
 
-var savedStates: Map<string, LevelTraversionState> = new Map;
-
-class LevelTraversionState {
-
-  parent: LevelTraversionState;
-
-  child: LevelTraversionState;
-
-  level: number;
-
-  traverser: RuleElementTraverser;
-
-  positionInCurrent: number;
-
-  starterState: LevelTraversionState;
-
-  uniqueStateKey: string;
-
-  transitions: Map<number, LevelTraversionState>;
-
-  repetitions: Map<number, LevelTraversionState>;
-
-  constructor(parent: LevelTraversionState, child: LevelTraversionState, traverser: RuleElementTraverser) {
-    //this.stateId = stateIndices++;
-    this.parent = parent;
-    this.child = child;
-    this.level = parent ? parent.level + 1 : 0;
-    this.traverser = traverser;
-    this.positionInCurrent = 0;
-  }
-
-  setChildTo(childTraverser: RuleElementTraverser) {
-    if (!this.child || this.child.traverser !== childTraverser) {
-      var newChild = new LevelTraversionState(this, null, childTraverser);
-      this.child = newChild;
-    }
-    return newChild;
-  }
-
-  private genUniqueStateKey() {
-    var id = hex3(this.traverser.node.nodeIdx) + hex2(this.positionInCurrent);
-    for (var node: LevelTraversionState = this.parent; !!node; node = node.parent) {
-      id = node.uniqueStateKey + id;
-    }
-    return id;
-  }
-
-  clone(): LevelTraversionState {
-    var clonedState = new LevelTraversionState(this.parent, this.child.clone(), this.traverser);
-    clonedState.positionInCurrent = this.positionInCurrent;
-    return clonedState;
-  }
-
-}
-
-
-class TraversionStep {
-
-  stateId: number;
-
-  token: number;
+  startingPoint: PTerminalRef;
 
   // tokenId -> traversion state
-  transitions: Map<number, LevelTraversionState> = new Map;
+  transitions: Map<number, TraversionStep> = new Map;
 
-  constructor() {
-    this.stateId = traversionSteps.length;
-    traversionSteps.push(this);
+  constructor(startingPointTraverser: TerminalRefTraverser, steps: TraversionStep[]) {
+    this.startingPoint = startingPointTraverser ? startingPointTraverser.node : null;
+    
+    steps.forEach(nextTerm=>{
+      if (!this.transitions.get(nextTerm.startingPoint.value)) {
+        this.transitions.set(nextTerm.startingPoint.value, nextTerm);
+      }
+    })
   }
-}
-
-enum TraversionResult {
-  FORWARD, ACCEPT, REJECT
 }
 
 
@@ -146,21 +87,10 @@ abstract class RuleElementTraverser {
   }
 
   abstract possibleFirstSteps(firstSteps: TerminalRefTraverser[]);
-  
 
-  onChildrenAccept(currentStep: TraversionStep, savedState: LevelTraversionState): TraversionResult {
-    return TraversionResult.FORWARD;
-  }
-  onChildrenForward(currentStep: TraversionStep, steppedState: LevelTraversionState): TraversionResult {
-    return TraversionResult.FORWARD;
-  }
 
-  onChildReject(currentStep: TraversionStep, steppedState: LevelTraversionState): TraversionResult {
-    return TraversionResult.REJECT;
-  }
-
-  onEndReached(currentStep: TraversionStep, steppedState: LevelTraversionState): TraversionResult {
-    return TraversionResult.ACCEPT;
+  possibleNextSteps(stepsFromTerminal: TerminalRefTraverser[], fromChild: RuleElementTraverser) {
+    this.parent.possibleNextSteps(stepsFromTerminal, this);
   }
 
 
@@ -182,6 +112,7 @@ class ChoiceTraverser extends RuleElementTraverser {
     });
   }
 
+
 }
 
 // NOTE Not exported.  The only exported one is EntryPointTraverser
@@ -196,8 +127,15 @@ class SequenceTraverser extends RuleElementTraverser {
 
 
   possibleFirstSteps(firstSteps: TerminalRefTraverser[]) {
-
     this.children[0].possibleFirstSteps(firstSteps);
+  }
+  possibleNextSteps(stepsFromTerminal: TerminalRefTraverser[], fromChild: RuleElementTraverser) {
+    var ind = this.children.indexOf(fromChild) + 1;
+    if (ind < this.children.length) {
+      this.children[ind].possibleFirstSteps(stepsFromTerminal);
+    } else {
+      this.parent.possibleNextSteps(stepsFromTerminal, this);
+    }
   }
 
 }
@@ -217,7 +155,6 @@ abstract class SingleCollectionTraverser extends RuleElementTraverser {
 
 
   possibleFirstSteps(firstSteps: TerminalRefTraverser[]) {
-
     this.child.possibleFirstSteps(firstSteps);
   }
 
@@ -253,11 +190,20 @@ class OptionalTraverser extends SingleTraverser {
 // NOTE Not exported.  The only exported one is EntryPointTraverser
 class ZeroOrMoreTraverser extends SingleCollectionTraverser {
 
+  possibleNextSteps(stepsFromTerminal: TerminalRefTraverser[], fromChild: RuleElementTraverser) {
+    this.possibleFirstSteps(stepsFromTerminal);
+    this.parent.possibleNextSteps(stepsFromTerminal, this);
+  }
+
 }
 
 // NOTE Not exported.  The only exported one is EntryPointTraverser
 class OneOrMoreTraverser extends SingleCollectionTraverser {
 
+  possibleNextSteps(stepsFromTerminal: TerminalRefTraverser[], fromChild: RuleElementTraverser) {
+    this.possibleFirstSteps(stepsFromTerminal);
+    this.parent.possibleNextSteps(stepsFromTerminal, this);
+  }
 }
 
 // NOTE Not exported.  The only exported one is EntryPointTraverser
@@ -281,18 +227,34 @@ class RuleRefTraverser extends EmptyTraverser {
   }
 
   possibleFirstSteps(firstSteps: TerminalRefTraverser[]) {
-
     this.ruleEntryTraverser.possibleFirstSteps(firstSteps);
-
   }
 
 }
 
+function wrapTraversers(nextStepTravs: TerminalRefTraverser[]) {
+  var nextSteps: TraversionStep[] = [];
+  nextStepTravs.forEach(nextTerm=>{
+    nextSteps.push(nextTerm.lazyGeneratedStep);
+  });
+  return nextSteps;
+}
 
 // NOTE Not exported.  The only exported one is EntryPointTraverser
 class TerminalRefTraverser extends EmptyTraverser {
 
   node: PTerminalRef;
+  stepsFromTerminal: TerminalRefTraverser[] = [];
+  private _step: TraversionStep;
+  
+  get lazyGeneratedStep(): TraversionStep {
+    if (this._step) {
+      return this._step;
+    } else {
+      var nextSteps = wrapTraversers(this.stepsFromTerminal);
+      this._step = new TraversionStep(this, nextSteps);
+    }
+  }
 
   checkConstructFailed() {
     var dirty = super.checkConstructFailed();
@@ -306,8 +268,9 @@ class TerminalRefTraverser extends EmptyTraverser {
   possibleFirstSteps(firstSteps: TerminalRefTraverser[]) {
     firstSteps.push(this);
   }
-  possibleNextSteps(stepsFromTerminal: TerminalRefTraverser[]) {
-    
+
+  possibleNextSteps(stepsFromTerminal: null, fromChild: null) {
+    this.parent.possibleNextSteps(this.stepsFromTerminal, this);
   }
 
 }
@@ -322,25 +285,19 @@ export class EntryPointTraverser extends SingleTraverser {
     this.index = node.index;
   }
 
-  generateParseTreeTraversionTable() {
+  generateParseTreeTraversionTable(): TraversionStep {
     var firstSteps: TerminalRefTraverser[] = [];
     this.possibleFirstSteps(firstSteps);
 
     firstSteps.forEach(terminal=>{
-      var stepsFromTerminal: TerminalRefTraverser[] = [];
-      terminal.possibleNextSteps(stepsFromTerminal);
+      terminal.possibleNextSteps(null, null);
     });
+
+    var steps0 = wrapTraversers(firstSteps);
+    var step0 = new TraversionStep(null, steps0);
+
+    return step0;
   }
-
-  traverseFromState(currentState: LevelTraversionState) {
-    var currentStep = new TraversionStep();
-
-    this.collectPossibleFirstSteps(currentStep, currentState);
-
-    currentStep.transitions.forEach(resultingState=>{
-      this.traverseFromState(resultingState);
-    });
-}
 
 }
 
