@@ -209,9 +209,9 @@ abstract class RuleElementTraverser {
     this.node.children.forEach(n => {
       this.children.push(Factory.createTraverser(parser, this, n));
     });
-    if (this.checkConstructFailed()) {
-      throw new Error("Ast construction failed.");
-    }
+    //if (this.checkConstructFailed()) {
+    //  throw new Error("Ast construction failed.");
+    //}
   }
 
   checkConstructFailed(): any {
@@ -235,9 +235,7 @@ abstract class RuleElementTraverser {
   }
 
   findRuleNodeParent(rule: string, incl=false) {
-    if (incl) {
-      return false;
-    } else if (this.parent) {
+    if (this.parent) {
       return this.parent.findRuleNodeParent(rule, true);
     } else {
       return null;
@@ -322,7 +320,7 @@ abstract class SingleCollectionTraverser extends RuleElementTraverser {
 
   checkConstructFailed() {
     if (this.children.length !== 1) {
-      console.error("parser.children.length !== 1  " + this.node);
+      console.error("this.children.length:"+this.children.length+" !== 1  " + this.node);
       return 1;
     }
     this.child = this.children[0];
@@ -347,7 +345,7 @@ class EmptyTraverser extends RuleElementTraverser {
   
   checkConstructFailed() {
     if (this.children.length !== 0) {
-      console.error("parser.children.length !== 0  " + this.node);
+      console.error("this.children.length !== 0  " + this.node);
       return 1;
     }
   }
