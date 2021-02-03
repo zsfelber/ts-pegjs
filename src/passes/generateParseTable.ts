@@ -24,8 +24,10 @@ function generateParseTable(ast, ...args) {
 
   var traverser = new EntryPointTraverser(grammar.children[0] as PRule);
   var parseTable = traverser.generateParseTreeTraversionTable();
+  parseTable.
 
-  
+  CodeTblToHex(rule.ser()).join('') +
+
 }
 
 module.exports = generateParseTable;

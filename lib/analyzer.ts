@@ -3,33 +3,41 @@ import { PNodeKind } from '.';
 import { PRule, PRuleRef, PTerminalRef, PValueNode, SerDeser } from './parsers';
 
 
+export namespace Analysis {
+
+  export var ruleTable: PRule[];
+
+}
+
+
 namespace Factory {
 
   export var allTerminals: TerminalRefTraverser[] = [];
+  export var maxTokenId = 0;
 
-  export function createTraverser(node: PValueNode) {
+  export function createTraverser(parent: RuleElementTraverser, node: PValueNode) {
     switch (node.kind) {
       case PNodeKind.CHOICE:
-        return new ChoiceTraverser(node);
+        return new ChoiceTraverser(parent, node);
       case PNodeKind.SEQUENCE:
       case PNodeKind.SINGLE:
-        return new SequenceTraverser(node);
+        return new SequenceTraverser(parent, node);
       case PNodeKind.OPTIONAL:
-        return new OptionalTraverser(node);
+        return new OptionalTraverser(parent, node);
       case PNodeKind.SEMANTIC_AND:
-        return new SemanticAndTraverser(node);
+        return new SemanticAndTraverser(parent, node);
       case PNodeKind.SEMANTIC_NOT:
-        return new SemanticNotTraverser(node);
+        return new SemanticNotTraverser(parent, node);
       case PNodeKind.ZERO_OR_MORE:
-        return new ZeroOrMoreTraverser(node);
+        return new ZeroOrMoreTraverser(parent, node);
       case PNodeKind.ONE_OR_MORE:
-        return new OneOrMoreTraverser(node);
+        return new OneOrMoreTraverser(parent, node);
       case PNodeKind.RULE_REF:
-        return new RuleRefTraverser(node as PRuleRef);
+        return new RuleRefTraverser(parent, node as PRuleRef);
       case PNodeKind.TERMINAL_REF:
-        return new TerminalRefTraverser(node as PTerminalRef);
+        return new TerminalRefTraverser(parent, node as PTerminalRef);
       case PNodeKind.RULE:
-        return new EntryPointTraverser(node as PRule);
+        return new EntryPointTraverser(parent, node as PRule);
   
     }
   }
@@ -53,21 +61,31 @@ export class ParseTable {
 
   startingState : GrammarAnalysisState;
   // Map  Leaf parser nodeIdx -> 
-  allStates: Map<number, GrammarAnalysisState> = new Map;
+  allStates: GrammarAnalysisState[] = [];
+  maxTokenId: number;
 
-  constructor(startingState : GrammarAnalysisState, allTerminals: TerminalRefTraverser[]) {
+  constructor(startingState : GrammarAnalysisState, allTerminals: TerminalRefTraverser[], maxTokenId: number) {
     this.startingState = startingState;
     allTerminals.forEach(t=>{
-      this.allStates.set(t.node.nodeIdx, t.state);
+      t.state.index = this.allStates.length;
+      this.allStates.push(t.state);
     });
+    this.maxTokenId = maxTokenId;
   }
 
-  ser() {
-    
+  ser(): number[] {
+    var serStates:number[] = [];
+    this.allStates.forEach(s=>{
+      serStates = serStates.concat(s.ser(this.maxTokenId));
+    });
+    var result = [this.allStates.length, this.maxTokenId].concat(serStates);
+    return result;
   }
 }
 
 export class GrammarAnalysisState {
+
+  index: number;
 
   startingPoint: PTerminalRef;
 
@@ -94,6 +112,15 @@ export class GrammarAnalysisState {
     }
   }
 
+  ser(maxTknId: number): number[] {
+    var toTknIds:number[] = [];
+    toTknIds[maxTknId] = 0;
+    this.transitions.forEach((trans, tokenId)=>{
+      toTknIds[tokenId] = trans.index;
+    });
+    return toTknIds;
+  }
+
 }
 
 
@@ -101,14 +128,28 @@ export class GrammarAnalysisState {
 // NOTE Not exported.  The only exported one is EntryPointTraverser
 abstract class RuleElementTraverser {
 
+  readonly constructionLevel: number;
   readonly parent: RuleElementTraverser;
   readonly node: PValueNode;
   readonly children: RuleElementTraverser[] = [];
 
-  constructor(node: PValueNode) {
+  constructor(parent: RuleElementTraverser, node: PValueNode) {
+    this.parent = parent;
     this.node = node;
+    this.constructionLevel = parent ? parent.constructionLevel+1 : 0;
+
+    if (this.constructionLevel >= 1000 && !(this.constructionLevel%1000)) {
+      var loopNode = this.findFirstLoop(this.node);
+      if (loopNode) {
+        console.error("Infinitely recursive ast construction is not supported. Loop found :\n"+loopNode.chainToString().map(itm=>"   "+itm).join("\n"));
+        throw new Error("Ast validation error.");
+      } else {
+        console.warn("Performance penalties making very deep ast construction recursion level now : "+this.constructionLevel);
+      }
+    }
+
     this.node.children.forEach(n => {
-      this.children.push(Factory.createTraverser(n));
+      this.children.push(Factory.createTraverser(this, n));
     });
     if (this.checkConstructFailed()) {
       throw new Error("Ast construction failed.");
@@ -125,6 +166,31 @@ abstract class RuleElementTraverser {
     this.parent.possibleNextSteps(stepsFromTerminal, this);
   }
 
+  findFirstLoop(node?: PValueNode) {
+    if (node === this.node) {
+      if (this.parent) {
+        var loop1st = this.parent.findFirstLoop(node);
+        if (loop1st) {
+          return loop1st;
+        }
+      }
+      return this;
+    } else if (this.parent) {
+      return this.parent.findFirstLoop(node);
+    } else {
+      return null;
+    }
+  }
+
+  chainToString(): string[] {
+    var result = [];
+    if (this.parent) {
+      result = result.concat(this.parent.chainToString());
+    } else {
+      result = [this.node.toString()];
+    }
+    return result;
+  }
 
 }
 
@@ -237,16 +303,19 @@ class OneOrMoreTraverser extends SingleCollectionTraverser {
 class RuleRefTraverser extends EmptyTraverser {
 
   node: PRuleRef;
-  ruleEntryTraverser: EntryPointTraverser;
+  ruleEntryTraverserDup: EntryPointTraverser;
 
-  constructor(node: PRuleRef) {
-    super(node);
-    //this.ruleEntryTraverser = SerDeser.ruleTable[node.ruleIndex];
+  constructor(parent: RuleElementTraverser, node: PRuleRef) {
+    super(parent, node);
+    // we duplicate rule refs in traverser because each and 
+    // its descandacts are having another states in every 
+    // position it is linked :
+    this.ruleEntryTraverserDup = new EntryPointTraverser(this, Analysis.ruleTable[node.ruleIndex]);
   }
 
   checkConstructFailed() {
     var dirty = super.checkConstructFailed();
-    if (!this.ruleEntryTraverser) {
+    if (!this.ruleEntryTraverserDup) {
       console.error("no this.ruleEntryTraverser  " + this.node);
       dirty = 1;
     }
@@ -254,7 +323,7 @@ class RuleRefTraverser extends EmptyTraverser {
   }
 
   possibleFirstSteps(firstSteps: TerminalRefTraverser[]) {
-    this.ruleEntryTraverser.possibleFirstSteps(firstSteps);
+    this.ruleEntryTraverserDup.possibleFirstSteps(firstSteps);
   }
 
 }
@@ -265,14 +334,19 @@ class TerminalRefTraverser extends EmptyTraverser {
   node: PTerminalRef;
   stepsFromTerminal: TerminalRefTraverser[] = [];
   state: GrammarAnalysisState;
-  
+
+  constructor(parent: RuleElementTraverser, node: PTerminalRef) {
+    super(parent, node);
+    Factory.allTerminals.push(this);
+    if (this.node && this.node.value > Factory.maxTokenId) Factory.maxTokenId = this.node.value;
+  }
+
   checkConstructFailed() {
     var dirty = super.checkConstructFailed();
     if (!this.node.terminal) {
       console.error("no this.node.terminal  " + this.node);
       dirty = 1;
     }
-    Factory.allTerminals.push(this);
     return dirty;
   }
 
@@ -292,8 +366,8 @@ export class EntryPointTraverser extends SingleTraverser {
   node: PRule;
   index: number;
 
-  constructor(node: PRule) {
-    super(node);
+  constructor(parent: RuleElementTraverser, node: PRule) {
+    super(parent, node);
     this.index = node.index;
   }
 
@@ -308,7 +382,7 @@ export class EntryPointTraverser extends SingleTraverser {
     });
 
     var step0 = new GrammarAnalysisState(null, firstSteps);
-    var result = new ParseTable(step0, Factory.allTerminals);
+    var result = new ParseTable(step0, Factory.allTerminals, Factory.maxTokenId);
 
     return result;
   }
