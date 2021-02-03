@@ -1,8 +1,11 @@
+import { start } from 'repl';
 import { PNodeKind } from '.';
 import { PRule, PRuleRef, PTerminalRef, PValueNode, SerDeser } from './parsers';
 
 
 namespace Factory {
+
+  export var allTerminals: TerminalRefTraverser[] = [];
 
   export function createTraverser(node: PValueNode) {
     switch (node.kind) {
@@ -46,22 +49,51 @@ function hex2(c) {
   else return "??"
 }
 
-export class TraversionStep {
+export class ParseTable {
+
+  startingState : GrammarAnalysisState;
+  // Map  Leaf parser nodeIdx -> 
+  allStates: Map<number, GrammarAnalysisState> = new Map;
+
+  constructor(startingState : GrammarAnalysisState, allTerminals: TerminalRefTraverser[]) {
+    this.startingState = startingState;
+    allTerminals.forEach(t=>{
+      this.allStates.set(t.node.nodeIdx, t.state);
+    });
+  }
+
+  ser() {
+    
+  }
+}
+
+export class GrammarAnalysisState {
 
   startingPoint: PTerminalRef;
 
-  // tokenId -> traversion state
-  transitions: Map<number, TraversionStep> = new Map;
+  steps: TerminalRefTraverser[];
 
-  constructor(startingPointTraverser: TerminalRefTraverser, steps: TraversionStep[]) {
+  // tokenId -> traversion state
+  _transitions: Map<number, GrammarAnalysisState>;
+
+  constructor(startingPointTraverser: TerminalRefTraverser, steps: TerminalRefTraverser[]) {
     this.startingPoint = startingPointTraverser ? startingPointTraverser.node : null;
-    
-    steps.forEach(nextTerm=>{
-      if (!this.transitions.get(nextTerm.startingPoint.value)) {
-        this.transitions.set(nextTerm.startingPoint.value, nextTerm);
-      }
-    })
+    this.steps = steps;
   }
+
+  get transitions() {
+    if (this._transitions) {
+      return this._transitions;
+    } else {
+      this._transitions = new Map;
+      this.steps.forEach(nextTerm=>{
+        if (!this.transitions.get(nextTerm.node.value)) {
+          this.transitions.set(nextTerm.node.value, nextTerm.state);
+        }
+      })
+    }
+  }
+
 }
 
 
@@ -227,36 +259,20 @@ class RuleRefTraverser extends EmptyTraverser {
 
 }
 
-function wrapTraversers(nextStepTravs: TerminalRefTraverser[]) {
-  var nextSteps: TraversionStep[] = [];
-  nextStepTravs.forEach(nextTerm=>{
-    nextSteps.push(nextTerm.lazyGeneratedStep);
-  });
-  return nextSteps;
-}
-
 // NOTE Not exported.  The only exported one is EntryPointTraverser
 class TerminalRefTraverser extends EmptyTraverser {
 
   node: PTerminalRef;
   stepsFromTerminal: TerminalRefTraverser[] = [];
-  private _step: TraversionStep;
+  state: GrammarAnalysisState;
   
-  get lazyGeneratedStep(): TraversionStep {
-    if (this._step) {
-      return this._step;
-    } else {
-      var nextSteps = wrapTraversers(this.stepsFromTerminal);
-      this._step = new TraversionStep(this, nextSteps);
-    }
-  }
-
   checkConstructFailed() {
     var dirty = super.checkConstructFailed();
     if (!this.node.terminal) {
       console.error("no this.node.terminal  " + this.node);
       dirty = 1;
     }
+    Factory.allTerminals.push(this);
     return dirty;
   }
 
@@ -266,6 +282,7 @@ class TerminalRefTraverser extends EmptyTraverser {
 
   possibleNextSteps(stepsFromTerminal: null, fromChild: null) {
     this.parent.possibleNextSteps(this.stepsFromTerminal, this);
+    this.state = new GrammarAnalysisState(this, this.stepsFromTerminal);
   }
 
 }
@@ -280,7 +297,9 @@ export class EntryPointTraverser extends SingleTraverser {
     this.index = node.index;
   }
 
-  generateParseTreeTraversionTable(): TraversionStep {
+  generateParseTreeTraversionTable(): ParseTable {
+    Factory.allTerminals = [];
+
     var firstSteps: TerminalRefTraverser[] = [];
     this.possibleFirstSteps(firstSteps);
 
@@ -288,10 +307,10 @@ export class EntryPointTraverser extends SingleTraverser {
       terminal.possibleNextSteps(null, null);
     });
 
-    var steps0 = wrapTraversers(firstSteps);
-    var step0 = new TraversionStep(null, steps0);
+    var step0 = new GrammarAnalysisState(null, firstSteps);
+    var result = new ParseTable(step0, Factory.allTerminals);
 
-    return step0;
+    return result;
   }
 
 }
