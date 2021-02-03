@@ -72,13 +72,15 @@ export class ParseTable {
   }
 
   constructor(rule: PRule) {
-    var traverser = new EntryPointTraverser(null, rule);
+    this.rule = rule;
+
+    var traverser = new EntryPointTraverser(this, null, rule);
 
     var firstSteps: TerminalRefTraverser[] = [];
     traverser.possibleFirstSteps(firstSteps);
 
     var totalStates = new Map<number, boolean>();
-    Factory.allTerminals.forEach(t=>{
+    this.allTerminals.forEach(t=>{
       totalStates.set(t.node.nodeIdx, true);
     })
 
@@ -109,13 +111,11 @@ export class ParseTable {
     //var result = new ParseTable(rule, step0, Factory.allTerminals, Factory.maxTokenId);
     //, startingState : GrammarAnalysisState, allTerminals: TerminalRefTraverser[], maxTokenId: number
 
-    this.rule = rule;
     this.startingState = startingState;
-    allTerminals.forEach(t=>{
+    this.allTerminals.forEach(t=>{
       t.state.index = this.allStates.length;
       this.allStates.push(t.state);
     });
-    this.maxTokenId = maxTokenId;
   }
 
   ser(): number[] {
@@ -390,7 +390,7 @@ class RuleRefTraverser extends EmptyTraverser {
     if (recursive) {
       this.dependentTable = ParseTable.generateEntryPoint(targetRule);
     } else {
-      this.ruleEntryTraverserDup = new EntryPointTraverser(this, targetRule);
+      this.ruleEntryTraverserDup = new EntryPointTraverser(parser, this, targetRule);
     }
   }
 
@@ -420,7 +420,7 @@ class TerminalRefTraverser extends EmptyTraverser {
   constructor(parser: ParseTable, parent: RuleElementTraverser, node: PTerminalRef) {
     super(parser, parent, node);
     parser.allTerminals.push(this);
-    if (this.node && this.node.value > Factory.maxTokenId) Factory.maxTokenId = this.node.value;
+    if (this.node && this.node.value > parser.maxTokenId) parser.maxTokenId = this.node.value;
   }
 
   checkConstructFailed() {
