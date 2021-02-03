@@ -66,58 +66,37 @@ export class ParseTable {
   // Map  Leaf parser nodeIdx -> 
   allStates: GrammarAnalysisState[] = [];
   maxTokenId: number;
-  dependencies: ParseTable[] = [];
-  allTerminals: TerminalRefTraverser[] = [];
+
+  allRuleReferences: RuleRefTraverser[] = [];
+  allTerminalReferences: TerminalRefTraverser[] = [];
   firstSteps: TerminalRefTraverser[];
 
   childRules: Map<string, EntryPointTraverser> = new Map;
+  allNodes: Map<number, RuleElementTraverser> = new Map;
 
-  static createForRule(rule: PRule, dependencyOf?: ParseTable) {
+  static createForRule(rule: PRule) {
     var parseTable = Factory.parseTables.get(rule.rule);
     if (!parseTable) {
-      parseTable = new ParseTable(rule, dependencyOf);
+      parseTable = new ParseTable(rule);
       Factory.parseTables.set(rule.rule, parseTable);
     }
     return parseTable;
   }
 
-  private constructor(rule: PRule, dependencyOf?: ParseTable) {
+  private constructor(rule: PRule) {
     this.rule = rule;
-    this.dependencyOf = dependencyOf;
-    if (dependencyOf) {
-      dependencyOf.dependencies.push(this);
-    }
 
     var traverser = new EntryPointTraverser(this, null, rule);
+
+    // loads all :)
+    while (this.allRuleReferences.some(ruleRef=>ruleRef.lazy()));
 
     this.firstSteps = [];
     traverser.possibleFirstSteps([], this.firstSteps);
 
-    var totalStates = new Map<number, boolean>();
-    this.allTerminals.forEach(t=>{
-      totalStates.set(t.node.nodeIdx, true);
-    })
-
-    var previousSteps = this.firstSteps;
-    var newTerminals: TerminalRefTraverser[];
-    do {
-      newTerminals = [];
-
-      previousSteps.forEach(previousStep=>{
-        previousStep.possibleNextSteps(null, null);
-
-        previousStep.stepsFromTerminal.forEach(t=>{
-          if (!totalStates.get(t.node.nodeIdx)) {
-            totalStates.set(t.node.nodeIdx, true);
-            newTerminals.push(t);
-            console.log("New terminal available from transition : "+t.node.terminal)
-          }
-        })
-      });
-
-      previousSteps = newTerminals;
-
-    } while (newTerminals.length);
+    this.allTerminalReferences.forEach(previousStep=>{
+      previousStep.possibleNextSteps(null, null);
+    });
 
     var startingState = new GrammarAnalysisState(null, this.firstSteps);
 
@@ -125,10 +104,11 @@ export class ParseTable {
     //, startingState : GrammarAnalysisState, allTerminals: TerminalRefTraverser[], maxTokenId: number
 
     this.startingState = startingState;
-    this.allTerminals.forEach(t=>{
+    this.allTerminalReferences.forEach(t=>{
       t.state.index = this.allStates.length;
       this.allStates.push(t.state);
     });
+    console.log("Parse table for   starting rule:"+rule.rule+"  nonterminals:"+this.childRules.keys.length+"  tokens:"+this.maxTokenId+"   nonterminal nodes:"+this.allRuleReferences+"   terminal nodes:"+this.allTerminalReferences+"  states:"+this.allStates.length+"  all nodes:"+this.allNodes.keys.length);
   }
 
   getReferencedRule(node: PRule) {
@@ -168,16 +148,15 @@ export class GrammarAnalysisState {
   }
 
   get transitions() {
-    if (this._transitions) {
-      return this._transitions;
-    } else {
+    if (!this._transitions) {
       this._transitions = new Map;
       this.steps.forEach(nextTerm=>{
-        if (!this.transitions.get(nextTerm.node.value)) {
-          this.transitions.set(nextTerm.node.value, nextTerm.state);
+        if (!this._transitions.get(nextTerm.node.value)) {
+          this._transitions.set(nextTerm.node.value, nextTerm.state);
         }
       })
     }
+    return this._transitions;
   }
 
   ser(maxTknId: number): number[] {
@@ -207,13 +186,14 @@ abstract class RuleElementTraverser {
     this.parser = parser;
     this.node = node;
     this.constructionLevel = parent ? parent.constructionLevel+1 : 0;
+    this.parser.allNodes.set(this.node.nodeIdx, this);
 
     this.node.children.forEach(n => {
       this.children.push(Factory.createTraverser(parser, this, n));
     });
-    if (this.checkConstructFailed()) {
+    //if (this.checkConstructFailed()) {
     //  throw new Error("Ast construction failed.");
-    }
+    //}
   }
 
   checkConstructFailed(): any {
@@ -222,8 +202,8 @@ abstract class RuleElementTraverser {
   abstract possibleFirstSteps(traversionPath: {[index: number]:EntryPointTraverser}, firstSteps: TerminalRefTraverser[]);
 
 
-  possibleNextSteps(stepsFromTerminal: TerminalRefTraverser[], fromChild: RuleElementTraverser) {
-    if (this.parent) this.parent.possibleNextSteps(stepsFromTerminal, this);
+  possibleNextSteps(nextStepsFromTerminal: TerminalRefTraverser[], fromChild: RuleElementTraverser) {
+    if (this.parent) this.parent.possibleNextSteps(nextStepsFromTerminal, this);
   }
 
   findParent(node: PValueNode, incl=false) {
@@ -272,12 +252,12 @@ class SequenceTraverser extends RuleElementTraverser {
   possibleFirstSteps(traversionPath: {[index: number]:EntryPointTraverser}, firstSteps: TerminalRefTraverser[]) {
     this.children[0].possibleFirstSteps(traversionPath, firstSteps);
   }
-  possibleNextSteps(stepsFromTerminal: TerminalRefTraverser[], fromChild: RuleElementTraverser) {
+  possibleNextSteps(nextStepsFromTerminal: TerminalRefTraverser[], fromChild: RuleElementTraverser) {
     var ind = this.children.indexOf(fromChild) + 1;
     if (ind < this.children.length) {
-      this.children[ind].possibleFirstSteps([], stepsFromTerminal);
+      this.children[ind].possibleFirstSteps([], nextStepsFromTerminal);
     } else if (this.parent) {
-      this.parent.possibleNextSteps(stepsFromTerminal, this);
+      this.parent.possibleNextSteps(nextStepsFromTerminal, this);
     }
   }
 
@@ -328,14 +308,25 @@ class EmptyTraverser extends RuleElementTraverser {
 // NOTE Not exported.  The only exported one is EntryPointTraverser
 class OptionalTraverser extends SingleTraverser {
 
+  
+  possibleFirstSteps(traversionPath: {[index: number]:EntryPointTraverser}, firstSteps: TerminalRefTraverser[]) {
+    this.child.possibleFirstSteps(traversionPath, firstSteps);
+    if (this.parent) this.parent.possibleNextSteps(firstSteps, this);
+  }
+
 }
 
 // NOTE Not exported.  The only exported one is EntryPointTraverser
 class ZeroOrMoreTraverser extends SingleCollectionTraverser {
 
-  possibleNextSteps(stepsFromTerminal: TerminalRefTraverser[], fromChild: RuleElementTraverser) {
-    this.possibleFirstSteps([], stepsFromTerminal);
-    if (this.parent) this.parent.possibleNextSteps(stepsFromTerminal, this);
+  possibleNextSteps(nextStepsFromTerminal: TerminalRefTraverser[], fromChild: RuleElementTraverser) {
+    this.possibleFirstSteps([], nextStepsFromTerminal);
+    if (this.parent) this.parent.possibleNextSteps(nextStepsFromTerminal, this);
+  }
+
+  possibleFirstSteps(traversionPath: {[index: number]:EntryPointTraverser}, firstSteps: TerminalRefTraverser[]) {
+    this.child.possibleFirstSteps(traversionPath, firstSteps);
+    if (this.parent) this.parent.possibleNextSteps(firstSteps, this);
   }
 
 }
@@ -343,9 +334,9 @@ class ZeroOrMoreTraverser extends SingleCollectionTraverser {
 // NOTE Not exported.  The only exported one is EntryPointTraverser
 class OneOrMoreTraverser extends SingleCollectionTraverser {
 
-  possibleNextSteps(stepsFromTerminal: TerminalRefTraverser[], fromChild: RuleElementTraverser) {
-    this.possibleFirstSteps([], stepsFromTerminal);
-    if (this.parent) this.parent.possibleNextSteps(stepsFromTerminal, this);
+  possibleNextSteps(nextStepsFromTerminal: TerminalRefTraverser[], fromChild: RuleElementTraverser) {
+    this.possibleFirstSteps([], nextStepsFromTerminal);
+    if (this.parent) this.parent.possibleNextSteps(nextStepsFromTerminal, this);
   }
 }
 
@@ -359,18 +350,29 @@ class RuleRefTraverser extends EmptyTraverser {
 
   constructor(parser: ParseTable, parent: RuleElementTraverser, node: PRuleRef) {
     super(parser, parent, node);
+    this.parser.allRuleReferences.push(this);
+    this.targetRule = Analysis.ruleTable[this.node.ruleIndex];
+    this.recursive = !!this.findRuleNodeParent(this.node.rule);
+  }
 
+  lazy() {
+    if (this.linkedRuleEntry) {
+      return false;
+    } else {
+      this.linkedRuleEntry = this.parser.getReferencedRule(this.targetRule);
+      return true;
+    }
   }
 
   checkConstructFailed() {
-    this.recursive = !!this.findRuleNodeParent(this.node.rule);
-    this.targetRule = Analysis.ruleTable[this.node.ruleIndex];
 
     var dirty = super.checkConstructFailed();
+    this.targetRule = Analysis.ruleTable[this.node.ruleIndex];
     if (!this.targetRule) {
       console.error("no this.targetRule  " + this.node);
       dirty = 1;
     }
+    this.recursive = !!this.findRuleNodeParent(this.node.rule);
     if (this.recursive) {
       console.warn("recursive : " + this.node);
     }
@@ -378,12 +380,11 @@ class RuleRefTraverser extends EmptyTraverser {
   }
 
   possibleFirstSteps(traversionPath: {[index: number]:EntryPointTraverser}, firstSteps: TerminalRefTraverser[]) {
-    if (!this.linkedRuleEntry) {
-      this.linkedRuleEntry = this.parser.getReferencedRule(this.targetRule);
-    }
     // we don't create cycle
     // also, it is semantically correct...
-    if (!traversionPath[this.targetRule.nodeIdx]) {
+    if (traversionPath[this.targetRule.nodeIdx]) {
+      //console.warn("backward jump : " + this.node+"->"+this.parser.allNodes.get(this.targetRule.nodeIdx).node);
+    } else {
       this.linkedRuleEntry.possibleFirstSteps(traversionPath, firstSteps);
     }
   }
@@ -404,12 +405,12 @@ class RuleRefTraverser extends EmptyTraverser {
 class TerminalRefTraverser extends EmptyTraverser {
 
   node: PTerminalRef;
-  stepsFromTerminal: TerminalRefTraverser[] = [];
+  nextStepsFromTerminal: TerminalRefTraverser[] = [];
   state: GrammarAnalysisState;
 
   constructor(parser: ParseTable, parent: RuleElementTraverser, node: PTerminalRef) {
     super(parser, parent, node);
-    parser.allTerminals.push(this);
+    parser.allTerminalReferences.push(this);
     if (this.node && this.node.value > parser.maxTokenId) parser.maxTokenId = this.node.value;
   }
 
@@ -426,9 +427,9 @@ class TerminalRefTraverser extends EmptyTraverser {
     firstSteps.push(this);
   }
 
-  possibleNextSteps(stepsFromTerminal: null, fromChild: null) {
-    if (this.parent) this.parent.possibleNextSteps(this.stepsFromTerminal, this);
-    this.state = new GrammarAnalysisState(this, this.stepsFromTerminal);
+  possibleNextSteps(nextStepsFromTerminal: null, fromChild: null) {
+    if (this.parent) this.parent.possibleNextSteps(this.nextStepsFromTerminal, this);
+    this.state = new GrammarAnalysisState(this, this.nextStepsFromTerminal);
   }
 
 }
@@ -464,11 +465,11 @@ export class EntryPointTraverser extends SingleTraverser {
 
 
 // NOTE Not exported.  The only exported one is EntryPointTraverser
-abstract class SemanticTraverser extends SingleTraverser {
+abstract class SemanticTraverser extends EmptyTraverser {
   checkConstructFailed() {
     var dirty = super.checkConstructFailed();
     if (!this.node.action || !this.node.action.fun) {
-      console.error("No parser.node.action or .action.fun");
+      console.error("No parser.node.action or .action.fun   "+this.node);
       dirty = 1;
     }
     return dirty;
