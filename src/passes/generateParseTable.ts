@@ -8,7 +8,7 @@ import * as fs from "fs";
 
 import * as pack from '../../package.json';
 import * as ppack from 'pegjs/package.json';
-import { EntryPointTraverser } from '../../lib/analyzer';
+import { EntryPointTraverser, ParseTable } from '../../lib/analyzer';
 import {
   JSstringEscape, CodeTblToHex, PGrammar, PRule, PFunction,
   PNodeKind, PActionKind, PRuleRef, PTerminalRef, Analysis
@@ -37,9 +37,16 @@ function generateParseTable(ast, ...args) {
       console.error("Something wrong '"+r+"' != '"+rule.rule+"'");
       throw new Error();
     }
-    var traverser = new EntryPointTraverser(null, rule);
-    var parseTable = traverser.generateParseTreeTraversionTable();
-    result.push("const Tbl"+r+' = "'+CodeTblToHex(parseTable.ser()).join('')+'";');
+    var parseTables = ParseTable.generateEntryPoint(rule);
+    var chi = 0;
+    parseTables.forEach(parseTable=>{
+      if (!chi) {
+        result.push("const Tbl"+r+' = "'+CodeTblToHex(parseTable.ser()).join('')+'";');
+      } else if (!ast.rules[parseTable.rule.rule]) {
+        result.push("const Tbl"+r+' /*generated dependency*/ = "'+CodeTblToHex(parseTable.ser()).join('')+'";');
+      }
+      chi++;
+    });
   });
 
   const fnm = options.tmppref + "_ParseTables.ts";

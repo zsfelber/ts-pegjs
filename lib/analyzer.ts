@@ -59,12 +59,35 @@ function hex2(c) {
 
 export class ParseTable {
 
+  rule: PRule;
   startingState : GrammarAnalysisState;
   // Map  Leaf parser nodeIdx -> 
   allStates: GrammarAnalysisState[] = [];
   maxTokenId: number;
+  dependencies: ParseTable[] = [];
 
-  constructor(startingState : GrammarAnalysisState, allTerminals: TerminalRefTraverser[], maxTokenId: number) {
+  static generateEntryPoint(rule: PRule): ParseTable[] {
+
+    var traverser = new EntryPointTraverser(null, rule);
+
+    Factory.allTerminals = [];
+
+    var firstSteps: TerminalRefTraverser[] = [];
+    traverser.possibleFirstSteps(firstSteps);
+
+    firstSteps.forEach(terminal=>{
+      terminal.possibleNextSteps(null, null);
+    });
+
+    var step0 = new GrammarAnalysisState(null, firstSteps);
+    var result = new ParseTable(rule, step0, Factory.allTerminals, Factory.maxTokenId);
+
+    var results = result.dependencies.concat([result]);
+    return results;
+  }
+
+  constructor(rule: PRule, startingState : GrammarAnalysisState, allTerminals: TerminalRefTraverser[], maxTokenId: number) {
+    this.rule = rule;
     this.startingState = startingState;
     allTerminals.forEach(t=>{
       t.state.index = this.allStates.length;
@@ -314,8 +337,11 @@ class RuleRefTraverser extends EmptyTraverser {
     super(parent, node);
     // we duplicate rule refs in traverser because each and 
     // its descandacts are having another states in every 
-    // position it is linked :
+    // position it is linked.
+    // however we filter out the case of infitely recursive construction
+    // this needs generating new Starting Rules...
     this.ruleEntryTraverserDup = new EntryPointTraverser(this, Analysis.ruleTable[node.ruleIndex]);
+
   }
 
   possibleFirstSteps(firstSteps: TerminalRefTraverser[]) {
@@ -365,22 +391,6 @@ export class EntryPointTraverser extends SingleTraverser {
   constructor(parent: RuleElementTraverser, node: PRule) {
     super(parent, node);
     this.index = node.index;
-  }
-
-  generateParseTreeTraversionTable(): ParseTable {
-    Factory.allTerminals = [];
-
-    var firstSteps: TerminalRefTraverser[] = [];
-    this.possibleFirstSteps(firstSteps);
-
-    firstSteps.forEach(terminal=>{
-      terminal.possibleNextSteps(null, null);
-    });
-
-    var step0 = new GrammarAnalysisState(null, firstSteps);
-    var result = new ParseTable(step0, Factory.allTerminals, Factory.maxTokenId);
-
-    return result;
   }
 
 }
