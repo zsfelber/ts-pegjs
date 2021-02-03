@@ -111,8 +111,9 @@ export class ParseTable {
 
     this.startingState = startingState;
     this.allTerminalReferences.forEach(t=>{
-      t.state.index = this.allStates.length;
       this.allStates.push(t.state);
+      // 1 based index
+      t.state.index = this.allStates.length;
     });
     console.log("Parse table for   starting rule:"+rule.rule+"  nonterminals:"+Object.getOwnPropertyNames(this.childRules).length+"  tokens:"+this.maxTokenId+"   nonterminal nodes:"+this.allRuleReferences.length+"   terminal nodes:"+this.allTerminalReferences.length+"  states:"+this.allStates.length+"  all nodes:"+Object.getOwnPropertyNames(this.allNodes).length);
   }
