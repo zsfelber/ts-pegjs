@@ -12,32 +12,29 @@ export namespace Analysis {
 
 namespace Factory {
 
-  export var allTerminals: TerminalRefTraverser[] = [];
-  export var maxTokenId = 0;
-
-  export function createTraverser(parent: RuleElementTraverser, node: PValueNode) {
+  export function createTraverser(parser: ParseTable, parent: RuleElementTraverser, node: PValueNode) {
     switch (node.kind) {
       case PNodeKind.CHOICE:
-        return new ChoiceTraverser(parent, node);
+        return new ChoiceTraverser(parser, parent, node);
       case PNodeKind.SEQUENCE:
       case PNodeKind.SINGLE:
-        return new SequenceTraverser(parent, node);
+        return new SequenceTraverser(parser, parent, node);
       case PNodeKind.OPTIONAL:
-        return new OptionalTraverser(parent, node);
+        return new OptionalTraverser(parser, parent, node);
       case PNodeKind.SEMANTIC_AND:
-        return new SemanticAndTraverser(parent, node);
+        return new SemanticAndTraverser(parser, parent, node);
       case PNodeKind.SEMANTIC_NOT:
-        return new SemanticNotTraverser(parent, node);
+        return new SemanticNotTraverser(parser, parent, node);
       case PNodeKind.ZERO_OR_MORE:
-        return new ZeroOrMoreTraverser(parent, node);
+        return new ZeroOrMoreTraverser(parser, parent, node);
       case PNodeKind.ONE_OR_MORE:
-        return new OneOrMoreTraverser(parent, node);
+        return new OneOrMoreTraverser(parser, parent, node);
       case PNodeKind.RULE_REF:
-        return new RuleRefTraverser(parent, node as PRuleRef);
+        return new RuleRefTraverser(parser, parent, node as PRuleRef);
       case PNodeKind.TERMINAL_REF:
-        return new TerminalRefTraverser(parent, node as PTerminalRef);
+        return new TerminalRefTraverser(parser, parent, node as PTerminalRef);
       case PNodeKind.RULE:
-        return new EntryPointTraverser(parent, node as PRule);
+        return new EntryPointTraverser(parser, parent, node as PRule);
   
     }
   }
@@ -65,28 +62,53 @@ export class ParseTable {
   allStates: GrammarAnalysisState[] = [];
   maxTokenId: number;
   dependencies: ParseTable[] = [];
+  allTerminals: TerminalRefTraverser[] = [];
 
-  static generateEntryPoint(rule: PRule): ParseTable[] {
+  static generateEntryPoint(rule: PRule): ParseTable {
 
+    var result = new ParseTable(rule);
+
+    return result;
+  }
+
+  constructor(rule: PRule) {
     var traverser = new EntryPointTraverser(null, rule);
-
-    Factory.allTerminals = [];
 
     var firstSteps: TerminalRefTraverser[] = [];
     traverser.possibleFirstSteps(firstSteps);
 
-    firstSteps.forEach(terminal=>{
-      terminal.possibleNextSteps(null, null);
-    });
+    var totalStates = new Map<number, boolean>();
+    Factory.allTerminals.forEach(t=>{
+      totalStates.set(t.node.nodeIdx, true);
+    })
 
-    var step0 = new GrammarAnalysisState(null, firstSteps);
-    var result = new ParseTable(rule, step0, Factory.allTerminals, Factory.maxTokenId);
+    var foundNewVirgin: boolean;
+    var previousSteps = firstSteps;
+    var newTerminals: TerminalRefTraverser[];
+    do {
 
-    var results = result.dependencies.concat([result]);
-    return results;
-  }
+      newTerminals = [];
 
-  constructor(rule: PRule, startingState : GrammarAnalysisState, allTerminals: TerminalRefTraverser[], maxTokenId: number) {
+      previousSteps.forEach(previousStep=>{
+        previousStep.possibleNextSteps(null, null);
+
+        previousStep.stepsFromTerminal.forEach(t=>{
+          if (!totalStates.get(t.node.nodeIdx)) {
+            totalStates.set(t.node.nodeIdx, true);
+            newTerminals.push(t);
+          }
+        })
+      });
+
+      previousSteps = newTerminals;
+
+    } while (newTerminals.length);
+
+    var startingState = new GrammarAnalysisState(null, firstSteps);
+
+    //var result = new ParseTable(rule, step0, Factory.allTerminals, Factory.maxTokenId);
+    //, startingState : GrammarAnalysisState, allTerminals: TerminalRefTraverser[], maxTokenId: number
+
     this.rule = rule;
     this.startingState = startingState;
     allTerminals.forEach(t=>{
@@ -156,7 +178,7 @@ abstract class RuleElementTraverser {
   readonly node: PValueNode;
   readonly children: RuleElementTraverser[] = [];
 
-  constructor(parent: RuleElementTraverser, node: PValueNode) {
+  constructor(parser: ParseTable, parent: RuleElementTraverser, node: PValueNode) {
     this.parent = parent;
     this.node = node;
     this.constructionLevel = parent ? parent.constructionLevel+1 : 0;
@@ -173,7 +195,7 @@ abstract class RuleElementTraverser {
     }
 
     this.node.children.forEach(n => {
-      this.children.push(Factory.createTraverser(this, n));
+      this.children.push(Factory.createTraverser(parser, this, n));
     });
     if (this.checkConstructFailed()) {
       throw new Error("Ast construction failed.");
@@ -190,7 +212,27 @@ abstract class RuleElementTraverser {
     this.parent.possibleNextSteps(stepsFromTerminal, this);
   }
 
-  findFirstLoop(node?: PValueNode) {
+  findParent(node: PValueNode, incl=false) {
+    if (node === this.node && incl) {
+      return this;
+    } else if (this.parent) {
+      return this.parent.findParent(node, true);
+    } else {
+      return null;
+    }
+  }
+
+  findRuleNodeParent(rule: string, incl=false) {
+    if (incl) {
+      return false;
+    } else if (this.parent) {
+      return this.parent.findRuleNodeParent(rule, true);
+    } else {
+      return null;
+    }
+  }
+
+  findFirstLoop(node: PValueNode) {
     if (node === this.node) {
       if (this.parent) {
         var loop1st = this.parent.findFirstLoop(node);
@@ -332,22 +374,40 @@ class RuleRefTraverser extends EmptyTraverser {
 
   node: PRuleRef;
   ruleEntryTraverserDup: EntryPointTraverser;
+  dependentTable: ParseTable;
 
-  constructor(parent: RuleElementTraverser, node: PRuleRef) {
-    super(parent, node);
+  constructor(parser: ParseTable, parent: RuleElementTraverser, node: PRuleRef) {
+    super(parser, parent, node);
     // we duplicate rule refs in traverser because each and 
     // its descandacts are having another states in every 
     // position it is linked.
     // however we filter out the case of infitely recursive construction
     // this needs generating new Starting Rules...
-    this.ruleEntryTraverserDup = new EntryPointTraverser(this, Analysis.ruleTable[node.ruleIndex]);
 
+    var recursive = !!this.findRuleNodeParent(node.rule);
+    var targetRule = Analysis.ruleTable[node.ruleIndex];
+
+    if (recursive) {
+      this.dependentTable = ParseTable.generateEntryPoint(targetRule);
+    } else {
+      this.ruleEntryTraverserDup = new EntryPointTraverser(this, targetRule);
+    }
   }
 
   possibleFirstSteps(firstSteps: TerminalRefTraverser[]) {
     this.ruleEntryTraverserDup.possibleFirstSteps(firstSteps);
   }
 
+
+  findRuleNodeParent(rule: string, incl=false) {
+    if (incl && rule === this.node.rule) {
+      return this;
+    } else if (this.parent) {
+      return this.parent.findRuleNodeParent(rule, true);
+    } else {
+      return null;
+    }
+  }
 }
 
 // NOTE Not exported.  The only exported one is EntryPointTraverser
@@ -357,9 +417,9 @@ class TerminalRefTraverser extends EmptyTraverser {
   stepsFromTerminal: TerminalRefTraverser[] = [];
   state: GrammarAnalysisState;
 
-  constructor(parent: RuleElementTraverser, node: PTerminalRef) {
-    super(parent, node);
-    Factory.allTerminals.push(this);
+  constructor(parser: ParseTable, parent: RuleElementTraverser, node: PTerminalRef) {
+    super(parser, parent, node);
+    parser.allTerminals.push(this);
     if (this.node && this.node.value > Factory.maxTokenId) Factory.maxTokenId = this.node.value;
   }
 
@@ -388,9 +448,20 @@ export class EntryPointTraverser extends SingleTraverser {
   node: PRule;
   index: number;
 
-  constructor(parent: RuleElementTraverser, node: PRule) {
-    super(parent, node);
+  constructor(parser: ParseTable, parent: RuleElementTraverser, node: PRule) {
+    super(parser, parent, node);
     this.index = node.index;
+  }
+
+  
+  findRuleNodeParent(rule: string, incl=false) {
+    if (incl && rule === this.node.rule) {
+      return this;
+    } else if (this.parent) {
+      return this.parent.findRuleNodeParent(rule, true);
+    } else {
+      return null;
+    }
   }
 
 }

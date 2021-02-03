@@ -37,13 +37,12 @@ function generateParseTable(ast, ...args) {
       console.error("Something wrong '"+r+"' != '"+rule.rule+"'");
       throw new Error();
     }
-    var parseTables = ParseTable.generateEntryPoint(rule);
+    var parseTable = ParseTable.generateEntryPoint(rule);
+    result.push("const Tbl"+r+' = "'+CodeTblToHex(parseTable.ser()).join('')+'";');
     var chi = 0;
-    parseTables.forEach(parseTable=>{
-      if (!chi) {
-        result.push("const Tbl"+r+' = "'+CodeTblToHex(parseTable.ser()).join('')+'";');
-      } else if (!ast.rules[parseTable.rule.rule]) {
-        result.push("const Tbl"+r+' /*generated dependency*/ = "'+CodeTblToHex(parseTable.ser()).join('')+'";');
+    parseTable.dependencies.forEach(parseTable=>{
+      if (!ast.rules[parseTable.rule.rule]) {
+        result.push("const Tbl"+parseTable.rule.rule+' /*generated dependency*/ = "'+CodeTblToHex(parseTable.ser()).join('')+'";');
       }
       chi++;
     });
