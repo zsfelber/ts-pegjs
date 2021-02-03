@@ -39,14 +39,18 @@ function generateParseTable(ast, ...args) {
     }
     var parseTable = ParseTable.createForRule(rule);
     result.push("const Tbl"+r+' = "'+CodeTblToHex(parseTable.ser()).join('')+'";');
-    var chi = 0;
-    parseTable.dependencies.forEach(parseTable=>{
-      if (!ast.rules[parseTable.rule.rule]) {
-        result.push("const Tbl"+parseTable.rule.rule+' /*generated dependency*/ = "'+CodeTblToHex(parseTable.ser()).join('')+'";');
-      }
-      chi++;
-    });
+    // var chi = 0;
+    // parseTable.dependencies.forEach(parseTable=>{
+    //   if (!ast.rules[parseTable.rule.rule]) {
+    //     result.push("const Tbl"+parseTable.rule.rule+' /*generated dependency*/ = "'+CodeTblToHex(parseTable.ser()).join('')+'";');
+    //   }
+    //   chi++;
+    // });
   });
+
+  if (Analysis.ERRORS) {
+    console.error("Errors. Not generating (but for debugging only).");
+  }
 
   const fnm = options.tmppref + "_ParseTables.ts";
   fs.writeFileSync(fnm, result.join("\n"));

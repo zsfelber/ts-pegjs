@@ -5,6 +5,8 @@ import { PRule, PRuleRef, PTerminalRef, PValueNode, SerDeser } from './parsers';
 
 export namespace Analysis {
 
+  export var ERRORS = 0;
+
   export var ruleTable: PRule[];
 
 }
@@ -97,7 +99,6 @@ export class ParseTable {
     var previousSteps = this.firstSteps;
     var newTerminals: TerminalRefTraverser[];
     do {
-
       newTerminals = [];
 
       previousSteps.forEach(previousStep=>{
@@ -107,6 +108,7 @@ export class ParseTable {
           if (!totalStates.get(t.node.nodeIdx)) {
             totalStates.set(t.node.nodeIdx, true);
             newTerminals.push(t);
+            console.log("New terminal available from transition : "+t.node.terminal)
           }
         })
       });
@@ -192,6 +194,7 @@ abstract class RuleElementTraverser {
     this.node = node;
     this.constructionLevel = parent ? parent.constructionLevel+1 : 0;
 
+    /*
     if (this.parent) {
       var loopNode = this.parent.findFirstLoop(this.node);
       if (loopNode && loopNode[0]) {
@@ -201,7 +204,7 @@ abstract class RuleElementTraverser {
           console.error("Infinitely recursive ast construction is not supported. Loop found ?:\n"+loopNode[0].chainToString().map(itm=>"   "+itm).join("\n"));
         throw new Error("Ast validation error.");
       }
-    }
+    }*/
 
     this.node.children.forEach(n => {
       this.children.push(Factory.createTraverser(parser, this, n));
@@ -383,21 +386,22 @@ class RuleRefTraverser extends EmptyTraverser {
 
   node: PRuleRef;
   ruleEntryTraverserDup: EntryPointTraverser;
-  dependentTable: ParseTable;
 
   constructor(parser: ParseTable, parent: RuleElementTraverser, node: PRuleRef) {
     super(parser, parent, node);
-    // we duplicate rule refs in traverser because each and 
-    // its descandacts are having another states in every 
-    // position it is linked.
-    // however we filter out the case of infitely recursive construction
-    // this needs generating new Starting Rules...
+
+    // we duplicate rule refs in traverser because each one and 
+    // its descandants should have another states in every 
+    // position it is linked to.
+    // however we filter out the case of infinitely recursive construction
+    // which prevents to generate a finite traversion jump table 
 
     var recursive = !!this.findRuleNodeParent(node.rule);
     var targetRule = Analysis.ruleTable[node.ruleIndex];
 
     if (recursive) {
-      this.dependentTable = ParseTable.createForRule(targetRule, parser);
+      console.error("Infinitely recursive ast construction is not supported. Loop found, invalid rule : "+node.rule);
+      Analysis.ERRORS++;
     } else {
       this.ruleEntryTraverserDup = new EntryPointTraverser(parser, this, targetRule);
     }
@@ -406,8 +410,6 @@ class RuleRefTraverser extends EmptyTraverser {
   possibleFirstSteps(firstSteps: TerminalRefTraverser[]) {
     if (this.ruleEntryTraverserDup) {
       this.ruleEntryTraverserDup.possibleFirstSteps(firstSteps);
-    } else {
-      firstSteps.push.apply(firstSteps, this.dependentTable.firstSteps);
     }
   }
 
