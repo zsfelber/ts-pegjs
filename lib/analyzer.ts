@@ -2,6 +2,12 @@ import { start } from 'repl';
 import { PNodeKind } from '.';
 import { PRule, PRuleRef, PTerminalRef, PValueNode, SerDeser } from './parsers';
 
+interface StrMapLike<V> {
+  [index: number]:V;
+}
+interface NumMapLike<V> {
+  [index: string]:V;
+}
 
 export namespace Analysis {
 
@@ -14,7 +20,7 @@ export namespace Analysis {
 
 namespace Factory {
 
-  export var parseTables = new Map<string, ParseTable>();
+  export var parseTables: StrMapLike<ParseTable> = {};
 
   export function createTraverser(parser: ParseTable, parent: RuleElementTraverser, node: PValueNode) {
     switch (node.kind) {
@@ -65,20 +71,20 @@ export class ParseTable {
   startingState : GrammarAnalysisState;
   // Map  Leaf parser nodeIdx -> 
   allStates: GrammarAnalysisState[] = [];
-  maxTokenId: number;
+  maxTokenId: number = 0;
 
   allRuleReferences: RuleRefTraverser[] = [];
   allTerminalReferences: TerminalRefTraverser[] = [];
   firstSteps: TerminalRefTraverser[];
 
-  childRules: Map<string, EntryPointTraverser> = new Map;
-  allNodes: Map<number, RuleElementTraverser> = new Map;
+  childRules: StrMapLike<EntryPointTraverser> = {};
+  allNodes: NumMapLike<RuleElementTraverser> = {};
 
   static createForRule(rule: PRule) {
-    var parseTable = Factory.parseTables.get(rule.rule);
+    var parseTable = Factory.parseTables[rule.rule];
     if (!parseTable) {
       parseTable = new ParseTable(rule);
-      Factory.parseTables.set(rule.rule, parseTable);
+      Factory.parseTables[rule.rule]=parseTable;
     }
     return parseTable;
   }
@@ -108,15 +114,15 @@ export class ParseTable {
       t.state.index = this.allStates.length;
       this.allStates.push(t.state);
     });
-    console.log("Parse table for   starting rule:"+rule.rule+"  nonterminals:"+this.childRules.keys.length+"  tokens:"+this.maxTokenId+"   nonterminal nodes:"+this.allRuleReferences+"   terminal nodes:"+this.allTerminalReferences+"  states:"+this.allStates.length+"  all nodes:"+this.allNodes.keys.length);
+    console.log("Parse table for   starting rule:"+rule.rule+"  nonterminals:"+Object.getOwnPropertyNames(this.childRules).length+"  tokens:"+this.maxTokenId+"   nonterminal nodes:"+this.allRuleReferences.length+"   terminal nodes:"+this.allTerminalReferences.length+"  states:"+this.allStates.length+"  all nodes:"+Object.getOwnPropertyNames(this.allNodes).length);
   }
 
   getReferencedRule(node: PRule) {
     var rule: EntryPointTraverser;
-    rule = this.childRules.get(node.rule);
+    rule = this.childRules[node.rule];
     if (!rule) {
       rule = new EntryPointTraverser(this, null, node);
-      this.childRules.set(node.rule, rule);
+      this.childRules[node.rule]=rule;
     } 
     return rule;
   }
@@ -140,7 +146,7 @@ export class GrammarAnalysisState {
   steps: TerminalRefTraverser[];
 
   // tokenId -> traversion state
-  _transitions: Map<number, GrammarAnalysisState>;
+  _transitions: NumMapLike<GrammarAnalysisState>;
 
   constructor(startingPointTraverser: TerminalRefTraverser, steps: TerminalRefTraverser[]) {
     this.startingPoint = startingPointTraverser ? startingPointTraverser.node : null;
@@ -149,10 +155,10 @@ export class GrammarAnalysisState {
 
   get transitions() {
     if (!this._transitions) {
-      this._transitions = new Map;
+      this._transitions = {};
       this.steps.forEach(nextTerm=>{
-        if (!this._transitions.get(nextTerm.node.value)) {
-          this._transitions.set(nextTerm.node.value, nextTerm.state);
+        if (!this._transitions[nextTerm.node.value]) {
+          this._transitions[nextTerm.node.value]=nextTerm.state;
         }
       })
     }
@@ -162,7 +168,8 @@ export class GrammarAnalysisState {
   ser(maxTknId: number): number[] {
     var toTknIds:number[] = [];
     toTknIds[maxTknId] = 0;
-    this.transitions.forEach((trans, tokenId)=>{
+    Object.entries(this.transitions).forEach(([key,trans])=>{
+      var tokenId = Number(key);
       toTknIds[tokenId] = trans.index;
     });
     return toTknIds;
@@ -186,7 +193,7 @@ abstract class RuleElementTraverser {
     this.parser = parser;
     this.node = node;
     this.constructionLevel = parent ? parent.constructionLevel+1 : 0;
-    this.parser.allNodes.set(this.node.nodeIdx, this);
+    this.parser.allNodes[this.node.nodeIdx]=this;
 
     this.node.children.forEach(n => {
       this.children.push(Factory.createTraverser(parser, this, n));
@@ -265,15 +272,19 @@ class SequenceTraverser extends RuleElementTraverser {
 
 // NOTE Not exported.  The only exported one is EntryPointTraverser
 abstract class SingleCollectionTraverser extends RuleElementTraverser {
-  
+
   child: RuleElementTraverser;
+  
+  constructor(parser: ParseTable, parent: RuleElementTraverser, node: PValueNode) {
+    super(parser, parent, node);
+    this.child = this.children[0];
+  }
 
   checkConstructFailed() {
     if (this.children.length !== 1) {
       console.error("this.children.length:"+this.children.length+" !== 1  " + this.node);
       return 1;
     }
-    this.child = this.children[0];
   }
 
 
