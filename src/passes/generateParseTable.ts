@@ -38,7 +38,7 @@ function generateParseTable(ast, ...args) {
       throw new Error();
     }
     var parseTable = ParseTable.createForRule(rule);
-    result.push("const Tbl"+r+' = "'+CodeTblToHex(parseTable.ser()).join('')+'";');
+    result.push("const Tbl"+r+' = "'+verySimplePackMany0(CodeTblToHex(parseTable.ser()).join(''))+'";');
     // var chi = 0;
     // parseTable.dependencies.forEach(parseTable=>{
     //   if (!ast.rules[parseTable.rule.rule]) {
@@ -56,6 +56,18 @@ function generateParseTable(ast, ...args) {
   fs.writeFileSync(fnm, result.join("\n"));
 
 
+}
+
+function verySimplePackMany0(raw: string) {
+  var result = "";
+  var R = /0{10,}/g;
+  var li = 0;
+  for (var ra:RegExpExecArray; ra=R.exec(raw);) {
+    result += raw.substring(li, ra.index);
+    result += "{" + ra[0].length.toString(16).toUpperCase() + "}";
+    li = R.lastIndex;
+}
+  return result;
 }
 
 module.exports = generateParseTable;

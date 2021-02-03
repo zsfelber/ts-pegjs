@@ -30,7 +30,7 @@ function generateParseTable(ast) {
             throw new Error();
         }
         var parseTable = analyzer_1.ParseTable.createForRule(rule);
-        result.push("const Tbl" + r + ' = "' + lib_1.CodeTblToHex(parseTable.ser()).join('') + '";');
+        result.push("const Tbl" + r + ' = "' + verySimplePackMany0(lib_1.CodeTblToHex(parseTable.ser()).join('')) + '";');
         // var chi = 0;
         // parseTable.dependencies.forEach(parseTable=>{
         //   if (!ast.rules[parseTable.rule.rule]) {
@@ -44,6 +44,17 @@ function generateParseTable(ast) {
     }
     var fnm = options.tmppref + "_ParseTables.ts";
     fs.writeFileSync(fnm, result.join("\n"));
+}
+function verySimplePackMany0(raw) {
+    var result = "";
+    var R = /0{10,}/g;
+    var li = 0;
+    for (var ra; ra = R.exec(raw);) {
+        result += raw.substring(li, ra.index);
+        result += "{" + ra[0].length.toString(16).toUpperCase() + "}";
+        li = R.lastIndex;
+    }
+    return result;
 }
 module.exports = generateParseTable;
 //# sourceMappingURL=generateParseTable.js.map

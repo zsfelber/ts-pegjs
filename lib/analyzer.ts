@@ -81,7 +81,7 @@ export class ParseTable {
   allNodes: NumMapLike<RuleElementTraverser> = {};
 
   static createForRule(rule: PRule) {
-    var parseTable = Factory.parseTables[rule.rule];
+    var parseTable: ParseTable = Factory.parseTables[rule.rule];
     if (!parseTable) {
       parseTable = new ParseTable(rule);
       Factory.parseTables[rule.rule]=parseTable;
@@ -168,11 +168,14 @@ export class GrammarAnalysisState {
   ser(maxTknId: number): number[] {
     var toTknIds:number[] = [];
     toTknIds[maxTknId] = 0;
-    Object.entries(this.transitions).forEach(([key,trans])=>{
+    toTknIds.fill(0, 0, maxTknId);
+    var es = Object.entries(this.transitions);
+    var len = es.length;
+    es.forEach(([key,trans])=>{
       var tokenId = Number(key);
       toTknIds[tokenId] = trans.index;
     });
-    return toTknIds;
+    return [len].concat(toTknIds);
   }
 
 }
