@@ -70,6 +70,8 @@ export class ParseTable {
   allTerminals: TerminalRefTraverser[] = [];
   firstSteps: TerminalRefTraverser[];
 
+  childRules: Map<string, EntryPointTraverser> = new Map;
+
   static createForRule(rule: PRule, dependencyOf?: ParseTable) {
     var parseTable = Factory.parseTables.get(rule.rule);
     if (!parseTable) {
@@ -89,7 +91,7 @@ export class ParseTable {
     var traverser = new EntryPointTraverser(this, null, rule);
 
     this.firstSteps = [];
-    traverser.possibleFirstSteps(this.firstSteps);
+    traverser.possibleFirstSteps([], this.firstSteps);
 
     var totalStates = new Map<number, boolean>();
     this.allTerminals.forEach(t=>{
@@ -127,6 +129,16 @@ export class ParseTable {
       t.state.index = this.allStates.length;
       this.allStates.push(t.state);
     });
+  }
+
+  getReferencedRule(node: PRule) {
+    var rule: EntryPointTraverser;
+    rule = this.childRules.get(node.rule);
+    if (!rule) {
+      rule = new EntryPointTraverser(this, null, node);
+      this.childRules.set(node.rule, rule);
+    } 
+    return rule;
   }
 
   ser(): number[] {
@@ -185,39 +197,29 @@ export class GrammarAnalysisState {
 abstract class RuleElementTraverser {
 
   readonly constructionLevel: number;
+  readonly parser: ParseTable;
   readonly parent: RuleElementTraverser;
   readonly node: PValueNode;
   readonly children: RuleElementTraverser[] = [];
 
   constructor(parser: ParseTable, parent: RuleElementTraverser, node: PValueNode) {
     this.parent = parent;
+    this.parser = parser;
     this.node = node;
     this.constructionLevel = parent ? parent.constructionLevel+1 : 0;
-
-    /*
-    if (this.parent) {
-      var loopNode = this.parent.findFirstLoop(this.node);
-      if (loopNode && loopNode[0]) {
-        if (loopNode[1])
-          console.error("Infinitely recursive ast construction is not supported. Loop found :\n"+loopNode[1].chainToString().map(itm=>"   "+itm).join("\n"));
-        else
-          console.error("Infinitely recursive ast construction is not supported. Loop found ?:\n"+loopNode[0].chainToString().map(itm=>"   "+itm).join("\n"));
-        throw new Error("Ast validation error.");
-      }
-    }*/
 
     this.node.children.forEach(n => {
       this.children.push(Factory.createTraverser(parser, this, n));
     });
-    //if (this.checkConstructFailed()) {
+    if (this.checkConstructFailed()) {
     //  throw new Error("Ast construction failed.");
-    //}
+    }
   }
 
   checkConstructFailed(): any {
   }
 
-  abstract possibleFirstSteps(firstSteps: TerminalRefTraverser[]);
+  abstract possibleFirstSteps(traversionPath: {[index: number]:EntryPointTraverser}, firstSteps: TerminalRefTraverser[]);
 
 
   possibleNextSteps(stepsFromTerminal: TerminalRefTraverser[], fromChild: RuleElementTraverser) {
@@ -242,46 +244,15 @@ abstract class RuleElementTraverser {
     }
   }
 
-  findFirstLoop(node: PValueNode) {
-    if (node === this.node) {
-      if (this.parent) {
-        var loop1st = this.parent.findFirstLoop(node);
-        if (loop1st && loop1st[0]) {
-          if (loop1st[1]) {
-            return loop1st;
-          } else {
-            return [loop1st[0], this];
-          }
-        }
-      }
-      return [this];
-    } else if (this.parent) {
-      return this.parent.findFirstLoop(node);
-    } else {
-      return null;
-    }
-  }
-
-  chainToString(): string[] {
-    var result = [];
-    if (this.parent) {
-      result = result.concat(this.parent.chainToString());
-    } else {
-      result = [this.node.toString()];
-    }
-    return result;
-  }
-
 }
 
 // NOTE Not exported.  The only exported one is EntryPointTraverser
 class ChoiceTraverser extends RuleElementTraverser {
 
  
-  possibleFirstSteps(firstSteps: TerminalRefTraverser[]) {
-
+  possibleFirstSteps(traversionPath: {[index: number]:EntryPointTraverser}, firstSteps: TerminalRefTraverser[]) {
     this.children.forEach(ch=>{
-      ch.possibleFirstSteps(firstSteps);
+      ch.possibleFirstSteps(traversionPath, firstSteps);
     });
   }
 
@@ -298,14 +269,13 @@ class SequenceTraverser extends RuleElementTraverser {
     }
   }
 
-
-  possibleFirstSteps(firstSteps: TerminalRefTraverser[]) {
-    this.children[0].possibleFirstSteps(firstSteps);
+  possibleFirstSteps(traversionPath: {[index: number]:EntryPointTraverser}, firstSteps: TerminalRefTraverser[]) {
+    this.children[0].possibleFirstSteps(traversionPath, firstSteps);
   }
   possibleNextSteps(stepsFromTerminal: TerminalRefTraverser[], fromChild: RuleElementTraverser) {
     var ind = this.children.indexOf(fromChild) + 1;
     if (ind < this.children.length) {
-      this.children[ind].possibleFirstSteps(stepsFromTerminal);
+      this.children[ind].possibleFirstSteps([], stepsFromTerminal);
     } else {
       this.parent.possibleNextSteps(stepsFromTerminal, this);
     }
@@ -327,8 +297,8 @@ abstract class SingleCollectionTraverser extends RuleElementTraverser {
   }
 
 
-  possibleFirstSteps(firstSteps: TerminalRefTraverser[]) {
-    this.child.possibleFirstSteps(firstSteps);
+  possibleFirstSteps(traversionPath: {[index: number]:EntryPointTraverser}, firstSteps: TerminalRefTraverser[]) {
+    this.child.possibleFirstSteps(traversionPath, firstSteps);
   }
 
 }
@@ -350,7 +320,7 @@ class EmptyTraverser extends RuleElementTraverser {
     }
   }
 
-  possibleFirstSteps(firstSteps: TerminalRefTraverser[]) {
+  possibleFirstSteps(traversionPath: {[index: number]:EntryPointTraverser}, firstSteps: TerminalRefTraverser[]) {
   }
 }
 
@@ -364,7 +334,7 @@ class OptionalTraverser extends SingleTraverser {
 class ZeroOrMoreTraverser extends SingleCollectionTraverser {
 
   possibleNextSteps(stepsFromTerminal: TerminalRefTraverser[], fromChild: RuleElementTraverser) {
-    this.possibleFirstSteps(stepsFromTerminal);
+    this.possibleFirstSteps([], stepsFromTerminal);
     this.parent.possibleNextSteps(stepsFromTerminal, this);
   }
 
@@ -374,7 +344,7 @@ class ZeroOrMoreTraverser extends SingleCollectionTraverser {
 class OneOrMoreTraverser extends SingleCollectionTraverser {
 
   possibleNextSteps(stepsFromTerminal: TerminalRefTraverser[], fromChild: RuleElementTraverser) {
-    this.possibleFirstSteps(stepsFromTerminal);
+    this.possibleFirstSteps([], stepsFromTerminal);
     this.parent.possibleNextSteps(stepsFromTerminal, this);
   }
 }
@@ -383,31 +353,23 @@ class OneOrMoreTraverser extends SingleCollectionTraverser {
 class RuleRefTraverser extends EmptyTraverser {
 
   node: PRuleRef;
-  ruleEntryTraverserDup: EntryPointTraverser;
+  recursive: boolean;
+  targetRule: PRule;
+  linkedRuleEntry: EntryPointTraverser;
 
   constructor(parser: ParseTable, parent: RuleElementTraverser, node: PRuleRef) {
     super(parser, parent, node);
 
-    // we duplicate rule refs in traverser because each one and 
-    // its descandants should have another states in every 
-    // position it is linked to.
-    // however we filter out the case of infinitely recursive construction
-    // which prevents to generate a finite traversion jump table 
-
-    var recursive = !!this.findRuleNodeParent(node.rule);
-    var targetRule = Analysis.ruleTable[node.ruleIndex];
-
-    if (recursive) {
-      console.error("Infinitely recursive ast construction is not supported. Loop found, invalid rule : "+node.rule);
-      Analysis.ERRORS++;
-    } else {
-      this.ruleEntryTraverserDup = new EntryPointTraverser(parser, this, targetRule);
-    }
+    this.recursive = !!this.findRuleNodeParent(node.rule);
+    this.targetRule = Analysis.ruleTable[node.ruleIndex];
+    this.linkedRuleEntry = this.parser.getReferencedRule(this.targetRule);
   }
 
-  possibleFirstSteps(firstSteps: TerminalRefTraverser[]) {
-    if (this.ruleEntryTraverserDup) {
-      this.ruleEntryTraverserDup.possibleFirstSteps(firstSteps);
+  possibleFirstSteps(traversionPath: {[index: number]:EntryPointTraverser}, firstSteps: TerminalRefTraverser[]) {
+    // we don't create cycle
+    // also, it is semantically correct...
+    if (!traversionPath[this.targetRule.nodeIdx]) {
+      this.linkedRuleEntry.possibleFirstSteps(traversionPath, firstSteps);
     }
   }
 
@@ -445,7 +407,7 @@ class TerminalRefTraverser extends EmptyTraverser {
     return dirty;
   }
 
-  possibleFirstSteps(firstSteps: TerminalRefTraverser[]) {
+  possibleFirstSteps(traversionPath: {[index: number]:EntryPointTraverser}, firstSteps: TerminalRefTraverser[]) {
     firstSteps.push(this);
   }
 
@@ -475,6 +437,12 @@ export class EntryPointTraverser extends SingleTraverser {
     } else {
       return null;
     }
+  }
+
+  
+  possibleFirstSteps(traversionPath: {[index: number]:EntryPointTraverser}, firstSteps: TerminalRefTraverser[]) {
+    traversionPath[this.node.nodeIdx] = this;
+    this.child.possibleFirstSteps(traversionPath, firstSteps);
   }
 
 }
