@@ -21,6 +21,7 @@ function generateParseTable(ast) {
     var ruleMap = {};
     ast.rules.forEach(function (r) { ruleMap[r.name] = ri++; });
     var result = [];
+    lib_1.Analysis.ruleTable = grammar.rules;
     options.allowedStartRules.forEach(function (r) {
         ri = ruleMap[r];
         var rule = grammar.children[ri];

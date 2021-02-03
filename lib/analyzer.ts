@@ -138,13 +138,14 @@ abstract class RuleElementTraverser {
     this.node = node;
     this.constructionLevel = parent ? parent.constructionLevel+1 : 0;
 
-    if (this.constructionLevel >= 1000 && !(this.constructionLevel%1000)) {
-      var loopNode = this.findFirstLoop(this.node);
-      if (loopNode) {
-        console.error("Infinitely recursive ast construction is not supported. Loop found :\n"+loopNode.chainToString().map(itm=>"   "+itm).join("\n"));
+    if (this.parent) {
+      var loopNode = this.parent.findFirstLoop(this.node);
+      if (loopNode && loopNode[0]) {
+        if (loopNode[1])
+          console.error("Infinitely recursive ast construction is not supported. Loop found :\n"+loopNode[1].chainToString().map(itm=>"   "+itm).join("\n"));
+        else
+          console.error("Infinitely recursive ast construction is not supported. Loop found ?:\n"+loopNode[0].chainToString().map(itm=>"   "+itm).join("\n"));
         throw new Error("Ast validation error.");
-      } else {
-        console.warn("Performance penalties making very deep ast construction recursion level now : "+this.constructionLevel);
       }
     }
 
@@ -170,11 +171,15 @@ abstract class RuleElementTraverser {
     if (node === this.node) {
       if (this.parent) {
         var loop1st = this.parent.findFirstLoop(node);
-        if (loop1st) {
-          return loop1st;
+        if (loop1st && loop1st[0]) {
+          if (loop1st[1]) {
+            return loop1st;
+          } else {
+            return [loop1st[0], this];
+          }
         }
       }
-      return this;
+      return [this];
     } else if (this.parent) {
       return this.parent.findFirstLoop(node);
     } else {

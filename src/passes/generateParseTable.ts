@@ -11,7 +11,7 @@ import * as ppack from 'pegjs/package.json';
 import { EntryPointTraverser } from '../../lib/analyzer';
 import {
   JSstringEscape, CodeTblToHex, PGrammar, PRule, PFunction,
-  PNodeKind, PActionKind, PRuleRef, PTerminalRef
+  PNodeKind, PActionKind, PRuleRef, PTerminalRef, Analysis
 } from "../../lib";
 
 // Generates parser JavaScript code.
@@ -27,6 +27,9 @@ function generateParseTable(ast, ...args) {
   var ruleMap = {};
   ast.rules.forEach(r=>{ruleMap[r.name] = ri++;});
   var result = [];
+
+  Analysis.ruleTable = grammar.rules;
+
   options.allowedStartRules.forEach(r=>{
     ri = ruleMap[r];
     var rule = grammar.children[ri] as PRule;
