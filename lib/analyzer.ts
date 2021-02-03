@@ -223,7 +223,7 @@ abstract class RuleElementTraverser {
 
 
   possibleNextSteps(stepsFromTerminal: TerminalRefTraverser[], fromChild: RuleElementTraverser) {
-    this.parent.possibleNextSteps(stepsFromTerminal, this);
+    if (this.parent) this.parent.possibleNextSteps(stepsFromTerminal, this);
   }
 
   findParent(node: PValueNode, incl=false) {
@@ -276,7 +276,7 @@ class SequenceTraverser extends RuleElementTraverser {
     var ind = this.children.indexOf(fromChild) + 1;
     if (ind < this.children.length) {
       this.children[ind].possibleFirstSteps([], stepsFromTerminal);
-    } else {
+    } else if (this.parent) {
       this.parent.possibleNextSteps(stepsFromTerminal, this);
     }
   }
@@ -335,7 +335,7 @@ class ZeroOrMoreTraverser extends SingleCollectionTraverser {
 
   possibleNextSteps(stepsFromTerminal: TerminalRefTraverser[], fromChild: RuleElementTraverser) {
     this.possibleFirstSteps([], stepsFromTerminal);
-    this.parent.possibleNextSteps(stepsFromTerminal, this);
+    if (this.parent) this.parent.possibleNextSteps(stepsFromTerminal, this);
   }
 
 }
@@ -345,7 +345,7 @@ class OneOrMoreTraverser extends SingleCollectionTraverser {
 
   possibleNextSteps(stepsFromTerminal: TerminalRefTraverser[], fromChild: RuleElementTraverser) {
     this.possibleFirstSteps([], stepsFromTerminal);
-    this.parent.possibleNextSteps(stepsFromTerminal, this);
+    if (this.parent) this.parent.possibleNextSteps(stepsFromTerminal, this);
   }
 }
 
@@ -360,12 +360,27 @@ class RuleRefTraverser extends EmptyTraverser {
   constructor(parser: ParseTable, parent: RuleElementTraverser, node: PRuleRef) {
     super(parser, parent, node);
 
-    this.recursive = !!this.findRuleNodeParent(node.rule);
-    this.targetRule = Analysis.ruleTable[node.ruleIndex];
-    this.linkedRuleEntry = this.parser.getReferencedRule(this.targetRule);
+  }
+
+  checkConstructFailed() {
+    this.recursive = !!this.findRuleNodeParent(this.node.rule);
+    this.targetRule = Analysis.ruleTable[this.node.ruleIndex];
+
+    var dirty = super.checkConstructFailed();
+    if (!this.targetRule) {
+      console.error("no this.targetRule  " + this.node);
+      dirty = 1;
+    }
+    if (this.recursive) {
+      console.warn("recursive : " + this.node);
+    }
+    return dirty;
   }
 
   possibleFirstSteps(traversionPath: {[index: number]:EntryPointTraverser}, firstSteps: TerminalRefTraverser[]) {
+    if (!this.linkedRuleEntry) {
+      this.linkedRuleEntry = this.parser.getReferencedRule(this.targetRule);
+    }
     // we don't create cycle
     // also, it is semantically correct...
     if (!traversionPath[this.targetRule.nodeIdx]) {
@@ -412,7 +427,7 @@ class TerminalRefTraverser extends EmptyTraverser {
   }
 
   possibleNextSteps(stepsFromTerminal: null, fromChild: null) {
-    this.parent.possibleNextSteps(this.stepsFromTerminal, this);
+    if (this.parent) this.parent.possibleNextSteps(this.stepsFromTerminal, this);
     this.state = new GrammarAnalysisState(this, this.stepsFromTerminal);
   }
 
