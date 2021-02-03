@@ -1,11 +1,5 @@
-import { IParseRunner, PNodeKind } from '.';
+import { PNodeKind } from '.';
 import { PRule, PRuleRef, PTerminalRef, PValueNode, SerDeser } from './parsers';
-import { IToken } from './index';
-
-
-const peg$FAILED: Readonly<any> = {};
-
-const peg$SUCCESS: Readonly<any> = {};
 
 
 namespace Factory {
@@ -38,86 +32,101 @@ namespace Factory {
   }
 }
 
-var stateIndices: number = 0;
 
-class TraversionState {
+function hex3(c) {
+  if (c < 16) return '00' + c.toString(16).toUpperCase();
+  else if (c < 256) return '0' + c.toString(16).toUpperCase();
+  else if (c < 4096) return '' + c.toString(16).toUpperCase();
+  else return "???"
+}
 
-  stateId: number;
+function hex2(c) {
+  if (c < 16) return '0' + c.toString(16).toUpperCase();
+  else if (c < 256) return '' + c.toString(16).toUpperCase();
+  else return "??"
+}
 
-  parent: TraversionState;
+var traversionSteps: TraversionStep[] = [];
 
-  children: TraversionState[] = [];
+var savedStates: Map<string, LevelTraversionState> = new Map;
+
+class LevelTraversionState {
+
+  parent: LevelTraversionState;
+
+  child: LevelTraversionState;
+
+  level: number;
 
   traverser: RuleElementTraverser;
 
   positionInCurrent: number;
 
-  constructor(parent: TraversionState, traverser: RuleElementTraverser) {
-    this.stateId = stateIndices++;
+  starterState: LevelTraversionState;
+
+  readonly uniqueStateKey: string;
+
+  constructor(parent: LevelTraversionState, child: LevelTraversionState, traverser: RuleElementTraverser) {
+    //this.stateId = stateIndices++;
     this.parent = parent;
+    this.child = child;
+    this.level = parent ? parent.level + 1 : 0;
     this.traverser = traverser;
     this.positionInCurrent = 0;
   }
 
-  ensureChildAt(childTraverser: RuleElementTraverser, pos: number) {
-    if (pos >= this.children.length) {
-      var newChild = new TraversionState(this, childTraverser);
-      this.children.push(newChild);
-      if (pos >= this.children.length) {
-        throw new Error();
-      }
-      return newChild;
+  setChildTo(childTraverser: RuleElementTraverser) {
+    if (!this.child || this.child.traverser !== childTraverser) {
+      var newChild = new LevelTraversionState(this, null, childTraverser);
+      this.child = newChild;
     }
-    return this.children[pos];
+    return newChild;
   }
 
-  push(traverser: RuleElementTraverser) {
-    var result = new TraversionState(this, traverser);
-    return result;
+  saveState() {
+    var uid = this.genUniqueStateKey();
+    var saved = this.clone();
+    (saved as any).uniqueStateKey = uid;
+    savedStates.set(uid, saved);
+    return saved;
+  }
+  
+  private genUniqueStateKey() {
+    var id = hex3(this.traverser.node.nodeIdx) + hex2(this.positionInCurrent);
+    for (var node: LevelTraversionState = this.parent; !!node; node = node.parent) {
+      id = node.uniqueStateKey + id;
+    }
+    return id;
+  }
+
+  private clone(): LevelTraversionState {
+    var clonedState = new LevelTraversionState(this.parent, this.child.clone(), this.traverser);
+    clonedState.positionInCurrent = this.positionInCurrent;
+    return clonedState;
+  }
+
+}
+
+
+class TraversionStep {
+
+  stateId: number;
+
+  token: number;
+
+  // tokenId -> traversion state
+  transitions: Map<number, LevelTraversionState> = new Map;
+
+  constructor() {
+    this.stateId = traversionSteps.length;
+    traversionSteps.push(this);
   }
 }
 
-class TraversionStateDelta {
-
-  childDelta: TraversionStateDelta;
-
-  traverser: RuleElementTraverser;
-
-  newPosition: number;
-
-  acceptedToken: number;
-
-  constructor(childDelta: TraversionStateDelta, traverser: RuleElementTraverser, newPosition: number, acceptedToken: number) {
-    this.childDelta = childDelta;
-    this.traverser = traverser;
-    this.newPosition = newPosition;
-    this.acceptedToken = acceptedToken;
-  }
+enum TraversionResult {
+  FORWARD, ACCEPT, REJECT
 }
 
-const peg$BRANCH_FINISHED: TraversionStateDelta = {from:undefined, positionChange:false, acceptedToken:-1};
-
-class RuleProcessStack {
-  parser: IParseRunner;
-  parent: RuleProcessStack;
-  argsToLeft: any[];
-
-  currentTraversionState: TraversionState;
-
-  constructor(
-    parser: IParseRunner,
-    parent: RuleProcessStack,
-    argsToLeft: any[]     ) {
-      this.parser = parser;
-      this.parent = parent;
-      this.argsToLeft = argsToLeft;
-  }
- 
-  push(stack: RuleProcessStack, newArgs: any[]): RuleProcessStack {
-    var result = new RuleProcessStack(this.parser, this, newArgs);
-    return result;
-  }
-}
 
 
 // NOTE Not exported.  The only exported one is EntryPointTraverser
@@ -140,87 +149,94 @@ abstract class RuleElementTraverser {
   checkConstructFailed(): any {
   }
 
-  acceptNextToken(topState: TraversionState, thisLevelState: TraversionState): TraversionStateDelta {
+  
+  collectTransitions(currentStep: TraversionStep, steppedState: LevelTraversionState): TraversionResult {
 
-    //var thisLevelState = new TraversionState(parentState, this);
-    if (thisLevelState.traverser !== this) throw new Error();
-
-    var position = thisLevelState.positionInCurrent;
-    do {
-      var currentChild = this.children[position];
-      var currentChildState = thisLevelState.ensureChildAt(currentChild, position);
-
-      var r = currentChild.acceptNextToken(topState, currentChildState);
-
-      if (r === peg$BRANCH_FINISHED) {
-        position++;
-      } else {
-        var thisLevelDelta = new TraversionStateDelta(r, this, position, r.acceptedToken);
-      }
-    } while (position < this.children.length);
-
-    return peg$BRANCH_FINISHED;
-  }
-
-  parse(stack: RuleProcessStack) {
-
-    var pos = stack.parser.pos;
-
-    var r0 = this.parseImpl(stack);
-
-    if (r0 === peg$FAILED) {
-      stack.parser.pos = pos;
-      return r0;
-    } else if (r0 === peg$SUCCESS) {
-      var r;
-      if (this.node.action) {
-        r = this.node.action.fun.apply(stack.parser, stack.argsToLeft);
-      } else {
-        r = stack.argsToLeft;
-      }
-      return r;
-    } else {
-      return r0;
+    if (!steppedState.starterState) {
+      steppedState.starterState = steppedState.saveState();
     }
+
+    //var newState = new TraversionState(parentState, this);
+    if (steppedState.traverser !== this) throw new Error();
+
+    var currentChild = this.children[steppedState.positionInCurrent];
+    var steppedChildState = steppedState.setChildTo(currentChild);
+
+    w:while (true) {
+
+      var resultInChild = currentChild.collectTransitions(currentStep, steppedChildState);
+
+      switch (resultInChild) {
+        case TraversionResult.ACCEPT:
+          if (this.children.length > ++steppedState.positionInCurrent) {
+            currentChild = this.children[steppedState.positionInCurrent];
+            steppedChildState = steppedState.setChildTo(currentChild);
+          } else {
+            var savedState = steppedState.saveState();
+            currentStep.transitions.set(currentStep.token, savedState);
+            this.onChildAccept(currentStep, savedState);
+
+            break w;
+          }
+          break;
+        case TraversionResult.FORWARD:
+          break;
+
+        case TraversionResult.REJECT:
+          resultInChild = this.onChildReject(currentStep, steppedState);
+          if (resultInChild !== undefined) {
+            return resultInChild;
+          }
+          if (this.children.length <= steppedState.positionInCurrent) {
+            break w;
+          }
+          break;
+      }
+    }
+
+
+    var result = this.onEndReached(currentStep, steppedState);
+
+    return result;
+  }
+
+  onChildAccept(currentStep: TraversionStep, savedState: LevelTraversionState): TraversionResult {
+    return TraversionResult.REJECT;
+  }
+
+  onChildReject(currentStep: TraversionStep, steppedState: LevelTraversionState): TraversionResult {
+    return TraversionResult.REJECT;
+  }
+
+  onEndReached(currentStep: TraversionStep, steppedState: LevelTraversionState): TraversionResult {
+    return TraversionResult.ACCEPT;
   }
 
 
-  abstract parseImpl(stack: RuleProcessStack): any;
 }
 
 
 // NOTE Not exported.  The only exported one is EntryPointTraverser
 class ChoiceTraverser extends RuleElementTraverser {
 
-  parseImpl(stack: RuleProcessStack) {
-    this.children.forEach(n => {
-      var r = n.parse(stack);
-      if (r !== peg$FAILED) {
-        return r;
-      }
-    });
-    return peg$FAILED;
+  onChildReject(currentStep: TraversionStep, steppedState: LevelTraversionState): TraversionResult {
+    steppedState.positionInCurrent++;
+    return undefined;
   }
+
+  onEndReached(currentStep: TraversionStep, steppedState: LevelTraversionState): any {
+  }
+    
+
 }
 
 // NOTE Not exported.  The only exported one is EntryPointTraverser
 class SequenceTraverser extends RuleElementTraverser {
 
-  parseImpl(stack: RuleProcessStack) {
-
-    var args = [];
-    stack = stack.push(stack, args);
-
-    this.children.forEach(n => {
-      var r = n.parse(stack);
-      if (r === peg$FAILED) {
-        return peg$FAILED;
-      } else if (n.node.label) {
-        args.push(r);
-      }
-    });
-    return peg$SUCCESS;
+  onEndReached(currentStep: TraversionStep, steppedState: LevelTraversionState): any {
   }
+
+
 }
 
 // NOTE Not exported.  The only exported one is EntryPointTraverser
@@ -235,33 +251,15 @@ abstract class SingleCollectionTraverser extends RuleElementTraverser {
     }
     this.child = this.children[0];
   }
+
+  onEndReached(currentStep: TraversionStep, steppedState: LevelTraversionState): any {
+
+  }
 }
 
 // NOTE Not exported.  The only exported one is EntryPointTraverser
 abstract class SingleTraverser extends SingleCollectionTraverser {
 
-  
-  parse(stack: RuleProcessStack) {
-
-    var pos = stack.parser.pos;
-
-    var r0 = this.parseImpl(stack);
-
-    if (r0 === peg$FAILED) {
-      stack.parser.pos = pos;
-      return r0;
-    } else if (r0 === peg$SUCCESS) {
-      var r;
-      if (this.node.action) {
-        r = this.node.action.fun.apply(stack.parser, stack.argsToLeft);
-      } else {
-        r = stack.argsToLeft[0];
-      }
-      return r;
-    } else {
-      return r0;
-    }
-  }
 
 }
 
@@ -281,67 +279,23 @@ abstract class EmptyTraverser extends RuleElementTraverser {
 // NOTE Not exported.  The only exported one is EntryPointTraverser
 class OptionalTraverser extends SingleTraverser {
 
-  parseImpl(stack: RuleProcessStack) {
-
-    var args = [];
-    stack = stack.push(stack, args);
-
-    var r = this.child.parse(stack);
-    if (r === peg$FAILED) {
-      return null;
-    } else {
-      args.push(r);
-    }
-
-    return peg$SUCCESS;
-  }
 }
 
 // NOTE Not exported.  The only exported one is EntryPointTraverser
 class ZeroOrMoreTraverser extends SingleCollectionTraverser {
 
-  parseImpl(stack: RuleProcessStack) {
+  onChildAccept(currentStep: TraversionStep, savedState: LevelTraversionState): TraversionResult {
 
-    var items = [];
-    stack = stack.push(stack, items);
+    //currentStep.transitions.set(currentStep.token, steppedState.saveState());
 
-    while (true) {
-      var r = this.child.parse(stack);
-      if (r === peg$FAILED) {
-        break;
-      } else {
-        items.push(r);
-      }
-    }
-
-    return peg$SUCCESS;
+    return TraversionResult.REJECT;
   }
+
 }
 
 // NOTE Not exported.  The only exported one is EntryPointTraverser
 class OneOrMoreTraverser extends SingleCollectionTraverser {
 
-  parseImpl(stack: RuleProcessStack) {
-
-    var items = [];
-    stack = stack.push(stack, items);
-
-    var r = this.child.parse(stack);
-    if (r === peg$FAILED) {
-      return peg$FAILED;
-    }
-    items.push(r);
-    while (true) {
-      r = this.child.parse(stack);
-      if (r === peg$FAILED) {
-        break;
-      } else {
-        items.push(r);
-      }
-    }
-
-    return peg$SUCCESS;
-  }
 }
 
 // NOTE Not exported.  The only exported one is EntryPointTraverser
@@ -352,7 +306,7 @@ class RuleRefTraverser extends EmptyTraverser {
 
   constructor(node: PRuleRef) {
     super(node);
-    this.ruleEntryTraverser = SerDeser.ruleTable[node.ruleIndex];
+    //this.ruleEntryTraverser = SerDeser.ruleTable[node.ruleIndex];
   }
 
   checkConstructFailed() {
@@ -364,10 +318,6 @@ class RuleRefTraverser extends EmptyTraverser {
     return dirty;
   }
 
-  parseImpl(stack: RuleProcessStack) {
-    // NOTE new entry point
-    return stack.parser.run(this.ruleEntryTraverser);
-  }
 }
 
 
@@ -385,33 +335,25 @@ class TerminalRefTraverser extends EmptyTraverser {
     return dirty;
   }
 
-  acceptNextToken(topState: TraversionState, thisLevelState: TraversionState): TraversionStateDelta {
-    var delta = new TraversionStateDelta(null, this, 1, this.node.value);
-    return delta;
-  }
+  collectTransitions(currentStep: TraversionStep, steppedState: LevelTraversionState): TraversionResult {
+    if (steppedState.positionInCurrent === 0) {
 
-  parseImpl(stack: RuleProcessStack) {
-    var token = stack.parser.next();
-    if (token && token.tokenId === this.node.value) {
-      return token;
+      steppedState.positionInCurrent++;
+
+      var myToken = this.node.value;
+      currentStep.token = myToken;
+      if (currentStep.transitions.get(myToken)) {
+        return TraversionResult.REJECT;
+      } else {
+        return TraversionResult.ACCEPT;
+      }
     } else {
-      return peg$FAILED;
+      return TraversionResult.REJECT;
     }
   }
+
 }
 
-//
-// This is the entry point ..
-//
-//   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-//   !!                                                               !!
-//   !!     NOTE     HERE is the only exported Traverser                 !!
-//   !!                                                               !!
-//   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-//   !!
-//   ..   A   R   S   E   R
-//   !!
-//
 export class EntryPointTraverser extends SingleTraverser {
 
   node: PRule;
@@ -422,9 +364,18 @@ export class EntryPointTraverser extends SingleTraverser {
     this.index = node.index;
   }
 
-  parseImpl(stack: RuleProcessStack) {
-    // NOTE new entry point   not implemented
+  traverseAll() {
+    while (true) {
+      var currentStep = new TraversionStep();
+      var currentState = new LevelTraversionState(null, null, this);
+      this.collectTransitions(currentStep, currentState);
+
+      currentStep.transitions.forEach(s=>{
+
+      });
+    }
   }
+
 }
 
 
@@ -442,22 +393,8 @@ abstract class SemanticTraverser extends SingleTraverser {
 
 // NOTE Not exported.  The only exported one is EntryPointTraverser
 class SemanticAndTraverser extends SemanticTraverser {
-  parseImpl(stack: RuleProcessStack) {
-    var boolres = this.node.action.fun.apply(stack.parser, stack);
-    if (boolres)
-      return undefined;
-    else
-      return peg$FAILED;
-  }
 }
 
 // NOTE Not exported.  The only exported one is EntryPointTraverser
 class SemanticNotTraverser extends SingleTraverser {
-  parseImpl(stack: RuleProcessStack) {
-    var boolres = this.node.action.fun.apply(stack.parser, stack);
-    if (boolres)
-      return peg$FAILED;
-    else
-      return undefined;
-  }
 } 
