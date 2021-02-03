@@ -64,7 +64,11 @@ class LevelTraversionState {
 
   starterState: LevelTraversionState;
 
-  readonly uniqueStateKey: string;
+  uniqueStateKey: string;
+
+  transitions: Map<number, LevelTraversionState>;
+
+  repetitions: Map<number, LevelTraversionState>;
 
   constructor(parent: LevelTraversionState, child: LevelTraversionState, traverser: RuleElementTraverser) {
     //this.stateId = stateIndices++;
@@ -83,10 +87,12 @@ class LevelTraversionState {
     return newChild;
   }
 
-  saveState() {
+  saveState(step: TraversionStep) {
     var uid = this.genUniqueStateKey();
     var saved = this.clone();
-    (saved as any).uniqueStateKey = uid;
+    saved.transitions = step.transitions;
+    step.transitions = null;
+    saved.uniqueStateKey = uid;
     savedStates.set(uid, saved);
     return saved;
   }
@@ -99,7 +105,7 @@ class LevelTraversionState {
     return id;
   }
 
-  private clone(): LevelTraversionState {
+  clone(): LevelTraversionState {
     var clonedState = new LevelTraversionState(this.parent, this.child.clone(), this.traverser);
     clonedState.positionInCurrent = this.positionInCurrent;
     return clonedState;
@@ -150,11 +156,11 @@ abstract class RuleElementTraverser {
   }
 
   
-  collectTransitions(currentStep: TraversionStep, steppedState: LevelTraversionState): TraversionResult {
+  collectPossibleFirstSteps(currentStep: TraversionStep, steppedState: LevelTraversionState): TraversionResult {
 
-    if (!steppedState.starterState) {
-      steppedState.starterState = steppedState.saveState();
-    }
+    //if (!steppedState.starterState) {
+    //  steppedState.starterState = steppedState.saveState();
+    //}
 
     //var newState = new TraversionState(parentState, this);
     if (steppedState.traverser !== this) throw new Error();
@@ -164,28 +170,45 @@ abstract class RuleElementTraverser {
 
     w:while (true) {
 
-      var resultInChild = currentChild.collectTransitions(currentStep, steppedChildState);
+      var resultInChild = currentChild.collectPossibleFirstSteps(currentStep, steppedChildState);
 
       switch (resultInChild) {
         case TraversionResult.ACCEPT:
+
+          currentStep.transitions.set(currentStep.token, steppedState.clone());
+
           if (this.children.length > ++steppedState.positionInCurrent) {
             currentChild = this.children[steppedState.positionInCurrent];
             steppedChildState = steppedState.setChildTo(currentChild);
           } else {
-            var savedState = steppedState.saveState();
-            currentStep.transitions.set(currentStep.token, savedState);
-            this.onChildAccept(currentStep, savedState);
+            var savedState = steppedState.saveState(currentStep);
+
+            var result = this.onChildrenAccept(currentStep, savedState);
+            if (result !== undefined) {
+              return result;
+            }
 
             break w;
           }
           break;
         case TraversionResult.FORWARD:
+          if (this.children.length > ++steppedState.positionInCurrent) {
+            currentChild = this.children[steppedState.positionInCurrent];
+            steppedChildState = steppedState.setChildTo(currentChild);
+          } else {
+
+            var result = this.onChildrenForward(currentStep, steppedState);
+            if (result !== undefined) {
+              return result;
+            }
+
+          }
           break;
 
         case TraversionResult.REJECT:
-          resultInChild = this.onChildReject(currentStep, steppedState);
-          if (resultInChild !== undefined) {
-            return resultInChild;
+          var result = this.onChildReject(currentStep, steppedState);
+          if (result !== undefined) {
+            return result;
           }
           if (this.children.length <= steppedState.positionInCurrent) {
             break w;
@@ -200,8 +223,11 @@ abstract class RuleElementTraverser {
     return result;
   }
 
-  onChildAccept(currentStep: TraversionStep, savedState: LevelTraversionState): TraversionResult {
-    return TraversionResult.REJECT;
+  onChildrenAccept(currentStep: TraversionStep, savedState: LevelTraversionState): TraversionResult {
+    return TraversionResult.FORWARD;
+  }
+  onChildrenForward(currentStep: TraversionStep, steppedState: LevelTraversionState): TraversionResult {
+    return TraversionResult.FORWARD;
   }
 
   onChildReject(currentStep: TraversionStep, steppedState: LevelTraversionState): TraversionResult {
@@ -223,9 +249,6 @@ class ChoiceTraverser extends RuleElementTraverser {
     steppedState.positionInCurrent++;
     return undefined;
   }
-
-  onEndReached(currentStep: TraversionStep, steppedState: LevelTraversionState): any {
-  }
     
 
 }
@@ -233,8 +256,6 @@ class ChoiceTraverser extends RuleElementTraverser {
 // NOTE Not exported.  The only exported one is EntryPointTraverser
 class SequenceTraverser extends RuleElementTraverser {
 
-  onEndReached(currentStep: TraversionStep, steppedState: LevelTraversionState): any {
-  }
 
 
 }
@@ -252,9 +273,7 @@ abstract class SingleCollectionTraverser extends RuleElementTraverser {
     this.child = this.children[0];
   }
 
-  onEndReached(currentStep: TraversionStep, steppedState: LevelTraversionState): any {
 
-  }
 }
 
 // NOTE Not exported.  The only exported one is EntryPointTraverser
@@ -284,11 +303,12 @@ class OptionalTraverser extends SingleTraverser {
 // NOTE Not exported.  The only exported one is EntryPointTraverser
 class ZeroOrMoreTraverser extends SingleCollectionTraverser {
 
-  onChildAccept(currentStep: TraversionStep, savedState: LevelTraversionState): TraversionResult {
+  onChildrenAccept(currentStep: TraversionStep, savedState: LevelTraversionState): TraversionResult {
 
-    //currentStep.transitions.set(currentStep.token, steppedState.saveState());
+    // Repeat all transitions in all finishing states of this node
+    savedState.repetitions = savedState.transitions;
 
-    return TraversionResult.REJECT;
+    return TraversionResult.FORWARD;
   }
 
 }
@@ -335,7 +355,7 @@ class TerminalRefTraverser extends EmptyTraverser {
     return dirty;
   }
 
-  collectTransitions(currentStep: TraversionStep, steppedState: LevelTraversionState): TraversionResult {
+  collectPossibleFirstSteps(currentStep: TraversionStep, steppedState: LevelTraversionState): TraversionResult {
     if (steppedState.positionInCurrent === 0) {
 
       steppedState.positionInCurrent++;
@@ -364,17 +384,23 @@ export class EntryPointTraverser extends SingleTraverser {
     this.index = node.index;
   }
 
-  traverseAll() {
+  generateParseTreeTraversionTable() {
     while (true) {
-      var currentStep = new TraversionStep();
-      var currentState = new LevelTraversionState(null, null, this);
-      this.collectTransitions(currentStep, currentState);
+      var startingTopState = new LevelTraversionState(null, null, this);
 
-      currentStep.transitions.forEach(s=>{
-
-      });
+    
     }
   }
+
+  traverseFromState(currentState: LevelTraversionState) {
+    var currentStep = new TraversionStep();
+
+    this.collectPossibleFirstSteps(currentStep, currentState);
+
+    currentStep.transitions.forEach(resultingState=>{
+      this.traverseFromState(resultingState);
+    });
+}
 
 }
 
