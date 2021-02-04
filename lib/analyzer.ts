@@ -5,7 +5,7 @@ interface StrMapLike<V> {
   [index: number]: V;
 }
 interface NumMapLike<V> {
-  [index: string]: V;
+  [index: number]: V;
 }
 
 export namespace Analysis {
@@ -21,7 +21,7 @@ namespace Factory {
 
   export var parseTables: StrMapLike<ParseTableGenerator> = {};
 
-  export function createTraverser(parser: ParseTableGenerator, parent: RuleElementTraverser, node: PValueNode) {
+  export function createTraverser(parser: ParseTableGenerator, parent: RuleElementTraverser, node: PNode) {
     switch (node.kind) {
       case PNodeKind.CHOICE:
         return new ChoiceTraverser(parser, parent, node);
@@ -96,7 +96,8 @@ export class ParseTableGenerator {
     // loads all :)
     while (this.allRuleReferences.some(ruleRef => ruleRef.lazyCouldGenerateNew()));
 
-    this.mainEntryTraversion = mainEntryPoint.traversion;
+    this.mainEntryTraversion = new LinearTraversion(null, mainEntryPoint);
+    this.mainEntryTraversion.traverse(TraversionPurpose.FIND_NEXT_TOKENS);
 
     // NOTE binding each to all in linear time :
     this.allTerminalReferences.forEach(previousStep => {
@@ -278,7 +279,8 @@ class LinearTraversion {
 
   readonly rule: EntryPointTraverser;
 
-  readonly all: { [index: number]: TraversionControllerItem };
+  readonly all: NumMapLike<TraversionControllerItem>;
+
   readonly array: TraversionControllerItem[];
 
   readonly collectedTerminals: TerminalRefTraverser[];
@@ -332,15 +334,21 @@ class LinearTraversion {
     this.array.push(item);
   }
 
-  traverse(initialPurpose: TraversionPurpose, purposeThen?: TraversionPurpose, startPosition = 0) {
+  traverse(initialPurpose: TraversionPurpose, purposeThen?: TraversionPurpose, startPosition = 0, allAndInherited?: NumMapLike<TraversionControllerItem>) {
     (this as any).purpose = initialPurpose;
     (this as any).purposeThen = purposeThen;
-
+    if (allAndInherited) {
+      Object.entries(this.all).forEach(([k,v])=>{
+        allAndInherited[k] = v;
+      });
+    } else {
+      allAndInherited = this.all;
+    }
     for (this.position = 0; this.position < this.array.length;) {
       this.positionOk = false;
       var item = this.array[this.position];
 
-      item.value.traversionActions(this, item);
+      item.value.traversionActions(this, item, allAndInherited);
 
       this.defaultActions(item);
 
@@ -434,7 +442,7 @@ abstract class RuleElementTraverser {
   pushPostfixControllerItem(inTraversion: LinearTraversion) {
   }
 
-  traversionActions(inTraversion: LinearTraversion, step: TraversionControllerItem) {
+  traversionActions(inTraversion: LinearTraversion, step: TraversionControllerItem, allAndInherited?: NumMapLike<TraversionControllerItem>) {
   }
 }
 
@@ -572,13 +580,22 @@ class RuleRefTraverser extends EmptyTraverser {
   linkedRuleEntry: EntryPointTraverser;
   currentFirstStepsDup: TerminalRefTraverser[];
 
-
   constructor(parser: ParseTableGenerator, parent: RuleElementTraverser, node: PRuleRef) {
     super(parser, parent, node);
     this.parser.allRuleReferences.push(this);
     this.targetRule = Analysis.ruleTable[this.node.ruleIndex];
     this.recursive = !!this.findRuleNodeParent(this.node.rule);
   }
+
+  /*  
+  get traversion(): LinearTraversion {
+    if (!this._traversion) {
+      this._traversion = new LinearTraversion(this);
+      this._traversion.traverse(TraversionPurpose.FIND_NEXT_TOKENS);
+    }
+    return this._traversion;
+  }*/
+
 
   lazyCouldGenerateNew() {
     if (this.linkedRuleEntry) {
@@ -606,16 +623,19 @@ class RuleRefTraverser extends EmptyTraverser {
 
   pushPrefixControllerItem(inTraversion: LinearTraversion) {
     var item: TraversionControllerItem;
-    if (inTraversion.all[this.targetRule.nodeIdx]) {
-      //mark it is a backward jump
-      item = new TraversionControllerItem(TraversionItemKind.RECURSIVE_RULE, this.linkedRuleEntry, inTraversion.length);
-    } else {
-      item = new TraversionControllerItem(TraversionItemKind.RULE, this.linkedRuleEntry, inTraversion.length);
-    }
+    item = new TraversionControllerItem(TraversionItemKind.RULE, this.linkedRuleEntry, inTraversion.length);
+
     inTraversion.push(item);
   }
 
-  traversionActions(inTraversion: LinearTraversion, step: TraversionControllerItem) {
+  traversionActions(inTraversion: LinearTraversion, step: TraversionControllerItem, allAndInherited?: NumMapLike<TraversionControllerItem>) {
+
+    if (allAndInherited[this.targetRule.nodeIdx]) {
+      //it is a backward jump
+    } else {
+      this.linkedRuleEntry.traversion.traverse(TraversionPurpose.FIND_NEXT_TOKENS, null, 0, allAndInherited);
+    }
+
     switch (inTraversion.purpose) {
 
       case TraversionPurpose.FIND_NEXT_TOKENS:
@@ -708,19 +728,13 @@ export class EntryPointTraverser extends SingleTraverser {
 
   node: PRule;
   index: number;
-  _traversion: LinearTraversion;
+  traversion: LinearTraversion;
+
 
   constructor(parser: ParseTableGenerator, parent: RuleElementTraverser, node: PRule) {
     super(parser, parent, node);
     this.index = node.index;
-  }
-
-  get traversion(): LinearTraversion {
-    if (!this._traversion) {
-      this._traversion = new LinearTraversion(this);
-      this._traversion.traverse(TraversionPurpose.FIND_NEXT_TOKENS);
-    }
-    return this._traversion;
+    this.traversion = new LinearTraversion(this.linkedRuleEntry);
   }
 
 
