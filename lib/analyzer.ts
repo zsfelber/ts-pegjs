@@ -330,19 +330,15 @@ enum TraversionItemActionKind {
   STOP,  CONTINUE/*default*/
 }
 
-class TraversionSequenceVars {
-  inside = false;
-}
-
 class TraversionCache {
   collectedTerminals: TerminalRefTraverser[] = [];
 
-  private sequences: TraversionSequenceVars[] = [];
+  private nodeLocals: any[] = [];
 
-  sequencesLocal(seq: SequenceTraverser) {
-    var r = this.sequences[seq.node.nodeIdx];
+  nodeLocal(node: RuleElementTraverser) {
+    var r = this.nodeLocals[node.nodeTravId];
     if (!r) {
-      this.sequences[seq.node.nodeIdx] = r = [];
+      this.nodeLocals[node.nodeTravId] = r = [];
     }
     return r;
   }
@@ -563,12 +559,12 @@ class SequenceTraverser extends RuleElementTraverser {
 
   traversionActions(inTraversion: LinearTraversion, step: TraversionControllerItem, cache: TraversionCache) {
 
-    var sloc = cache.sequencesLocal(this);
+    var traverseLocals = cache.nodeLocal(this);
 
     switch (inTraversion.purpose) {
       case TraversionPurpose.FIND_NEXT_TOKENS:
 
-        if (sloc.inside) {
+        if (traverseLocals.steppingFromInsideThisSequence) {
           if (!step.previousChild.node.allowStepThrough) {
             inTraversion.execute(TraversionItemActionKind.STOP, step);
           }
@@ -578,12 +574,12 @@ class SequenceTraverser extends RuleElementTraverser {
           }
         }
 
-        sloc.inside = false;
+        traverseLocals.steppingFromInsideThisSequence = false;
 
         break;
       case TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN:
 
-        sloc.inside = true;
+        traverseLocals.steppingFromInsideThisSequence = true;
 
         inTraversion.execute(TraversionItemActionKind.STEP_PURPOSE, step);
         break;
