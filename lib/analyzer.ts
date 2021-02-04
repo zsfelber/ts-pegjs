@@ -627,11 +627,14 @@ class OrMoreTraverser extends SingleCollectionTraverser {
 }
 
 
+// node.allowStepThrough == true 
+
 class ZeroOrMoreTraverser extends OrMoreTraverser {
 
 
 }
 
+// node.allowStepThrough == false 
 
 class OneOrMoreTraverser extends OrMoreTraverser {
 
