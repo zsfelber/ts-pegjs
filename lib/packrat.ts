@@ -6,7 +6,7 @@ export const peg$SUCCESS: Readonly<any> = {};
 
 export namespace Packrat {
 
-  export var ruleTable: EntryPointParser[];
+  export var ruleTable: EntryPointInterpreter[];
 
 }
 
@@ -16,26 +16,26 @@ namespace Factory {
   export function createParser(node: PValueNode) {
     switch (node.kind) {
       case PNodeKind.CHOICE:
-        return new ChoiceParser(node);
+        return new ChoiceInterpreter(node);
       case PNodeKind.SEQUENCE:
       case PNodeKind.SINGLE:
-        return new SequenceParser(node);
+        return new SequenceInterpreter(node);
       case PNodeKind.OPTIONAL:
-        return new OptionalParser(node);
+        return new OptionalInterpreter(node);
       case PNodeKind.SEMANTIC_AND:
-        return new SemanticAndParser(node);
+        return new SemanticAndInterpreter(node);
       case PNodeKind.SEMANTIC_NOT:
-        return new SemanticNotParser(node);
+        return new SemanticNotInterpreter(node);
       case PNodeKind.ZERO_OR_MORE:
-        return new ZeroOrMoreParser(node);
+        return new ZeroOrMoreInterpreter(node);
       case PNodeKind.ONE_OR_MORE:
-        return new OneOrMoreParser(node);
+        return new OneOrMoreInterpreter(node);
       case PNodeKind.RULE_REF:
-        return new RuleRefParser(node as PRuleRef);
+        return new RuleRefInterpreter(node as PRuleRef);
       case PNodeKind.TERMINAL_REF:
-        return new TerminalRefParser(node as PTerminalRef);
+        return new TerminalRefInterpreter(node as PTerminalRef);
       case PNodeKind.RULE:
-        return new EntryPointParser(node as PRule);
+        return new EntryPointInterpreter(node as PRule);
   
     }
   }
@@ -65,11 +65,11 @@ class RuleProcessStack {
 
 
 // NOTE Not exported.  The only exported one is EntryPointParser
-abstract class RuleElementParser {
+abstract class RuleElementInterpreter {
 
-  readonly parent: RuleElementParser;
+  readonly parent: RuleElementInterpreter;
   readonly node: PValueNode;
-  readonly children: RuleElementParser[] = [];
+  readonly children: RuleElementInterpreter[] = [];
 
   constructor(node: PValueNode) {
     this.node = node;
@@ -112,7 +112,7 @@ abstract class RuleElementParser {
 
 
 // NOTE Not exported.  The only exported one is EntryPointParser
-class ChoiceParser extends RuleElementParser {
+class ChoiceInterpreter extends RuleElementInterpreter {
 
   parseImpl(stack: RuleProcessStack) {
     this.children.forEach(n => {
@@ -126,7 +126,7 @@ class ChoiceParser extends RuleElementParser {
 }
 
 // NOTE Not exported.  The only exported one is EntryPointParser
-class SequenceParser extends RuleElementParser {
+class SequenceInterpreter extends RuleElementInterpreter {
 
   parseImpl(stack: RuleProcessStack) {
 
@@ -146,9 +146,9 @@ class SequenceParser extends RuleElementParser {
 }
 
 // NOTE Not exported.  The only exported one is EntryPointParser
-abstract class SingleCollectionParser extends RuleElementParser {
+abstract class SingleCollectionInterpreter extends RuleElementInterpreter {
   
-  child: RuleElementParser;
+  child: RuleElementInterpreter;
 
   checkConstructFailed() {
     if (this.children.length !== 1) {
@@ -160,7 +160,7 @@ abstract class SingleCollectionParser extends RuleElementParser {
 }
 
 // NOTE Not exported.  The only exported one is EntryPointParser
-abstract class SingleParser extends SingleCollectionParser {
+abstract class SingleInterpreter extends SingleCollectionInterpreter {
 
   
   parse(stack: RuleProcessStack) {
@@ -189,7 +189,7 @@ abstract class SingleParser extends SingleCollectionParser {
 
 
 // NOTE Not exported.  The only exported one is EntryPointParser
-abstract class EmptyParser extends RuleElementParser {
+abstract class EmptyInterpreter extends RuleElementInterpreter {
   
   checkConstructFailed() {
     if (this.children.length !== 0) {
@@ -201,7 +201,7 @@ abstract class EmptyParser extends RuleElementParser {
 
 
 // NOTE Not exported.  The only exported one is EntryPointParser
-class OptionalParser extends SingleParser {
+class OptionalInterpreter extends SingleInterpreter {
 
   parseImpl(stack: RuleProcessStack) {
 
@@ -220,7 +220,7 @@ class OptionalParser extends SingleParser {
 }
 
 // NOTE Not exported.  The only exported one is EntryPointParser
-class ZeroOrMoreParser extends SingleCollectionParser {
+class ZeroOrMoreInterpreter extends SingleCollectionInterpreter {
 
   parseImpl(stack: RuleProcessStack) {
 
@@ -241,7 +241,7 @@ class ZeroOrMoreParser extends SingleCollectionParser {
 }
 
 // NOTE Not exported.  The only exported one is EntryPointParser
-class OneOrMoreParser extends SingleCollectionParser {
+class OneOrMoreInterpreter extends SingleCollectionInterpreter {
 
   parseImpl(stack: RuleProcessStack) {
 
@@ -267,10 +267,10 @@ class OneOrMoreParser extends SingleCollectionParser {
 }
 
 // NOTE Not exported.  The only exported one is EntryPointParser
-class RuleRefParser extends EmptyParser {
+class RuleRefInterpreter extends EmptyInterpreter {
 
   node: PRuleRef;
-  ruleEntryParser: EntryPointParser;
+  ruleEntryParser: EntryPointInterpreter;
 
   constructor(node: PRuleRef) {
     super(node);
@@ -294,7 +294,7 @@ class RuleRefParser extends EmptyParser {
 
 
 // NOTE Not exported.  The only exported one is EntryPointParser
-class TerminalRefParser extends EmptyParser {
+class TerminalRefInterpreter extends EmptyInterpreter {
 
   node: PTerminalRef;
 
@@ -319,7 +319,7 @@ class TerminalRefParser extends EmptyParser {
 
 
 // NOTE Not exported.  The only exported one is EntryPointParser
-abstract class SemanticParser extends SingleParser {
+abstract class SemanticInterpreter extends SingleInterpreter {
   checkConstructFailed() {
     var dirty = super.checkConstructFailed();
     if (!this.node.action || !this.node.action.fun) {
@@ -331,7 +331,7 @@ abstract class SemanticParser extends SingleParser {
 }
 
 // NOTE Not exported.  The only exported one is EntryPointParser
-class SemanticAndParser extends SemanticParser {
+class SemanticAndInterpreter extends SemanticInterpreter {
   parseImpl(stack: RuleProcessStack) {
     var boolres = this.node.action.fun.apply(stack.parser, stack);
     if (boolres)
@@ -342,7 +342,7 @@ class SemanticAndParser extends SemanticParser {
 }
 
 // NOTE Not exported.  The only exported one is EntryPointParser
-class SemanticNotParser extends SingleParser {
+class SemanticNotInterpreter extends SingleInterpreter {
   parseImpl(stack: RuleProcessStack) {
     var boolres = this.node.action.fun.apply(stack.parser, stack);
     if (boolres)
@@ -395,11 +395,11 @@ export abstract class PackratRunner {
   abstract set pos(topos: number);
   
   abstract get numRules(): number;
-  abstract cacheKey(rule: EntryPointParser): number;
+  abstract cacheKey(rule: EntryPointInterpreter): number;
   abstract next(): IToken;
-  abstract rule(index: number): EntryPointParser;
+  abstract rule(index: number): EntryPointInterpreter;
   
-  run(rule: EntryPointParser): any {
+  run(rule: EntryPointInterpreter): any {
     const key = this.cacheKey(rule);
     const cached: ICached = this.peg$resultsCache[key];
     if (cached) {
@@ -434,7 +434,7 @@ export abstract class PackratRunner {
 //   ..   A   R   S   E   R
 //   !!
 //
-export class EntryPointParser extends SingleParser {
+export class EntryPointInterpreter extends SingleInterpreter {
 
   node: PRule;
   index: number;

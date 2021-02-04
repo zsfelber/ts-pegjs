@@ -468,3 +468,4 @@ function hex(ch) {
 export * from "./parsers";
 export * from "./analyzer";
 export * from "./packrat";
+export * from "./jmptblrunner";

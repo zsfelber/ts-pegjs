@@ -179,6 +179,7 @@ export class ParseTable {
 
   static deserialize(code: number[]) {
     //SerDeser.ruleTable
+    
   }
 
   ser(): number[] {
