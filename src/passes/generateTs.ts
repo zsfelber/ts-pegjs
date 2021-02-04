@@ -193,7 +193,7 @@ function generateTS(ast, ...args) {
         '    this.input = input;',
         '    this.options = options !== undefined ? options : {};',
         '',
-        ''
+        '  }'
       ].join('\n')
     );
 
@@ -650,7 +650,7 @@ function pushc(cache: any, item: any): any {
             name = action.ownerRule.symbol;
           }
           name += "$" + action.index;
-          return "PegjsParser.prototype." + name;
+          return "PegjsParser0.prototype." + name;
         }).join(", "),
         "];"
       ].join('\n'));

@@ -154,7 +154,7 @@ function generateTS(ast) {
             '    this.input = input;',
             '    this.options = options !== undefined ? options : {};',
             '',
-            ''
+            '  }'
         ].join('\n'));
         parts.push([
             '',
