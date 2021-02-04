@@ -371,7 +371,9 @@ class LinearTraversion {
     item.children.forEach(child => {
       if (item.checkLoopIsFinitePrefix(this, child, newRecursionStack)) {
         var separator: TraversionControllerItem;
-        if (!first) {
+        if (first) {
+          first = 0;
+        } else {
           separator = new TraversionControllerItem(this, TraversionItemKind.NEXT_SUBTREE, item, this.length);
           separator.child = child;
           separator.previousChild = previousChild;
@@ -384,8 +386,9 @@ class LinearTraversion {
           separator.toPosition = this.length;
         }
         previousChild = child;
+
+        item.checkLoopIsFinitePostfix(this, child, newRecursionStack);
       }
-      item.checkLoopIsFinitePostfix(this, child, newRecursionStack);
 
     });
 
