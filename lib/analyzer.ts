@@ -233,6 +233,7 @@ class TraversionControllerItem {
   terminal: TerminalRefTraverser;
   value: RuleElementTraverser;
   child: RuleElementTraverser;
+  previousChild: RuleElementTraverser;
 
   fromPosition: number;
   toPosition: number;
@@ -308,11 +309,13 @@ class LinearTraversion {
     item.pushPrefixControllerItem(this);
 
     var first = 1;
+    var previousChild = null;
     item.children.forEach(child => {
       var separator: TraversionControllerItem;
       if (!first) {
         separator = new TraversionControllerItem(TraversionItemKind.NEXT_SUBTREE, item, this.length);
         separator.child = child;
+        separator.previousChild = previousChild;
         this.push(separator);
       }
 
@@ -321,6 +324,7 @@ class LinearTraversion {
       if (separator) {
         separator.toPosition = this.length;
       }
+      previousChild = child;
     });
 
     item.pushPostfixControllerItem(this);
@@ -467,7 +471,7 @@ class SequenceTraverser extends RuleElementTraverser {
     switch (inTraversion.purpose) {
       case TraversionPurpose.FIND_NEXT_TOKENS:
         if (step.kind === TraversionItemKind.NEXT_SUBTREE) {
-          if (!step.child.node.allowStepThrough) {
+          if (!step.previousChild.node.allowStepThrough) {
             inTraversion.execute(TraversionItemActionKind.OMIT_SUBTREE, step);
           }
         }
@@ -524,24 +528,9 @@ class EmptyTraverser extends RuleElementTraverser {
 // NOTE Not exported.  The only exported one is EntryPointTraverser
 class OptionalTraverser extends SingleTraverser {
 
-  pushPostfixControllerItem(inTraversion: LinearTraversion) {
-    var itm = new TraversionControllerItem(TraversionItemKind.OPTIONAL, this, inTraversion.length);
-    inTraversion.push(itm);
-  }
-
-  traversionActions(inTraversion: LinearTraversion, step: TraversionControllerItem) {
-    switch (inTraversion.purpose) {
-      case TraversionPurpose.FIND_NEXT_TOKENS:
-
-        break;
-      case TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN:
-        break;
-    }
-  }
 }
 
-// NOTE Not exported.  The only exported one is EntryPointTraverser
-class ZeroOrMoreTraverser extends SingleCollectionTraverser {
+class OrMoreTraverser extends SingleCollectionTraverser {
 
   crrTrItem: TraversionControllerItem;
 
@@ -564,27 +553,16 @@ class ZeroOrMoreTraverser extends SingleCollectionTraverser {
         break;
     }
   }
+}
+
+// NOTE Not exported.  The only exported one is EntryPointTraverser
+class ZeroOrMoreTraverser extends OrMoreTraverser {
 
 
 }
 
 // NOTE Not exported.  The only exported one is EntryPointTraverser
-class OneOrMoreTraverser extends SingleCollectionTraverser {
-
-  pushPostfixControllerItem(inTraversion: LinearTraversion) {
-    inTraversion.push(new TraversionControllerItem(TraversionItemKind.REPEAT, this, inTraversion.length));
-  }
-
-  traversionActions(inTraversion: LinearTraversion, step: TraversionControllerItem) {
-    switch (inTraversion.purpose) {
-      case TraversionPurpose.FIND_NEXT_TOKENS:
-        break;
-      case TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN:
-        inTraversion.execute(TraversionItemActionKind.SET_POSITION, step, step.fromPosition);
-        inTraversion.execute(TraversionItemActionKind.CHANGE_PURPOSE, step, inTraversion.purposeThen);
-        break;
-    }
-  }
+class OneOrMoreTraverser extends OrMoreTraverser {
 
 }
 
