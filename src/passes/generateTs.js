@@ -2,11 +2,11 @@
 /* eslint-disable quotes */
 'use strict';
 Object.defineProperty(exports, "__esModule", { value: true });
-// Adapted from base: (original file: generate-bycode.js for codegen JS)
-// Adapted for Typescript codegen (c) 2017, Pedro J. Molina
 var pack = require("../../package.json");
 var ppack = require("pegjs/package.json");
 var lib_1 = require("../../lib");
+var analyzer_1 = require("../../lib/analyzer");
+var lib_2 = require("../../lib");
 // Generates parser JavaScript code.
 function generateTS(ast) {
     var args = [];
@@ -125,47 +125,16 @@ function generateTS(ast) {
         parts.push(['', 'return ' + resultCode + ';'].join('\n'));
         return parts.join('\n');
     }
-    function generateToplevel() {
+    function generateBaseClass() {
         var parts = [];
-        // interfaces removed from here , it is better to import
+        var baseTokenType = options.baseTokenType ? options.baseTokenType : "IToken";
         var r0 = options.allowedStartRules.length === 1 ? options.allowedStartRules[0] : '';
         var startType = ast.inferredTypes[r0];
         startType = startType ? ': ' + startType : '';
         parts.push([
-            'export interface IParseOptions {',
-            '  filename?: string;',
-            '  startRule?: (string | RuleId);',
-            '  tracer?: any;',
-            '  [key: string]: any;',
-            '  customCache?: {[id: number]: ICached};',
-            '}',
-            ''
-        ].join('\n'));
-        var baseTokenType = options.baseTokenType ? options.baseTokenType : "IToken";
-        if (options.optimize === 'size') {
-            parts.push('');
-        }
-        else {
-            var startRuleFunctions = 'new Map<RuleId,() => any>(); ' +
-                options.allowedStartRules
-                    .map(function (r) { return 'peg$startRuleFunctions[RuleId.' + r + '] = peg$parse' + r; })
-                    .join('; ') +
-                '';
-            var startRuleFunction = 'peg$parse' + options.allowedStartRules[0];
-            parts.push([
-                '  const peg$startRuleFunctions = ' + startRuleFunctions + ';',
-                '  let peg$startRuleFunction: () => any = ' + startRuleFunction + ';'
-            ].join('\n'));
-        }
-        if (options.profiling) {
-            var ProfilingInfo = "export var ProfilingInfo = {\n  mainEntries: null,  ruleEntries: null\n};\n\nvar currentMain;\n\nfunction pushc(cache: any, item: any): any {\n    var items = cache[item];\n    if (!items) {\n        cache[item] = items = {entriescnt:0, cachedcnt:0, iterationscnt:0};\n    }\n    return items;\n}";
-            parts.push(ProfilingInfo);
-        }
-        parts.push('');
-        parts.push([
             '',
             '',
-            'export class PegjsParser<T extends ' + baseTokenType + ', I extends PegjsParseStream<T>> extends PackratRunner {',
+            'export class PegjsParser0<T extends ' + baseTokenType + ', I extends PegjsParseStream<T>> {',
             '',
             '  options: IParseOptions;',
             '  input: I;',
@@ -173,82 +142,19 @@ function generateTS(ast) {
             '  localFailPos = 0;',
             '  maxFailExpected: Expectation[] = [];',
             '  peg$silentFails = 0;',
-            '  peg$result;',
+            '  peg$result' + startType + ';',
             '  currentRule: RuleId;',
             '',
             '  get result' + startType + '() { return this.peg$result; }',
             ''
         ].join('\n'));
-        if (options.tspegjs.customFields) {
-            parts.push(indent2(options.tspegjs.customFields.join('\n')));
-        }
-        parts.push(['  readonly peg$resultsCache: {[id: number]: ICached};', ''].join('\n'));
         parts.push([
             '',
             '  constructor(' + param0 + 'input: I, options?: IParseOptions) {',
-            '    super();',
             '    this.input = input;',
             '    this.options = options !== undefined ? options : {};',
             '',
-            '    if (this.options.customCache)',
-            '      this.peg$resultsCache = this.options.customCache;',
             ''
-        ].join('\n'));
-        if (options.tspegjs.customInit) {
-            parts.push(indent4(options.tspegjs.customInit.join('\n')));
-        }
-        parts.push([
-            '    this.init();',
-            '  }',
-            '',
-            '  parse(silent: boolean, peg$startRuleIndex: RuleId = 0): IFailure {',
-            '    const input = this.input;',
-            ''
-        ].join('\n'));
-        parts.push([
-            '    if (peg$startRuleIndex) {',
-            '      if (!(StartRules.get(peg$startRuleIndex))) {',
-            '        throw new Error("Can\'t start parsing from rule \\"" + RuleNames[peg$startRuleIndex] + "\\".");',
-            '      }',
-            '    }'
-        ].join('\n'));
-        if (options.profiling) {
-            parts.push([
-                '',
-                '    var M = ProfilingInfo.mainEntries = pushc(ProfilingInfo, "mainEntries");',
-                '    ProfilingInfo.ruleEntries = pushc(ProfilingInfo, "ruleEntries");',
-                '',
-                '    currentMain = pushc(M, RuleNames[peg$startRuleIndex]);',
-                '    M.mainentriescnt = M.mainentriescnt? M.mainentriescnt+1 : 1;',
-                '    currentMain.mainentriescnt = currentMain.mainentriescnt? currentMain.mainentriescnt+1 : 1;',
-            ].join('\n'));
-        }
-        if (ast.initializer) {
-            parts.push(indent4(ast.initializer.code));
-            parts.push('');
-        }
-        parts.push('');
-        parts.push('');
-        parts.push('    var entry = peg$rules[peg$startRuleIndex];');
-        parts.push('    this.peg$result = this.run(entry);');
-        parts.push([
-            '',
-            '    if (this.peg$result !== peg$FAILED) {',
-            '      if (input.length > this.input.currPos) {',
-            '        this.peg$fail(peg$endExpectation());',
-            '      } else {',
-            '        return;',
-            '      }',
-            '    }',
-            '',
-            '    const f = this.peg$failure();',
-            '    if (silent) {',
-            '       return f;',
-            '    } else {',
-            '       throw new SyntaxError(this.peg$buildFailureReport(f));',
-            '    }',
-            '',
-            '  }'
         ].join('\n'));
         parts.push([
             '',
@@ -356,7 +262,131 @@ function generateTS(ast) {
             parts = parts.concat(genMainFunc(action));
         });
         parts.push(indent2(ast.fields.join('\n')));
-        parts.push(['', '}', ''].join('\n'));
+        parts.push(['}', ''].join('\n'));
+        return parts.join('\n');
+    }
+    function generatePackrat() {
+        var parts = [];
+        var baseTokenType = options.baseTokenType ? options.baseTokenType : "IToken";
+        var r0 = options.allowedStartRules.length === 1 ? options.allowedStartRules[0] : '';
+        var startType = ast.inferredTypes[r0];
+        startType = startType ? ': ' + startType : '';
+        parts.push([
+            '',
+            '',
+            'export class PegjsPackratParser<T extends ' + baseTokenType + ', I extends PegjsParseStream<T>> extends PackratRunner {',
+            '',
+            '  options: IParseOptions;',
+            '  input: I;',
+            '',
+            '  localFailPos = 0;',
+            '  maxFailExpected: Expectation[] = [];',
+            '  peg$silentFails = 0;',
+            '  peg$result;',
+            '  currentRule: RuleId;',
+            '',
+            '  get result' + startType + '() { return this.peg$result; }',
+            ''
+        ].join('\n'));
+        if (options.tspegjs.customFields) {
+            parts.push(indent2(options.tspegjs.customFields.join('\n')));
+        }
+        parts.push(['  readonly peg$resultsCache: {[id: number]: ICached};', ''].join('\n'));
+        parts.push([
+            '',
+            '  constructor(' + param0 + 'input: I, options?: IParseOptions) {',
+            '    super();',
+            '    this.input = input;',
+            '    this.options = options !== undefined ? options : {};',
+            '',
+            '    if (this.options.customCache)',
+            '      this.peg$resultsCache = this.options.customCache;',
+            ''
+        ].join('\n'));
+        if (options.tspegjs.customInit) {
+            parts.push(indent4(options.tspegjs.customInit.join('\n')));
+        }
+        parts.push([
+            '    this.init();',
+            '  }',
+            '',
+            '  parse(silent: boolean, peg$startRuleIndex: RuleId = 0): IFailure {',
+            '    const input = this.input;',
+            ''
+        ].join('\n'));
+        parts.push([
+            '    if (peg$startRuleIndex) {',
+            '      if (!(StartRules.get(peg$startRuleIndex))) {',
+            '        throw new Error("Can\'t start parsing from rule \\"" + RuleNames[peg$startRuleIndex] + "\\".");',
+            '      }',
+            '    }'
+        ].join('\n'));
+        if (options.profiling) {
+            parts.push([
+                '',
+                '    var M = ProfilingInfo.mainEntries = pushc(ProfilingInfo, "mainEntries");',
+                '    ProfilingInfo.ruleEntries = pushc(ProfilingInfo, "ruleEntries");',
+                '',
+                '    currentMain = pushc(M, RuleNames[peg$startRuleIndex]);',
+                '    M.mainentriescnt = M.mainentriescnt? M.mainentriescnt+1 : 1;',
+                '    currentMain.mainentriescnt = currentMain.mainentriescnt? currentMain.mainentriescnt+1 : 1;',
+            ].join('\n'));
+        }
+        if (ast.initializer) {
+            parts.push(indent4(ast.initializer.code));
+            parts.push('');
+        }
+        parts.push('');
+        parts.push('');
+        parts.push('    var entry = peg$rules[peg$startRuleIndex];');
+        parts.push('    this.peg$result = this.run(entry);');
+        parts.push([
+            '',
+            '    if (this.peg$result !== peg$FAILED) {',
+            '      if (input.length > this.input.currPos) {',
+            '        this.peg$fail(peg$endExpectation());',
+            '      } else {',
+            '        return;',
+            '      }',
+            '    }',
+            '',
+            '    const f = this.peg$failure();',
+            '    if (silent) {',
+            '       return f;',
+            '    } else {',
+            '       throw new SyntaxError(this.peg$buildFailureReport(f));',
+            '    }',
+            '',
+            '  }'
+        ].join('\n'));
+        parts.push(['}', ''].join('\n'));
+        return parts.join('\n');
+    }
+    function generateToplevel() {
+        var parts = [];
+        // interfaces removed from here , it is better to import
+        var r0 = options.allowedStartRules.length === 1 ? options.allowedStartRules[0] : '';
+        var startType = ast.inferredTypes[r0];
+        startType = startType ? ': ' + startType : '';
+        parts.push([
+            'export interface IParseOptions {',
+            '  filename?: string;',
+            '  startRule?: (string | RuleId);',
+            '  tracer?: any;',
+            '  [key: string]: any;',
+            '  customCache?: {[id: number]: ICached};',
+            '}',
+            ''
+        ].join('\n'));
+        var baseTokenType = options.baseTokenType ? options.baseTokenType : "IToken";
+        if (options.profiling) {
+            var ProfilingInfo = "export var ProfilingInfo = {\n  mainEntries: null,  ruleEntries: null\n};\n\nvar currentMain;\n\nfunction pushc(cache: any, item: any): any {\n    var items = cache[item];\n    if (!items) {\n        cache[item] = items = {entriescnt:0, cachedcnt:0, iterationscnt:0};\n    }\n    return items;\n}";
+            parts.push(ProfilingInfo);
+        }
+        parts.push('');
+        parts.push(generateBaseClass());
+        parts.push('');
+        parts.push(generatePackrat());
         return parts.join('\n');
     }
     function generateGeneratedByComment() {
@@ -401,6 +431,47 @@ function generateTS(ast) {
             ''
         ]);
         return res.join('\n');
+    }
+    function generateParseTable() {
+        var ri = 0;
+        var ruleMap = {};
+        ast.rules.forEach(function (r) { ruleMap[r.name] = ri++; });
+        var parseTbl = [];
+        lib_2.Analysis.ruleTable = grammar.rules;
+        options.allowedStartRules.forEach(function (r) {
+            ri = ruleMap[r];
+            var rule = grammar.children[ri];
+            if (rule.rule !== r) {
+                console.error("Something wrong '" + r + "' != '" + rule.rule + "'");
+                throw new Error();
+            }
+            var parseTable = analyzer_1.ParseTable.createForRule(rule);
+            parseTbl.push("const PrsTbl" + r + ' = "' + verySimplePackMany0(lib_1.CodeTblToHex(parseTable.ser()).join('')) + '";');
+            // var chi = 0;
+            // parseTable.dependencies.forEach(parseTable=>{
+            //   if (!ast.rules[parseTable.rule.rule]) {
+            //     result.push("const Tbl"+parseTable.rule.rule+' /*generated dependency*/ = "'+CodeTblToHex(parseTable.ser()).join('')+'";');
+            //   }
+            //   chi++;
+            // });
+        });
+        parseTbl.push("");
+        parseTbl.push("const PrsTbls = {" + options.allowedStartRules.map(function (r) { return ruleMap[r] + ": PrsTbl" + r; }).join(", ") + "};");
+        if (lib_2.Analysis.ERRORS) {
+            console.error("Errors. Not generating (but for debugging only).");
+        }
+        return parseTbl;
+    }
+    function verySimplePackMany0(raw) {
+        var result = "";
+        var R = /0{10,}/g;
+        var li = 0;
+        for (var ra; ra = R.exec(raw);) {
+            result += raw.substring(li, ra.index);
+            result += "{" + ra[0].length.toString(16).toUpperCase() + "}";
+            li = R.lastIndex;
+        }
+        return result;
     }
     function generateTables() {
         var tables = [
@@ -459,6 +530,10 @@ function generateTS(ast) {
             "SerDeser.functionTable = peg$functions;",
             "SerDeser.ruleTable = peg$rules;"
         ].join('\n'));
+        tables.push("");
+        tables.push("");
+        tables = tables.concat(generateParseTable());
+        tables.push("");
         //TODO
         /*
         if (options.optimize === 'size') {
