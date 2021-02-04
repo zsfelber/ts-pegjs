@@ -225,7 +225,7 @@ export class GrammarAnalysisState {
 }
 
 enum TraversionItemKind {
-  RULE, RECURSIVE_RULE, TERMINAL, NEXT_SUBTREE
+  RULE, RECURSIVE_RULE, REPEAT, TERMINAL, NEXT_SUBTREE
 }
 class TraversionItem {
   kind: TraversionItemKind;
@@ -249,7 +249,9 @@ class TraversionItem {
       case TraversionItemKind.TERMINAL:
         this.terminal = v as any;
         break;
+      case TraversionItemKind.REPEAT:
       case TraversionItemKind.NEXT_SUBTREE:
+
         break;
       default:
         throw new Error();
@@ -297,7 +299,7 @@ class Traversion {
 
   private createRecursively(item: RuleElementTraverser) {
 
-    item.pushItemsToLinearTraversion(this);
+    item.pushPrefixItemsToLinearTraversion(this);
 
     var first = 1;
     item.children.forEach(child => {
@@ -313,6 +315,8 @@ class Traversion {
         separator.toPosition = this.length;
       }
     });
+
+    item.pushPostfixItemsToLinearTraversion(this);
   }
 
   push(item: TraversionItem) {
@@ -410,7 +414,10 @@ abstract class RuleElementTraverser {
     }
   }
 
-  pushItemsToLinearTraversion(inTraversion: Traversion) {
+  pushPrefixItemsToLinearTraversion(inTraversion: Traversion) {
+  }
+
+  pushPostfixItemsToLinearTraversion(inTraversion: Traversion) {
   }
 
   traversionActions(inTraversion: Traversion, step: TraversionItem) {
@@ -510,13 +517,16 @@ class OptionalTraverser extends SingleTraverser {
 // NOTE Not exported.  The only exported one is EntryPointTraverser
 class ZeroOrMoreTraverser extends SingleCollectionTraverser {
 
+  pushPostfixItemsToLinearTraversion(inTraversion: Traversion) {
+    inTraversion.push(new TraversionItem(TraversionItemKind.REPEAT, this, inTraversion.length));
+  }
 
   traversionActions(inTraversion: Traversion, step: TraversionItem) {
     switch (inTraversion.purpose) {
       case TraversionPurpose.FIND_NEXT_TOKENS:
         break;
       case TraversionPurpose.BACKSTEP_TO_PARENT:
-        this.pushItemsToLinearTraversion([], nextStepsFromTerminal);
+        inTraversion.traverse(TraversionPurpose.FIND_NEXT_TOKENS, null, step.fromPosition)
         break;
     }
   }
@@ -527,13 +537,16 @@ class ZeroOrMoreTraverser extends SingleCollectionTraverser {
 // NOTE Not exported.  The only exported one is EntryPointTraverser
 class OneOrMoreTraverser extends SingleCollectionTraverser {
 
+  pushPostfixItemsToLinearTraversion(inTraversion: Traversion) {
+    inTraversion.push(new TraversionItem(TraversionItemKind.REPEAT, this, inTraversion.length));
+  }
 
   traversionActions(inTraversion: Traversion, step: TraversionItem) {
     switch (inTraversion.purpose) {
       case TraversionPurpose.FIND_NEXT_TOKENS:
         break;
       case TraversionPurpose.BACKSTEP_TO_PARENT:
-        this.pushItemsToLinearTraversion([], nextStepsFromTerminal);
+        this.pushPrefixItemsToLinearTraversion([], nextStepsFromTerminal);
         break;
     }
   }
@@ -581,7 +594,7 @@ class RuleRefTraverser extends EmptyTraverser {
     return dirty;
   }
 
-  pushItemsToLinearTraversion(inTraversion: Traversion) {
+  pushPrefixItemsToLinearTraversion(inTraversion: Traversion) {
     var item: TraversionItem;
     if (inTraversion.all[this.targetRule.nodeIdx]) {
       //mark it is a backward jump
@@ -661,7 +674,7 @@ class TerminalRefTraverser extends EmptyTraverser {
     return dirty;
   }
 
-  pushItemsToLinearTraversion(inTraversion: Traversion) {
+  pushPrefixItemsToLinearTraversion(inTraversion: Traversion) {
     inTraversion.push(new TraversionItem(TraversionItemKind.TERMINAL, this, inTraversion.length));
   }
 
@@ -705,7 +718,7 @@ export class EntryPointTraverser extends SingleTraverser {
     }
   }
 
-  pushItemsToLinearTraversion(inTraversion: Traversion) {
+  pushPrefixItemsToLinearTraversion(inTraversion: Traversion) {
     inTraversion.push(new TraversionItem(TraversionItemKind.RULE, this, inTraversion.length));
   }
 
