@@ -1,9 +1,14 @@
-import { PValueNode, PNodeKind, PRuleRef, PTerminalRef, PRule, IToken, ICached, SerDeser, IParseRunner } from ".";
+import { ICached, IToken, PNodeKind, PRule, PRuleRef, PTerminalRef, PValueNode, SerDeser } from '.';
 
 export const peg$FAILED: Readonly<any> = {};
 
 export const peg$SUCCESS: Readonly<any> = {};
 
+export namespace Packrat {
+
+  export var ruleTable: EntryPointParser[];
+
+}
 
 // NOTE The only exported Parser is EntryPointParser
 namespace Factory {
@@ -39,12 +44,12 @@ namespace Factory {
 
 // NOTE Not exported.  The only exported one is EntryPointParser
 class RuleProcessStack {
-  parser: IParseRunner;
+  parser: PackratRunner;
   parent: RuleProcessStack;
   argsToLeft: any[];
 
   constructor(
-    parser: IParseRunner,
+    parser: PackratRunner,
     parent: RuleProcessStack,
     argsToLeft: any[]     ) {
       this.parser = parser;
@@ -57,15 +62,6 @@ class RuleProcessStack {
     return result;
   }
 }
-
-
-//
-// TODO for graph traverser parse tree generator
-// As I was thinking it is possible / even trivial 
-// !!!
-//export abstract class CollectJumpStatesRunner implements IParseRunner {
-//}
-//
 
 
 // NOTE Not exported.  The only exported one is EntryPointParser
@@ -278,7 +274,7 @@ class RuleRefParser extends EmptyParser {
 
   constructor(node: PRuleRef) {
     super(node);
-    this.ruleEntryParser = SerDeser.ruleTable[node.ruleIndex];
+    this.ruleEntryParser = Packrat.ruleTable[node.ruleIndex];
   }
 
   checkConstructFailed() {
@@ -383,7 +379,7 @@ class SemanticNotParser extends SingleParser {
 //   !!
 //
 
-export abstract class PackratRunner implements IParseRunner {
+export abstract class PackratRunner {
 
   _numRules: number;
   
