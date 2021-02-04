@@ -548,24 +548,26 @@ class RuleRefTraverser extends EmptyTraverser {
 
   createLinearTraversion(inTraversion: Traversion) {
     this.positionInTraversion = inTraversion.length;
-    // we don't create cycle
-    // also, it is semantically correct...
+    inTraversion.push(new TraversionItem(TraversionItemKind.RULE, this.linkedRuleEntry, inTraversion.length));
+  }
 
-    this.currentFirstStepsDup = [].concat(firstSteps);
+  firstStepsFromStartActions(inTraversion: Traversion, step: TraversionItem) {
 
     if (inTraversion.all[this.targetRule.nodeIdx]) {
 
       //backward jump : no new first step token possible
 
     } else {
-      inTraversion.push(new TraversionItem(TraversionItemKind.RULE, this.linkedRuleEntry, inTraversion.length));
-
       this.linkedRuleEntry.traversion.forEach(step => {
-        var applied = step.stackedRefClone(this);
-        firstSteps.push(applied);
-      });
+      var applied = step.stackedRefClone(this);
+      firstSteps.push(applied);
     }
   }
+
+  nextStepsFromTerminalActions(inTraversion: Traversion, step: TraversionItem) {
+
+  }
+
 
 
   findRuleNodeParent(rule: string, incl = false) {
@@ -616,6 +618,7 @@ class TerminalRefTraverser extends EmptyTraverser {
     this.positionInTraversion = inTraversion.length;
     inTraversion.push(new TraversionItem(TraversionItemKind.TERMINAL, this, inTraversion.length));
   }
+
 
   nextStepsFromTerminalAction(nextStepsFromTerminal: null, fromChild: null) {
     if (this.parent) this.parent.nextStepsFromTerminalAction(this.nextStepsFromTerminal, this);
