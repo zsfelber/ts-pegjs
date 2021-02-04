@@ -109,11 +109,12 @@ export class ParseTableGenerator {
     this.firstStates = this.firstStates.concat(this.mainEntryTraversion.collectedTerminals);
 
     // ================================================================
-    // NOTE   terminal reference <=>  persing state   
-    //                       in 1 : 1  relationship
+    // NOTE   terminal reference (node) <=>  persing state   
+    //                              in 1 : 1  relationship
     // ================================================================
 
-    // This simple loop generates all possible state transitions at once:
+    // So this simple loop generates all possible state transitions at once:
+
     this.allTerminalReferences.forEach(previousStep => {
       previousStep.stateTransitionsFromHere(this.mainEntryTraversion);
     });
@@ -169,7 +170,10 @@ export class GrammarAnalysisStateGenerator {
         transitions[nextTerm.node.value] = nextTerm.stateGen;
       }
     })
-    var result = new GrammarAnalysisState(this.index, this.startingPointTraverser ? this.startingPointTraverser.node : null, transitions);
+    var result = new GrammarAnalysisState(
+        this.index, 
+        this.startingPointTraverser ? this.startingPointTraverser.node : null, 
+        transitions);
     return result;
   }
 }
@@ -590,10 +594,13 @@ class RuleRefTraverser extends SingleTraverser {
 
   node: PRuleRef;
   recursiveRuleRefOriginal: RuleRefTraverser;
+  collectedFromIndex: number;
+  collectedToIndex: number;
+
   targetRule: PRule;
   linkedRuleEntry: EntryPointTraverser;
 
-  currentFirstStepsDup: TerminalRefTraverser[];
+  collectedTerminalsFromHereToRecursiveRepetition: TerminalRefTraverser[];
 
   constructor(parser: ParseTableGenerator, parent: RuleElementTraverser, node: PRuleRef) {
     super(parser, parent, node);
@@ -621,10 +628,6 @@ class RuleRefTraverser extends SingleTraverser {
       console.error("no this.targetRule  " + this.node);
       dirty = 1;
     }
-    this.recursive = !!this.findRuleNodeParent(this.node.rule);
-    if (this.recursive) {
-      console.warn("recursive : " + this.node);
-    }
     return dirty;
   }
 
@@ -637,6 +640,9 @@ class RuleRefTraverser extends SingleTraverser {
 
       return false;
     } else {
+
+      insertedItems[this.node.nodeIdx] = this;
+
       var tavItem = new TraversionControllerItem(inTraversion, TraversionItemKind.RULE, this.linkedRuleEntry, inTraversion.length);
       inTraversion.push(tavItem);
 
@@ -646,16 +652,24 @@ class RuleRefTraverser extends SingleTraverser {
 
   traversionActions(inTraversion: LinearTraversion, step: TraversionControllerItem) {
 
+    const r = this.recursiveRuleRefOriginal;
+
     switch (inTraversion.purpose) {
 
       case TraversionPurpose.FIND_NEXT_TOKENS:
         switch (step.kind) {
           case TraversionItemKind.RECURSIVE_RULE:
-            if (!this.recursiveRuleRefOriginal) throw new Error();
+            if (!r) throw new Error();
+
+            if (!r.collectedTerminalsFromHereToRecursiveRepetition) {
+              r.collectedToIndex = inTraversion.collectedTerminals.length;
+              r.collectedTerminalsFromHereToRecursiveRepetition =
+                inTraversion.collectedTerminals.slice(r.collectedFromIndex, r.collectedToIndex);
+            }
 
             // for transitions jumping to a recursive section,
             // generating a state which mapped to a sub - Starting- Rule- ParseTable :
-            this.recursiveRuleRefOriginal.collectedTerminals.forEach(infiniteItem => {
+            r.collectedTerminalsFromHereToRecursiveRepetition.forEach(infiniteItem => {
               var newSubruleStarter = infiniteItem.stackedRefClone(this);
               inTraversion.collectedTerminals.push(newSubruleStarter);
             });
@@ -664,7 +678,10 @@ class RuleRefTraverser extends SingleTraverser {
 
             break;
           case TraversionItemKind.RULE:
-            if (this.recursiveRuleRefOriginal) throw new Error();
+            if (r) throw new Error();
+
+            this.collectedFromIndex = inTraversion.collectedTerminals.length;;
+
             break;
           default:
             throw new Error();
@@ -734,11 +751,10 @@ class TerminalRefTraverser extends EmptyTraverser {
     inTraversion.push(this.traverserStep);
   }
 
-  traversionActions(inTraversion: LinearTraversion, step: TraversionControllerItem, all: NumMapLike<TraversionControllerItem>) {
+  traversionActions(inTraversion: LinearTraversion, step: TraversionControllerItem) {
     switch (inTraversion.purpose) {
       case TraversionPurpose.FIND_NEXT_TOKENS:
         inTraversion.collectedTerminals.push(this);
-        all["#"+this.node.nodeIdx] = step;
         break;
       case TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN:
         break;

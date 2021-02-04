@@ -136,6 +136,10 @@ export abstract class PNode {
       throw new Error("Invalid class cast from : "+this);
     }
   }
+  
+  get allowStepThrough() {
+    return false;
+  }
 
   toString() {
     return "" + this.kind;
