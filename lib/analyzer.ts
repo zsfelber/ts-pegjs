@@ -596,8 +596,6 @@ class SequenceTraverser extends RuleElementTraverser {
           }
         }
 
-        traverseLocals.steppingFromInsideThisSequence = false;
-
         break;
       case TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN:
 
