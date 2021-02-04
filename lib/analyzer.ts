@@ -98,9 +98,12 @@ export class ParseTableGenerator {
 
     this.mainEntryTraversion = mainEntryPoint.traversion;
 
+    // TODO return object
+    this.mainEntryTraversion.traverse(TraversionPurpose.FIND_NEXT_TOKENS);
+
     // NOTE binding each to all in linear time :
     this.allTerminalReferences.forEach(previousStep => {
-      previousStep.nextStepsFromTerminalAction(null, null);
+      previousStep.stateTransitionsFromHere(this.mainEntryTraversion);
     });
 
     var startingStateGen = new GrammarAnalysisStateGenerator(null, this.mainEntryTraversion);
@@ -276,6 +279,7 @@ class Traversion {
   readonly array: TraversionItem[];
 
   readonly purpose: TraversionPurpose;
+  purposeThen: TraversionPurpose;
   private position: number;
   private positionOk: boolean;
 
@@ -321,6 +325,7 @@ class Traversion {
       var item = this.array[this.position];
 
       item.value.traversionActions(this, item);
+      this.defaultActions();
 
       if (!this.positionOk) {
         this.position++;
@@ -328,6 +333,15 @@ class Traversion {
     }
   }
 
+  defaultActions() {
+    switch (this.purpose) {
+      case TraversionPurpose.BACKSTEP_TO_PARENT:
+        inTraversion.execute(TraversionItemActionKind.CHANGE_PURPOSE, step, 
+          TraversionPurpose.FIND_NEXT_TOKENS);
+  
+    }
+
+  }
   execute(action: TraversionItemActionKind, step: TraversionItem, ...etc) {
     switch (action) {
       case TraversionItemActionKind.OMIT_SUBTREE:
@@ -630,6 +644,7 @@ class TerminalRefTraverser extends EmptyTraverser {
   }
 
   stateTransitionsFromHere(rootTraversion: Traversion) {
+    rootTraversion.purposeThen = TraversionPurpose.FIND_NEXT_TOKENS;
     rootTraversion.traverse(TraversionPurpose.BACKSTEP_TO_PARENT, this.positionInTraversion);
   }
 
