@@ -678,9 +678,8 @@ class RuleRefTraverser extends SingleTraverser {
 
   checkLoopIsFinitePrefix(inTraversion: LinearTraversion, childPending: RuleElementTraverser, recursionCacheStack: StrMapLike<RuleElementTraverser>) {
 
-
-    // NOTE unique to rule ref nodes !
     this.recursiveRuleOriginal = recursionCacheStack[this.targetRule.nodeIdx] as RuleRefTraverser;
+
     if (this.recursiveRuleOriginal) {
       var tavItem = new TraversionControllerItem(inTraversion, TraversionItemKind.RECURSIVE_RULE, this.linkedRuleEntry, inTraversion.length);
       inTraversion.push(tavItem);
