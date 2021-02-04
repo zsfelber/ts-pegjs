@@ -215,6 +215,11 @@ export class PLogicNode extends PNode {
 
 export class PValueNode extends PLogicNode {
   label?: string;
+  get allowStepThrough() {
+    return this.kind === PNodeKind.EMPTY || this.kind === PNodeKind.OPTIONAL ||
+      this.kind === PNodeKind.SEMANTIC_AND || this.kind === PNodeKind.SEMANTIC_NOT ||
+      this.kind === PNodeKind.ZERO_OR_MORE;
+  }
 
   toString() {
     return this.kind + (this.label ? " " + this.label : "");

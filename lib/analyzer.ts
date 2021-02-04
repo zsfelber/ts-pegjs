@@ -232,6 +232,7 @@ class TraversionControllerItem {
   entry: EntryPointTraverser;
   terminal: TerminalRefTraverser;
   value: RuleElementTraverser;
+  child: RuleElementTraverser;
 
   fromPosition: number;
   toPosition: number;
@@ -250,8 +251,8 @@ class TraversionControllerItem {
         this.terminal = v as any;
         break;
         case TraversionItemKind.REPEAT:
-          case TraversionItemKind.OPTIONAL:
-            case TraversionItemKind.NEXT_SUBTREE:
+        case TraversionItemKind.OPTIONAL:
+        case TraversionItemKind.NEXT_SUBTREE:
 
         break;
       default:
@@ -311,6 +312,7 @@ class LinearTraversion {
       var separator: TraversionControllerItem;
       if (!first) {
         separator = new TraversionControllerItem(TraversionItemKind.NEXT_SUBTREE, item, this.length);
+        separator.child = child;
         this.push(separator);
       }
 
@@ -465,7 +467,9 @@ class SequenceTraverser extends RuleElementTraverser {
     switch (inTraversion.purpose) {
       case TraversionPurpose.FIND_NEXT_TOKENS:
         if (step.kind === TraversionItemKind.NEXT_SUBTREE) {
-          inTraversion.execute(TraversionItemActionKind.OMIT_SUBTREE, step);
+          if (!step.child.node.allowStepThrough) {
+            inTraversion.execute(TraversionItemActionKind.OMIT_SUBTREE, step);
+          }
         }
         break;
       case TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN:
@@ -526,6 +530,13 @@ class OptionalTraverser extends SingleTraverser {
   }
 
   traversionActions(inTraversion: LinearTraversion, step: TraversionControllerItem) {
+    switch (inTraversion.purpose) {
+      case TraversionPurpose.FIND_NEXT_TOKENS:
+
+        break;
+      case TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN:
+        break;
+    }
   }
 }
 
@@ -549,6 +560,7 @@ class ZeroOrMoreTraverser extends SingleCollectionTraverser {
         break;
       case TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN:
         inTraversion.execute(TraversionItemActionKind.SET_POSITION, step, step.fromPosition);
+        inTraversion.execute(TraversionItemActionKind.CHANGE_PURPOSE, step, inTraversion.purposeThen);
         break;
     }
   }
@@ -568,7 +580,8 @@ class OneOrMoreTraverser extends SingleCollectionTraverser {
       case TraversionPurpose.FIND_NEXT_TOKENS:
         break;
       case TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN:
-        this.pushPrefixControllerItem([], nextStepsFromTerminal);
+        inTraversion.execute(TraversionItemActionKind.SET_POSITION, step, step.fromPosition);
+        inTraversion.execute(TraversionItemActionKind.CHANGE_PURPOSE, step, inTraversion.purposeThen);
         break;
     }
   }
