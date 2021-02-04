@@ -280,7 +280,7 @@ class Traversion {
   readonly array: TraversionItem[];
 
   readonly purpose: TraversionPurpose;
-  purposeThen: TraversionPurpose;
+  readonly purposeThen: TraversionPurpose;
   private position: number;
   private positionOk: boolean;
 
@@ -320,31 +320,31 @@ class Traversion {
     this.array.push(item);
   }
 
-  traverse(initialPurpose: TraversionPurpose, startPosition = 0) {
+  traverse(initialPurpose: TraversionPurpose, purposeThen?: TraversionPurpose, startPosition = 0) {
     (this as any).purpose = initialPurpose;
+    (this as any).purposeThen = purposeThen;
 
     for (this.position = 0; this.position < this.array.length;) {
       this.positionOk = false;
       var item = this.array[this.position];
 
       item.value.traversionActions(this, item);
-      this.defaultActions();
 
-      if (!this.positionOk) {
-        this.position++;
-      }
+      this.defaultActions(item);
+
     }
   }
 
-  defaultActions() {
+  defaultActions(step: TraversionItem) {
     switch (this.purpose) {
       case TraversionPurpose.BACKSTEP_TO_PARENT:
-        inTraversion.execute(TraversionItemActionKind.CHANGE_PURPOSE, step, 
-          TraversionPurpose.FIND_NEXT_TOKENS);
-  
+        (this as any).purpose = this.purposeThen;
+        break;
     }
 
+    this.execute(TraversionItemActionKind.CONTINUE, null);
   }
+
   execute(action: TraversionItemActionKind, step: TraversionItem, ...etc) {
     switch (action) {
       case TraversionItemActionKind.OMIT_SUBTREE:
@@ -647,8 +647,9 @@ class TerminalRefTraverser extends EmptyTraverser {
   }
 
   stateTransitionsFromHere(rootTraversion: Traversion) {
-    rootTraversion.purposeThen = TraversionPurpose.FIND_NEXT_TOKENS;
-    rootTraversion.traverse(TraversionPurpose.BACKSTEP_TO_PARENT, this.positionInTraversion);
+    var item = rootTraversion.all[this.node.nodeIdx];
+    if (!item || item.terminal !== this) throw new Error();
+    rootTraversion.traverse(TraversionPurpose.BACKSTEP_TO_PARENT, TraversionPurpose.FIND_NEXT_TOKENS, item.toPosition);
   }
 
   checkConstructFailed() {
