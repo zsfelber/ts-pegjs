@@ -274,8 +274,9 @@ enum TraversionItemActionKind {
 
 class Traversion {
 
-  readonly all: { [index: number]: TraversionItem };
+  readonly rule: EntryPointTraverser;
 
+  readonly all: { [index: number]: TraversionItem };
   readonly array: TraversionItem[];
 
   readonly purpose: TraversionPurpose;
@@ -287,16 +288,14 @@ class Traversion {
     return Object.keys(this).length;
   }
 
-  constructor() {
+  constructor(rule: EntryPointTraverser) {
+    this.rule = rule;
     this.all = {};
+
+    this.createRecursively(rule);
   }
 
-  push(item: TraversionItem) {
-    this.all[item.nodeIdx] = item;
-    this.array.push(item);
-  }
-
-  createLinearTraversion(item: RuleElementTraverser) {
+  private createRecursively(item: RuleElementTraverser) {
 
     item.pushItemsToLinearTraversion(this);
 
@@ -308,14 +307,18 @@ class Traversion {
         this.push(separator);
       }
 
-      this.createLinearTraversion(child);
+      this.createRecursively(child);
 
       if (separator) {
         separator.toPosition = this.length;
       }
-    })
+    });
   }
 
+  push(item: TraversionItem) {
+    this.all[item.nodeIdx] = item;
+    this.array.push(item);
+  }
 
   traverse(initialPurpose: TraversionPurpose, startPosition = 0) {
     (this as any).purpose = initialPurpose;
@@ -676,8 +679,7 @@ export class EntryPointTraverser extends SingleTraverser {
 
   node: PRule;
   index: number;
-  _traversed = false;
-  _traversion: Traversion = new Traversion();
+  _traversion: Traversion;
 
   constructor(parser: ParseTableGenerator, parent: RuleElementTraverser, node: PRule) {
     super(parser, parent, node);
@@ -685,9 +687,8 @@ export class EntryPointTraverser extends SingleTraverser {
   }
 
   get traversion(): Traversion {
-    if (!this._traversed) {
-      this._traversed = true;
-      this._traversion.createLinearTraversion(this);
+    if (!this._traversion) {
+      this._traversion = new Traversion(this);
     }
     return this._traversion;
   }
