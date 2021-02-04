@@ -20,7 +20,7 @@ export const FAIL_STATE = 0;
 
 export const START_STATE = 1;
 
-export const FINISH_STATE = 255;
+export const FINAL_STATE = 255;
 
 namespace Factory {
 
@@ -82,10 +82,14 @@ export class ParseTableGenerator {
   allRuleReferences: RuleRefTraverser[] = [];
   allTerminalReferences: TerminalRefTraverser[] = [];
   mainEntryTraversion: LinearTraversion;
-  firstStates: TerminalRefTraverser[] = [];
+  firstStates: TerminalRefTraverser[];
 
   entryPoints: StrMapLike<EntryPointTraverser> = {};
   allNodes: NumMapLike<RuleElementTraverser> = {};
+  jumperStates: NumMapLike<number> = [];
+
+  // 1 based index
+  cntStates = 2;
 
   static createForRule(rule: PRule) {
     var parseTable: ParseTableGenerator = Factory.parseTables[rule.rule];
@@ -106,7 +110,7 @@ export class ParseTableGenerator {
 
     this.mainEntryTraversion = new LinearTraversion(mainEntryPoint);
     this.mainEntryTraversion.traverse(TraversionPurpose.FIND_NEXT_TOKENS);
-    this.firstStates = this.firstStates.concat(this.mainEntryTraversion.collectedTerminals);
+    this.firstStates = [].concat(this.mainEntryTraversion.collectedTerminals);
 
     // ================================================================
     // NOTE   terminal reference (node) <=>  persing state   
@@ -115,22 +119,21 @@ export class ParseTableGenerator {
 
     // So this simple loop generates all possible state transitions at once:
 
-    this.allTerminalReferences.forEach(previousStep => {
-      previousStep.stateTransitionsFromHere(this.mainEntryTraversion);
+    this.allStateGens = this.allTerminalReferences.map(previousStep => {
+      var trans = previousStep.stateTransitionsFromHere(this.cntStates, this.mainEntryTraversion);
+      this.cntStates++;
+      if (this.cntStates===255) throw new Error("Too many states : "+this.cntStates);
+      return trans;
     });
 
-    var startingStateGen = new GrammarAnalysisStateGenerator(null, this.firstStates);
+    // this should be the latter one because  of
+    // allTerminalReferences->stateTransitionsFromHere  which generates  *.stateGen
+    this.startingStateGen = new GrammarAnalysisStateGenerator(1, null, this.firstStates);
 
     //var result = new ParseTable(rule, step0, Factory.allTerminals, Factory.maxTokenId);
     //, startingState : GrammarAnalysisState, allTerminals: TerminalRefTraverser[], maxTokenId: number
-
-    this.startingStateGen = startingStateGen;
-    this.allTerminalReferences.forEach(t => {
-      this.allStateGens.push(t.stateGen);
-      // 1 based index
-      t.stateGen.index = this.allStateGens.length;
-    });
     console.log("Parse table for   starting rule:" + rule.rule + "  nonterminals:" + Object.getOwnPropertyNames(this.entryPoints).length + "  tokens:" + this.maxTokenId + "   nonterminal nodes:" + this.allRuleReferences.length + "   terminal nodes:" + this.allTerminalReferences.length + "  states:" + this.allStateGens.length + "  all nodes:" + Object.getOwnPropertyNames(this.allNodes).length);
+
   }
 
   getReferencedRule(node: PRule) {
@@ -150,15 +153,36 @@ export class ParseTableGenerator {
     return result;
   }
 
+  jumpToTableState(rule: PRule, tokenId: number): GrammarAnalysisStateGenerator {
+    var js = this.jumperStates[rule.nodeIdx];
+    if (!js) {
+      this.jumperStates[rule.nodeIdx] = this.cntStates;
+      var result = new GrammarAnalysisStateGenerator(this.cntStates, null, null);
+      result.jumpToRule = rule;
+      result.jumpToRuleTokenId = tokenId;
+
+      this.cntStates++;
+      if (this.cntStates===255) throw new Error("Too many states : "+this.cntStates);
+
+    }
+    return null;
+  }
+
 }
 
 export class GrammarAnalysisStateGenerator {
 
-  index: number;
-  startingPointTraverser: TerminalRefTraverser;
-  firstStates: TerminalRefTraverser[];
+  static FINAL_STATE_GEN: GrammarAnalysisStateGenerator =
+    new GrammarAnalysisStateGenerator(FINAL_STATE, null, null);
 
-  constructor(startingPointTraverser: TerminalRefTraverser, firstStates: TerminalRefTraverser[]) {
+  readonly index: number;
+  readonly startingPointTraverser: TerminalRefTraverser;
+  readonly firstStates: TerminalRefTraverser[];
+  jumpToRule: PRule;
+  jumpToRuleTokenId: number;
+
+  constructor(index: number, startingPointTraverser: TerminalRefTraverser, firstStates: TerminalRefTraverser[]) {
+    this.index = index;
     this.startingPointTraverser = startingPointTraverser;
     this.firstStates = firstStates;
   }
@@ -403,7 +427,7 @@ class LinearTraversion {
   }
 }
 
-// NOTE Not exported.  The only exported one is EntryPointTraverser
+
 abstract class RuleElementTraverser {
 
   readonly nodeTravId: number;
@@ -464,7 +488,7 @@ abstract class RuleElementTraverser {
   }
 }
 
-// NOTE Not exported.  The only exported one is EntryPointTraverser
+
 class ChoiceTraverser extends RuleElementTraverser {
 
 
@@ -480,7 +504,7 @@ class ChoiceTraverser extends RuleElementTraverser {
 
 }
 
-// NOTE Not exported.  The only exported one is EntryPointTraverser
+
 class SequenceTraverser extends RuleElementTraverser {
 
   checkConstructFailed() {
@@ -507,7 +531,7 @@ class SequenceTraverser extends RuleElementTraverser {
 
 }
 
-// NOTE Not exported.  The only exported one is EntryPointTraverser
+
 abstract class SingleCollectionTraverser extends RuleElementTraverser {
 
   child: RuleElementTraverser;
@@ -528,14 +552,14 @@ abstract class SingleCollectionTraverser extends RuleElementTraverser {
 
 }
 
-// NOTE Not exported.  The only exported one is EntryPointTraverser
+
 abstract class SingleTraverser extends SingleCollectionTraverser {
 
 
 }
 
 
-// NOTE Not exported.  The only exported one is EntryPointTraverser
+
 class EmptyTraverser extends RuleElementTraverser {
 
   checkConstructFailed() {
@@ -548,7 +572,7 @@ class EmptyTraverser extends RuleElementTraverser {
 }
 
 
-// NOTE Not exported.  The only exported one is EntryPointTraverser
+
 class OptionalTraverser extends SingleTraverser {
 
 }
@@ -578,18 +602,18 @@ class OrMoreTraverser extends SingleCollectionTraverser {
   }
 }
 
-// NOTE Not exported.  The only exported one is EntryPointTraverser
+
 class ZeroOrMoreTraverser extends OrMoreTraverser {
 
 
 }
 
-// NOTE Not exported.  The only exported one is EntryPointTraverser
+
 class OneOrMoreTraverser extends OrMoreTraverser {
 
 }
 
-// NOTE Not exported.  The only exported one is EntryPointTraverser
+
 class RuleRefTraverser extends SingleTraverser {
 
   node: PRuleRef;
@@ -704,23 +728,23 @@ class RuleRefTraverser extends SingleTraverser {
   }
 }
 
-// NOTE Not exported.  The only exported one is EntryPointTraverser
+
 class TerminalRefTraverser extends EmptyTraverser {
 
   node: PTerminalRef;
-  nextStepsFromTerminal: TerminalRefTraverser[];
-  stateGen: GrammarAnalysisStateGenerator;
 
   stackedIn: RuleRefTraverser;
   original: TerminalRefTraverser;
 
   traverserStep: TraversionControllerItem;
 
+  stateGen: GrammarAnalysisStateGenerator;
+
+  
   constructor(parser: ParseTableGenerator, parent: RuleElementTraverser, node: PTerminalRef) {
     super(parser, parent, node);
     parser.allTerminalReferences.push(this);
     if (this.node && this.node.value > parser.maxTokenId) parser.maxTokenId = this.node.value;
-    this.stateGen = new GrammarAnalysisStateGenerator(this, this.nextStepsFromTerminal);
   }
 
   stackedRefClone(stackedIn: RuleRefTraverser) {
@@ -730,10 +754,21 @@ class TerminalRefTraverser extends EmptyTraverser {
     return result;
   }
 
-  stateTransitionsFromHere(rootTraversion: LinearTraversion) {
+  stateTransitionsFromHere(index: number, rootTraversion: LinearTraversion) {
+    // opens another parser of sub-start rule :
+    if (this.stackedIn) {
+      return this.parser.jumpToTableState(this.stackedIn.linkedRuleEntry.node, this.node.value);
+    }
+
     if (!this.traverserStep || this.traverserStep.parent !== rootTraversion) throw new Error();
 
     rootTraversion.traverse(TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN, TraversionPurpose.FIND_NEXT_TOKENS, this.traverserStep.toPosition);
+    if (rootTraversion.collectedTerminals.length) {
+      this.stateGen = new GrammarAnalysisStateGenerator(index, this, [].concat(rootTraversion.collectedTerminals));
+    } else {
+      this.stateGen = GrammarAnalysisStateGenerator.FINAL_STATE_GEN;
+    }
+    return this.stateGen;
   }
 
   checkConstructFailed() {
@@ -792,7 +827,7 @@ export class EntryPointTraverser extends SingleTraverser {
 }
 
 
-// NOTE Not exported.  The only exported one is EntryPointTraverser
+
 abstract class SemanticTraverser extends EmptyTraverser {
   node: PValueNode;
 
@@ -806,10 +841,10 @@ abstract class SemanticTraverser extends EmptyTraverser {
   }
 }
 
-// NOTE Not exported.  The only exported one is EntryPointTraverser
+
 class SemanticAndTraverser extends SemanticTraverser {
 }
 
-// NOTE Not exported.  The only exported one is EntryPointTraverser
+
 class SemanticNotTraverser extends SingleTraverser {
 } 
