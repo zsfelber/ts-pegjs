@@ -154,18 +154,18 @@ export class ParseTableGenerator {
   }
 
   jumpToTableState(rule: PRule, tokenId: number): GrammarAnalysisStateGenerator {
-    var js = this.jumperStates[rule.nodeIdx];
-    if (!js) {
-      this.jumperStates[rule.nodeIdx] = this.cntStates;
-      var result = new GrammarAnalysisStateGenerator(this.cntStates, null, null);
-      result.jumpToRule = rule;
-      result.jumpToRuleTokenId = tokenId;
-
+    var stateId = this.jumperStates[rule.nodeIdx];
+    if (!stateId) {
+      this.jumperStates[rule.nodeIdx] = stateId = this.cntStates;
       this.cntStates++;
       if (this.cntStates===255) throw new Error("Too many states : "+this.cntStates);
-
     }
-    return null;
+
+    var js = new GrammarAnalysisStateGenerator(stateId, null, null);
+    js.jumpToRule = rule;
+    js.jumpToRuleTokenId = tokenId;
+
+    return js;
   }
 
 }
