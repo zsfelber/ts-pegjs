@@ -1,8 +1,8 @@
 import { PValueNode, PNodeKind, PRuleRef, PTerminalRef, PRule, IToken, ICached, SerDeser, IParseRunner } from ".";
 
-const peg$FAILED: Readonly<any> = {};
+export const peg$FAILED: Readonly<any> = {};
 
-const peg$SUCCESS: Readonly<any> = {};
+export const peg$SUCCESS: Readonly<any> = {};
 
 
 // NOTE The only exported Parser is EntryPointParser

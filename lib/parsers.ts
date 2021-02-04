@@ -59,7 +59,7 @@ export namespace SerDeser {
 
   export var functionTable: ((...etc)=>any)[];
 
-  export var ruleTable: EntryPointParser[];
+  export var ruleTable: PRule[];
 
 }
 
@@ -246,7 +246,7 @@ export class PRuleRef extends PRef {
   deser(arr: number[], pos: number): number {
     pos = super.deser(arr, pos);
     this.ruleIndex = arr[pos++];
-    this.rule = SerDeser.ruleTable[this.ruleIndex].node.rule;
+    this.rule = SerDeser.ruleTable[this.ruleIndex].rule;
     return pos;
   }
 }
@@ -324,20 +324,3 @@ export const PConss = {
 
 }
 
-
-
-
-
-export interface IParseRunner {
-
-  pos: number; 
-  readonly numRules: number;
-
-  next(): IToken|undefined;
-
-
-  rule(index: number): EntryPointParser;
-
-  run(rule: RuleElementParser): any;
-
-}
