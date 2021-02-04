@@ -1,3 +1,5 @@
+import { ParseTable, GrammarAnalysisState } from '.';
+import { IToken } from '.';
 
 
 export abstract class JmpTblRunner {
@@ -16,28 +18,38 @@ export abstract class JmpTblRunner {
   
   abstract get numRules(): number;
   abstract next(): IToken;
-  abstract rule(index: number): EntryPointParser;
+  abstract rule(index: number): ParseTblJumper;
   
-  run(rule: EntryPointParser): any {
-    const key = this.cacheKey(rule);
-    const cached: ICached = this.peg$resultsCache[key];
-    if (cached) {
-      this.pos = cached.nextPos;
-    }
-    if (cached) {
-      return cached.result;
-    }
+  run(parseTable: ParseTable): any {
 
-    var stack = new RuleProcessStack(this, null, []);
+    var jumper = new ParseTblJumper(this, parseTable);
 
-    // TODO
-    var ruleMaxFailPos = 0;
-
-    var result = rule.child.parse(stack);
-
-    this.peg$resultsCache[key] = { nextPos: this.pos, maxFailPos: ruleMaxFailPos, 
-      result };
+    jumper.run();
   }
 }
 
 
+class ParseTblJumper {
+
+  readonly runner: JmpTblRunner;
+  readonly parseTable: ParseTable;
+  currentState: GrammarAnalysisState;
+
+  constructor(runner: JmpTblRunner, parseTable: ParseTable) {
+    this.runner = runner;
+    this.parseTable = parseTable;
+    this.currentState = parseTable.startingState;
+  }
+
+  run() {
+    while (process());
+  }
+  process() {
+    var token = this.runner.next();
+    if (token) {
+      this.currentState = this.currentState.transitions[token.tokenId];
+    } else {
+      this.currentState = null;
+    }
+  }
+}
