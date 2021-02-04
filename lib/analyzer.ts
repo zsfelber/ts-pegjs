@@ -123,7 +123,7 @@ export class ParseTableGenerator {
     this.allStateGens = this.allTerminalReferences.map(previousStep => {
 
       // when normal states and jumper states together reach max
-      if (this.cntStates>this.cntJumperStates) throw new Error("Too many states : "+this.cntStates);
+      if (this.cntStates > this.cntJumperStates) throw new Error("Too many states : " + this.cntStates);
 
       var trans = previousStep.stateTransitionsFromHere(this.cntStates, this.mainEntryTraversion);
 
@@ -165,7 +165,7 @@ export class ParseTableGenerator {
     var stateId = this.jumperStates[rule.nodeIdx];
     if (!stateId) {
       // when normal states and jumper states together reach max
-      if (this.cntStates>this.cntJumperStates) throw new Error("Too many states : "+this.cntStates);
+      if (this.cntStates > this.cntJumperStates) throw new Error("Too many states : " + this.cntStates);
 
       this.jumperStates[rule.nodeIdx] = stateId = this.cntJumperStates;
       this.cntJumperStates--;
@@ -201,13 +201,13 @@ export class GrammarParsingLeafStateGenerator {
     var transitions = {};
     this.firstStates.forEach(nextTerm => {
       if (!transitions[nextTerm.node.value]) {
-        transitions[nextTerm.node.value] = nextTerm.stateGen;
+        transitions[nextTerm.node.value] = nextTerm.stateGen.generateState();
       }
     })
     var result = new GrammarParsingLeafState(
-        this.index, 
-        this.startingPointTraverser ? this.startingPointTraverser.node : null, 
-        transitions);
+      this.index,
+      this.startingPointTraverser ? this.startingPointTraverser.node : null,
+      transitions);
     return result;
   }
 }
@@ -255,6 +255,7 @@ export class GrammarParsingLeafState {
   readonly transitions: NumMapLike<GrammarParsingLeafState>;
 
   constructor(index: number, startingPoint: PTerminalRef, transitions: NumMapLike<GrammarParsingLeafState>) {
+    this.index = index;
     this.startingPoint = startingPoint;
     this.transitions = transitions;
   }
@@ -303,9 +304,9 @@ class TraversionControllerItem {
       case TraversionItemKind.TERMINAL:
         this.terminal = v as any;
         break;
-        case TraversionItemKind.REPEAT:
-        case TraversionItemKind.OPTIONAL:
-        case TraversionItemKind.NEXT_SUBTREE:
+      case TraversionItemKind.REPEAT:
+      case TraversionItemKind.OPTIONAL:
+      case TraversionItemKind.NEXT_SUBTREE:
 
         break;
       default:
@@ -327,7 +328,7 @@ enum TraversionPurpose {
 
 enum TraversionItemActionKind {
   OMIT_SUBTREE, STEP_PURPOSE, RESET_POSITION,
-  STOP,  CONTINUE/*default*/
+  STOP, CONTINUE/*default*/
 }
 
 class TraversionCache {
@@ -366,8 +367,9 @@ class LinearTraversion {
 
     var recursionCacheStack = {};
     recursionCacheStack[rule.node.nodeIdx] = {
-      itemGeneratedForStarterNode:"", linkedRuleEntry:rule,
-      collectedFromIndex: 0    };
+      itemGeneratedForStarterNode: "", linkedRuleEntry: rule,
+      collectedFromIndex: 0
+    };
 
     this.createRecursively(rule, recursionCacheStack);
   }
@@ -414,9 +416,9 @@ class LinearTraversion {
 
   traverse(initialPurpose: TraversionPurpose, purposeThen?: TraversionPurpose[], startPosition = 0): TraversionCache {
     (this as any).purpose = initialPurpose;
-    (this as any).purposeThen = purposeThen?purposeThen:[];
+    (this as any).purposeThen = purposeThen ? purposeThen : [];
     var cache = new TraversionCache();
-    
+
     if (this.position >= this.array.length) {
       this.stopped = true;
     }
@@ -472,7 +474,7 @@ class LinearTraversion {
       case TraversionItemActionKind.STOP:
         this.stopped = true;
         break;
-      }
+    }
   }
 }
 
@@ -548,7 +550,7 @@ class ChoiceTraverser extends RuleElementTraverser {
 
   constructor(parser: ParseTableGenerator, parent: RuleElementTraverser, node: PNode) {
     super(parser, parent, node);
-    this.maybeEmpty = this.children.some(itm=>itm.maybeEmpty);
+    this.maybeEmpty = this.children.some(itm => itm.maybeEmpty);
   }
 
   traversionActions(inTraversion: LinearTraversion, step: TraversionControllerItem, cache: TraversionCache) {
@@ -569,7 +571,7 @@ class SequenceTraverser extends RuleElementTraverser {
 
   constructor(parser: ParseTableGenerator, parent: RuleElementTraverser, node: PNode) {
     super(parser, parent, node);
-    this.maybeEmpty = !this.children.some(itm=>!itm.maybeEmpty);
+    this.maybeEmpty = !this.children.some(itm => !itm.maybeEmpty);
   }
 
   checkConstructFailed() {
@@ -804,7 +806,7 @@ class RuleRefTraverser extends SingleTraverser {
           default:
             throw new Error();
         }
-    
+
         break;
     }
   }
@@ -834,7 +836,7 @@ class TerminalRefTraverser extends EmptyTraverser {
 
   stateGen: GrammarParsingLeafStateGenerator;
 
-  
+
   constructor(parser: ParseTableGenerator, parent: RuleElementTraverser, node: PTerminalRef) {
     super(parser, parent, node);
     parser.allTerminalReferences.push(this);
