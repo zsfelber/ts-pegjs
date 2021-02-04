@@ -344,6 +344,14 @@ class LinearTraversion {
   }
 
   defaultActions(step: TraversionItem) {
+    switch (this.purpose) {
+      case TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN:
+        if (step.kind === TraversionItemKind.NEXT_SUBTREE) {
+          this.execute(TraversionItemActionKind.OMIT_SUBTREE, step);
+        }
+        break;
+    }
+
     this.execute(TraversionItemActionKind.CONTINUE, null);
   }
 
@@ -435,9 +443,6 @@ class ChoiceTraverser extends RuleElementTraverser {
       case TraversionPurpose.FIND_NEXT_TOKENS:
         break;
       case TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN:
-        if (step.kind === TraversionItemKind.NEXT_SUBTREE) {
-          inTraversion.execute(TraversionItemActionKind.OMIT_SUBTREE, step);
-        }
         break;
     }
   }
