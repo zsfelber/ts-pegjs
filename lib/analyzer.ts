@@ -327,7 +327,7 @@ enum TraversionPurpose {
 
 enum TraversionItemActionKind {
   OMIT_SUBTREE, STEP_PURPOSE, RESET_POSITION,
-  CONTINUE/*default*/
+  STOP,  CONTINUE/*default*/
 }
 
 class LinearTraversion {
