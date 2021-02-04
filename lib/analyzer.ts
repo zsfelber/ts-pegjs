@@ -1,5 +1,5 @@
 import { PNodeKind } from '.';
-import { PRule, PRuleRef, PTerminalRef, PValueNode, SerDeser } from './parsers';
+import { PRule, PRuleRef, PTerminalRef, PValueNode, SerDeser, PNode } from './parsers';
 
 interface StrMapLike<V> {
   [index: number]: V;
@@ -97,9 +97,6 @@ export class ParseTableGenerator {
     while (this.allRuleReferences.some(ruleRef => ruleRef.lazyCouldGenerateNew()));
 
     this.mainEntryTraversion = mainEntryPoint.traversion;
-
-    // TODO return object
-    this.mainEntryTraversion.traverse(TraversionPurpose.FIND_NEXT_TOKENS);
 
     // NOTE binding each to all in linear time :
     this.allTerminalReferences.forEach(previousStep => {
@@ -392,10 +389,10 @@ abstract class RuleElementTraverser {
   readonly constructionLevel: number;
   readonly parser: ParseTableGenerator;
   readonly parent: RuleElementTraverser;
-  readonly node: PValueNode;
+  readonly node: PNode;
   readonly children: RuleElementTraverser[] = [];
 
-  constructor(parser: ParseTableGenerator, parent: RuleElementTraverser, node: PValueNode) {
+  constructor(parser: ParseTableGenerator, parent: RuleElementTraverser, node: PNode) {
     this.parent = parent;
     this.parser = parser;
     this.node = node;
@@ -489,7 +486,7 @@ abstract class SingleCollectionTraverser extends RuleElementTraverser {
 
   child: RuleElementTraverser;
 
-  constructor(parser: ParseTableGenerator, parent: RuleElementTraverser, node: PValueNode) {
+  constructor(parser: ParseTableGenerator, parent: RuleElementTraverser, node: PNode) {
     super(parser, parent, node);
     this.child = this.children[0];
   }
@@ -616,7 +613,6 @@ class RuleRefTraverser extends EmptyTraverser {
       item = new TraversionControllerItem(TraversionItemKind.RULE, this.linkedRuleEntry, inTraversion.length);
     }
     inTraversion.push(item);
-
   }
 
   traversionActions(inTraversion: LinearTraversion, step: TraversionControllerItem) {
@@ -624,6 +620,7 @@ class RuleRefTraverser extends EmptyTraverser {
 
       case TraversionPurpose.FIND_NEXT_TOKENS:
         if (step.kind === TraversionItemKind.RULE) {
+          
           this.linkedRuleEntry.traversion.forEach(step => {
             var applied = step.stackedRefClone(this);
             firstSteps.push(applied);
@@ -652,7 +649,7 @@ class RuleRefTraverser extends EmptyTraverser {
 class TerminalRefTraverser extends EmptyTraverser {
 
   node: PTerminalRef;
-  nextStepsFromTerminal: LinearTraversion = new LinearTraversion();
+  nextStepsFromTerminal: TerminalRefTraverser[];
   stateGen: GrammarAnalysisStateGenerator;
 
   stackedIn: RuleRefTraverser;
@@ -717,6 +714,7 @@ export class EntryPointTraverser extends SingleTraverser {
   get traversion(): LinearTraversion {
     if (!this._traversion) {
       this._traversion = new LinearTraversion(this);
+      this._traversion.traverse(TraversionPurpose.FIND_NEXT_TOKENS);
     }
     return this._traversion;
   }
@@ -741,6 +739,8 @@ export class EntryPointTraverser extends SingleTraverser {
 
 // NOTE Not exported.  The only exported one is EntryPointTraverser
 abstract class SemanticTraverser extends EmptyTraverser {
+  node: PValueNode;
+
   checkConstructFailed() {
     var dirty = super.checkConstructFailed();
     if (!this.node.action || !this.node.action.fun) {
