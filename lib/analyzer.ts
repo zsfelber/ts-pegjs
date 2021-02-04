@@ -65,10 +65,12 @@ function hex2(c) {
 
 export class ParseTableGenerator {
 
+  nodeTravIds: number = 0;
+
   rule: PRule;
   dependencyOf: ParseTableGenerator;
   startingStateGen: GrammarAnalysisStateGenerator;
-  // Map  Leaf parser nodeIdx -> 
+  // Map  Leaf parser nodeTravId -> 
   allStateGens: GrammarAnalysisStateGenerator[] = [];
   maxTokenId: number = 0;
 
@@ -167,7 +169,7 @@ export class ParseTable {
   readonly rule: PRule;
   readonly maxTokenId: number;
   readonly startingState: GrammarAnalysisState;
-  // Map  Leaf parser nodeIdx -> 
+  // Map  Leaf parser nodeTravId -> 
   readonly allStates: GrammarAnalysisState[];
 
   constructor(rule: PRule, maxTokenId: number, startingState: GrammarAnalysisState, allStates: GrammarAnalysisState[]) {
@@ -226,6 +228,8 @@ enum TraversionItemKind {
   RULE, RECURSIVE_RULE, REPEAT, OPTIONAL, TERMINAL, NEXT_SUBTREE
 }
 class TraversionControllerItem {
+  readonly parent: LinearTraversion;
+
   kind: TraversionItemKind;
   entry: EntryPointTraverser;
   terminal: TerminalRefTraverser;
@@ -236,8 +240,8 @@ class TraversionControllerItem {
   fromPosition: number;
   toPosition: number;
 
-  get nodeIdx() {
-    return this.value.node.nodeIdx;
+  get nodeTravId() {
+    return this.value.nodeTravId;
   }
   private set _value(v: RuleElementTraverser) {
     this.value = v;
@@ -259,7 +263,8 @@ class TraversionControllerItem {
     }
   }
 
-  constructor(kind: TraversionItemKind, val: RuleElementTraverser, position: number) {
+  constructor(parent: LinearTraversion, kind: TraversionItemKind, val: RuleElementTraverser, position: number) {
+    this.parent = parent;
     this.kind = kind;
     this._value = val;
     this.fromPosition = this.toPosition = position;
@@ -279,8 +284,6 @@ class LinearTraversion {
 
   readonly rule: EntryPointTraverser;
 
-  readonly all: NumMapLike<TraversionControllerItem>;
-
   readonly array: TraversionControllerItem[];
 
   collectedTerminals: TerminalRefTraverser[];
@@ -291,64 +294,58 @@ class LinearTraversion {
   private positionOk: boolean;
 
   get length() {
-    return Object.keys(this).length;
+    return this.array.length;
   }
 
   constructor(rule: EntryPointTraverser) {
     this.rule = rule;
-    this.all = {};
     this.array = [];
 
-    this.createRecursively(rule);
+    this.createRecursively(rule, {});
   }
 
-  private createRecursively(item: RuleElementTraverser) {
+  private createRecursively(item: RuleElementTraverser, insertedItems: StrMapLike<boolean>) {
 
     item.pushPrefixControllerItem(this);
 
     var first = 1;
     var previousChild = null;
     item.children.forEach(child => {
-      var separator: TraversionControllerItem;
-      if (!first) {
-        separator = new TraversionControllerItem(TraversionItemKind.NEXT_SUBTREE, item, this.length);
-        separator.child = child;
-        separator.previousChild = previousChild;
-        this.push(separator);
+      if (item.checkLoopIsFinite(this, insertedItems)) {
+        var separator: TraversionControllerItem;
+        if (!first) {
+          separator = new TraversionControllerItem(this, TraversionItemKind.NEXT_SUBTREE, item, this.length);
+          separator.child = child;
+          separator.previousChild = previousChild;
+          this.push(separator);
+        }
+
+        this.createRecursively(child, insertedItems);
+
+        if (separator) {
+          separator.toPosition = this.length;
+        }
+        previousChild = child;
       }
 
-      this.createRecursively(child);
-
-      if (separator) {
-        separator.toPosition = this.length;
-      }
-      previousChild = child;
     });
 
     item.pushPostfixControllerItem(this);
   }
 
   push(item: TraversionControllerItem) {
-    this.all[item.nodeIdx] = item;
     this.array.push(item);
   }
 
-  traverse(initialPurpose: TraversionPurpose, purposeThen?: TraversionPurpose, startPosition = 0, allAndInherited?: NumMapLike<TraversionControllerItem>) {
+  traverse(initialPurpose: TraversionPurpose, purposeThen?: TraversionPurpose, startPosition = 0) {
     this.collectedTerminals = [];
     (this as any).purpose = initialPurpose;
     (this as any).purposeThen = purposeThen;
-    if (allAndInherited) {
-      Object.entries(this.all).forEach(([k,v])=>{
-        allAndInherited[k] = v;
-      });
-    } else {
-      allAndInherited = this.all;
-    }
     for (this.position = 0; this.position < this.array.length;) {
       this.positionOk = false;
       var item = this.array[this.position];
 
-      item.value.traversionActions(this, item, allAndInherited);
+      item.value.traversionActions(this, item);
 
       this.defaultActions(item);
 
@@ -390,10 +387,10 @@ class LinearTraversion {
   }
 }
 
-
 // NOTE Not exported.  The only exported one is EntryPointTraverser
 abstract class RuleElementTraverser {
 
+  readonly nodeTravId: number;
   readonly constructionLevel: number;
   readonly parser: ParseTableGenerator;
   readonly parent: RuleElementTraverser;
@@ -403,9 +400,10 @@ abstract class RuleElementTraverser {
   constructor(parser: ParseTableGenerator, parent: RuleElementTraverser, node: PNode) {
     this.parent = parent;
     this.parser = parser;
+    this.nodeTravId = parser.nodeTravIds++;
     this.node = node;
     this.constructionLevel = parent ? parent.constructionLevel + 1 : 0;
-    this.parser.allNodes[this.node.nodeIdx] = this;
+    this.parser.allNodes[this.nodeTravId] = this;
 
     this.node.children.forEach(n => {
       this.children.push(Factory.createTraverser(parser, this, n));
@@ -436,13 +434,17 @@ abstract class RuleElementTraverser {
     }
   }
 
+  checkLoopIsFinite(inTraversion: LinearTraversion, insertedItems: StrMapLike<boolean>) {
+    return true;
+  }
+
   pushPrefixControllerItem(inTraversion: LinearTraversion) {
   }
 
   pushPostfixControllerItem(inTraversion: LinearTraversion) {
   }
 
-  traversionActions(inTraversion: LinearTraversion, step: TraversionControllerItem, allAndInherited?: NumMapLike<TraversionControllerItem>) {
+  traversionActions(inTraversion: LinearTraversion, step: TraversionControllerItem) {
   }
 }
 
@@ -540,7 +542,7 @@ class OrMoreTraverser extends SingleCollectionTraverser {
   crrTrItem: TraversionControllerItem;
 
   pushPrefixControllerItem(inTraversion: LinearTraversion) {
-    this.crrTrItem = new TraversionControllerItem(TraversionItemKind.REPEAT, this, inTraversion.length);
+    this.crrTrItem = new TraversionControllerItem(inTraversion, TraversionItemKind.REPEAT, this, inTraversion.length);
   }
   pushPostfixControllerItem(inTraversion: LinearTraversion) {
     this.crrTrItem.toPosition = inTraversion.length;
@@ -572,7 +574,7 @@ class OneOrMoreTraverser extends OrMoreTraverser {
 }
 
 // NOTE Not exported.  The only exported one is EntryPointTraverser
-class RuleRefTraverser extends EmptyTraverser {
+class RuleRefTraverser extends SingleTraverser {
 
   node: PRuleRef;
   recursive: boolean;
@@ -584,7 +586,7 @@ class RuleRefTraverser extends EmptyTraverser {
     super(parser, parent, node);
     this.parser.allRuleReferences.push(this);
     this.targetRule = Analysis.ruleTable[this.node.ruleIndex];
-    this.recursive = !!this.findRuleNodeParent(this.node.rule);
+
   }
 
   /*  
@@ -596,12 +598,13 @@ class RuleRefTraverser extends EmptyTraverser {
     return this._traversion;
   }*/
 
-
   lazyCouldGenerateNew() {
     if (this.linkedRuleEntry) {
       return false;
     } else {
       this.linkedRuleEntry = this.parser.getReferencedRule(this.targetRule);
+      this.child = this.linkedRuleEntry;
+      this.children.push(this.linkedRuleEntry);
       return true;
     }
   }
@@ -621,32 +624,37 @@ class RuleRefTraverser extends EmptyTraverser {
     return dirty;
   }
 
-  pushPrefixControllerItem(inTraversion: LinearTraversion) {
-    var item: TraversionControllerItem;
-    item = new TraversionControllerItem(TraversionItemKind.RULE, this.linkedRuleEntry, inTraversion.length);
+  checkLoopIsFinite(inTraversion: LinearTraversion, insertedItems: StrMapLike<boolean>) {
+    // NOTE unique to rule ref nodes !
+    if (insertedItems[this.node.nodeIdx]) {
+      var tavItem = new TraversionControllerItem(inTraversion, TraversionItemKind.RECURSIVE_RULE, this.linkedRuleEntry, inTraversion.length);
+      inTraversion.push(tavItem);
 
-    inTraversion.push(item);
+      return !(this.recursive = true);
+    } else {
+      var tavItem = new TraversionControllerItem(inTraversion, TraversionItemKind.RULE, this.linkedRuleEntry, inTraversion.length);
+      inTraversion.push(tavItem);
+
+      insertedItems[this.node.nodeIdx] = true;
+      return !(this.recursive = false);
+    }
   }
 
-  traversionActions(inTraversion: LinearTraversion, step: TraversionControllerItem, allAndInherited?: NumMapLike<TraversionControllerItem>) {
-
+  traversionActions(inTraversion: LinearTraversion, step: TraversionControllerItem) {
 
     switch (inTraversion.purpose) {
 
       case TraversionPurpose.FIND_NEXT_TOKENS:
-        if (allAndInherited[this.targetRule.nodeIdx]) {
-          //it is a backward jump
-          step.kind = TraversionItemKind.RECURSIVE_RULE;
-        } else {
-          var t = this.linkedRuleEntry.traversion;
-          t.traverse(TraversionPurpose.FIND_NEXT_TOKENS, null, 0, allAndInherited);
-
-          //this.linkedRuleEntry.traversion.collectedTerminals.forEach(step => {
-          //  var applied = step.stackedRefClone(this);
-          //  firstSteps.push(applied);
-          //});
-          inTraversion.collectedTerminals.push.apply(inTraversion.collectedTerminals, 
-                t.collectedTerminals);
+        switch (step.kind) {
+          case TraversionItemKind.RECURSIVE_RULE:
+            //it is a backward jump
+            break;
+          case TraversionItemKind.RULE:
+            //this.linkedRuleEntry.traversion.collectedTerminals.forEach(step => {
+            //  var applied = step.stackedRefClone(this);
+            //  firstSteps.push(applied);
+            //});
+            break;
         }
     
         break;
@@ -691,7 +699,7 @@ class TerminalRefTraverser extends EmptyTraverser {
   }
 
   stateTransitionsFromHere(rootTraversion: LinearTraversion) {
-    var item = rootTraversion.all[this.node.nodeIdx];
+    var item = rootTraversion.all[this.nodeTravId];
     if (!item || item.terminal !== this) throw new Error();
     rootTraversion.traverse(TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN, TraversionPurpose.FIND_NEXT_TOKENS, item.toPosition);
   }
@@ -706,13 +714,14 @@ class TerminalRefTraverser extends EmptyTraverser {
   }
 
   pushPrefixControllerItem(inTraversion: LinearTraversion) {
-    inTraversion.push(new TraversionControllerItem(TraversionItemKind.TERMINAL, this, inTraversion.length));
+    inTraversion.push(new TraversionControllerItem(inTraversion, TraversionItemKind.TERMINAL, this, inTraversion.length));
   }
 
-  traversionActions(inTraversion: LinearTraversion, step: TraversionControllerItem) {
+  traversionActions(inTraversion: LinearTraversion, step: TraversionControllerItem, all: NumMapLike<TraversionControllerItem>) {
     switch (inTraversion.purpose) {
       case TraversionPurpose.FIND_NEXT_TOKENS:
         inTraversion.collectedTerminals.push(this);
+        all["#"+this.node.nodeIdx] = step;
         break;
       case TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN:
         break;
@@ -746,7 +755,7 @@ export class EntryPointTraverser extends SingleTraverser {
   }
 
   pushPrefixControllerItem(inTraversion: LinearTraversion) {
-    inTraversion.push(new TraversionControllerItem(TraversionItemKind.RULE, this, inTraversion.length));
+    inTraversion.push(new TraversionControllerItem(inTraversion, TraversionItemKind.RULE, this, inTraversion.length));
   }
 
 }
