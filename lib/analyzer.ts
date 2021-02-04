@@ -351,22 +351,25 @@ class LinearTraversion {
     this.rule = rule;
     this.array = [];
 
-    var insertedItems = {};
-    insertedItems[rule.node.nodeIdx] = {
+    var recursionCacheStack = {};
+    recursionCacheStack[rule.node.nodeIdx] = {
       itemGeneratedForStarterNode:"", linkedRuleEntry:rule,
       collectedFromIndex: 0    };
 
-    this.createRecursively(rule, insertedItems);
+    this.createRecursively(rule, recursionCacheStack);
   }
 
-  private createRecursively(item: RuleElementTraverser, insertedItems: StrMapLike<RuleElementTraverser>) {
+  private createRecursively(item: RuleElementTraverser, recursionCacheStack: StrMapLike<RuleElementTraverser>) {
+
+    var newRecursionStack = {};
+    Object.setPrototypeOf(newRecursionStack, recursionCacheStack);
 
     item.pushPrefixControllerItem(this);
 
     var first = 1;
     var previousChild = null;
     item.children.forEach(child => {
-      if (item.checkLoopIsFinite(this, child, insertedItems)) {
+      if (item.checkLoopIsFinitePrefix(this, child, newRecursionStack)) {
         var separator: TraversionControllerItem;
         if (!first) {
           separator = new TraversionControllerItem(this, TraversionItemKind.NEXT_SUBTREE, item, this.length);
@@ -375,13 +378,14 @@ class LinearTraversion {
           this.push(separator);
         }
 
-        this.createRecursively(child, insertedItems);
+        this.createRecursively(child, newRecursionStack);
 
         if (separator) {
           separator.toPosition = this.length;
         }
         previousChild = child;
       }
+      item.checkLoopIsFinitePostfix(this, child, newRecursionStack);
 
     });
 
@@ -489,8 +493,10 @@ abstract class RuleElementTraverser {
     }
   }
 
-  checkLoopIsFinite(inTraversion: LinearTraversion, childPending: RuleElementTraverser, insertedItems: StrMapLike<RuleElementTraverser>) {
+  checkLoopIsFinitePrefix(inTraversion: LinearTraversion, childPending: RuleElementTraverser, recursionCacheStack: StrMapLike<RuleElementTraverser>) {
     return true;
+  }
+  checkLoopIsFinitePostfix(inTraversion: LinearTraversion, childPending: RuleElementTraverser, recursionCacheStack: StrMapLike<RuleElementTraverser>) {
   }
 
   pushPrefixControllerItem(inTraversion: LinearTraversion) {
@@ -670,9 +676,11 @@ class RuleRefTraverser extends SingleTraverser {
     return dirty;
   }
 
-  checkLoopIsFinite(inTraversion: LinearTraversion, childPending: RuleElementTraverser, insertedItems: StrMapLike<RuleElementTraverser>) {
+  checkLoopIsFinitePrefix(inTraversion: LinearTraversion, childPending: RuleElementTraverser, recursionCacheStack: StrMapLike<RuleElementTraverser>) {
+
+
     // NOTE unique to rule ref nodes !
-    this.recursiveRuleOriginal = insertedItems[this.targetRule.nodeIdx] as RuleRefTraverser;
+    this.recursiveRuleOriginal = recursionCacheStack[this.targetRule.nodeIdx] as RuleRefTraverser;
     if (this.recursiveRuleOriginal) {
       var tavItem = new TraversionControllerItem(inTraversion, TraversionItemKind.RECURSIVE_RULE, this.linkedRuleEntry, inTraversion.length);
       inTraversion.push(tavItem);
@@ -680,13 +688,16 @@ class RuleRefTraverser extends SingleTraverser {
       return false;
     } else {
 
-      insertedItems[this.targetRule.nodeIdx] = this.linkedRuleEntry;
+      recursionCacheStack[this.targetRule.nodeIdx] = this.linkedRuleEntry;
 
       var tavItem = new TraversionControllerItem(inTraversion, TraversionItemKind.RULE, this.linkedRuleEntry, inTraversion.length);
       inTraversion.push(tavItem);
 
       return true;
     }
+  }
+
+  checkLoopIsFinitePostfix(inTraversion: LinearTraversion, childPending: RuleElementTraverser, recursionCacheStack: StrMapLike<RuleElementTraverser>) {
   }
 
   traversionActions(inTraversion: LinearTraversion, step: TraversionControllerItem) {
