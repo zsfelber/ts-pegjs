@@ -619,14 +619,18 @@ class RuleRefTraverser extends EmptyTraverser {
     switch (inTraversion.purpose) {
 
       case TraversionPurpose.FIND_NEXT_TOKENS:
-        if (step.kind === TraversionItemKind.RULE) {
-          
-          this.linkedRuleEntry.traversion.forEach(step => {
-            var applied = step.stackedRefClone(this);
-            firstSteps.push(applied);
-          });
-        } else {
-          //backward jump : no new first step token possible
+        switch (step.kind) {
+          case TraversionItemKind.RULE:
+            inTraversion.collectedTerminals.push.apply(inTraversion.collectedTerminals, 
+                this.linkedRuleEntry.traversion.collectedTerminals);
+            //this.linkedRuleEntry.traversion.collectedTerminals.forEach(step => {
+            //  var applied = step.stackedRefClone(this);
+            //  firstSteps.push(applied);
+            //});
+            break;
+          case TraversionItemKind.RECURSIVE_RULE:
+            //backward jump : no new first step token possible
+            break;
         }
         break;
     }
