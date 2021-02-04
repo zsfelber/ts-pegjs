@@ -74,9 +74,9 @@ export class ParseTableGenerator {
 
   rule: PRule;
   startRuleDependencies: StrMapLike<PRuleRef> = [];
-  startingStateGen: GrammarAnalysisStateGenerator;
+  startingStateGen: GrammarParsingLeafStateGenerator;
   // Map  Leaf parser nodeTravId -> 
-  allStateGens: GrammarAnalysisStateGenerator[] = [];
+  allStateGens: GrammarParsingLeafStateGenerator[] = [];
   maxTokenId: number = 0;
 
   allRuleReferences: RuleRefTraverser[] = [];
@@ -90,6 +90,7 @@ export class ParseTableGenerator {
 
   // 1 based index
   cntStates = 2;
+  cntJumperStates = 254;
 
   static createForRule(rule: PRule) {
     var parseTable: ParseTableGenerator = Factory.parseTables[rule.rule];
@@ -120,15 +121,22 @@ export class ParseTableGenerator {
     // So this simple loop generates all possible state transitions at once:
 
     this.allStateGens = this.allTerminalReferences.map(previousStep => {
+
+      // when normal states and jumper states together reach max
+      if (this.cntStates>this.cntJumperStates) throw new Error("Too many states : "+this.cntStates);
+
       var trans = previousStep.stateTransitionsFromHere(this.cntStates, this.mainEntryTraversion);
-      this.cntStates++;
-      if (this.cntStates===255) throw new Error("Too many states : "+this.cntStates);
+
+      // So non final and non jumper state :
+      if (trans.index <= this.cntJumperStates) {
+        this.cntStates++;
+      }
       return trans;
     });
 
     // this should be the latter one because  of
     // allTerminalReferences->stateTransitionsFromHere  which generates  *.stateGen
-    this.startingStateGen = new GrammarAnalysisStateGenerator(1, null, this.firstStates);
+    this.startingStateGen = new GrammarParsingLeafStateGenerator(1, null, this.firstStates);
 
     //var result = new ParseTable(rule, step0, Factory.allTerminals, Factory.maxTokenId);
     //, startingState : GrammarAnalysisState, allTerminals: TerminalRefTraverser[], maxTokenId: number
@@ -153,15 +161,17 @@ export class ParseTableGenerator {
     return result;
   }
 
-  jumpToTableState(rule: PRule, tokenId: number): GrammarAnalysisStateGenerator {
+  jumpToTableState(rule: PRule, tokenId: number): GrammarParsingLeafStateGenerator {
     var stateId = this.jumperStates[rule.nodeIdx];
     if (!stateId) {
-      this.jumperStates[rule.nodeIdx] = stateId = this.cntStates;
-      this.cntStates++;
-      if (this.cntStates===255) throw new Error("Too many states : "+this.cntStates);
+      // when normal states and jumper states together reach max
+      if (this.cntStates>this.cntJumperStates) throw new Error("Too many states : "+this.cntStates);
+
+      this.jumperStates[rule.nodeIdx] = stateId = this.cntJumperStates;
+      this.cntJumperStates--;
     }
 
-    var js = new GrammarAnalysisStateGenerator(stateId, null, null);
+    var js = new GrammarParsingLeafStateGenerator(stateId, null, null);
     js.jumpToRule = rule;
     js.jumpToRuleTokenId = tokenId;
 
@@ -170,10 +180,10 @@ export class ParseTableGenerator {
 
 }
 
-export class GrammarAnalysisStateGenerator {
+export class GrammarParsingLeafStateGenerator {
 
-  static FINAL_STATE_GEN: GrammarAnalysisStateGenerator =
-    new GrammarAnalysisStateGenerator(FINAL_STATE, null, null);
+  static FINAL_STATE_GEN: GrammarParsingLeafStateGenerator =
+    new GrammarParsingLeafStateGenerator(FINAL_STATE, null, null);
 
   readonly index: number;
   readonly startingPointTraverser: TerminalRefTraverser;
@@ -194,7 +204,7 @@ export class GrammarAnalysisStateGenerator {
         transitions[nextTerm.node.value] = nextTerm.stateGen;
       }
     })
-    var result = new GrammarAnalysisState(
+    var result = new GrammarParsingLeafState(
         this.index, 
         this.startingPointTraverser ? this.startingPointTraverser.node : null, 
         transitions);
@@ -208,11 +218,11 @@ export class ParseTable {
 
   readonly rule: PRule;
   readonly maxTokenId: number;
-  readonly startingState: GrammarAnalysisState;
+  readonly startingState: GrammarParsingLeafState;
   // Map  Leaf parser nodeTravId -> 
-  readonly allStates: GrammarAnalysisState[];
+  readonly allStates: GrammarParsingLeafState[];
 
-  constructor(rule: PRule, maxTokenId: number, startingState: GrammarAnalysisState, allStates: GrammarAnalysisState[]) {
+  constructor(rule: PRule, maxTokenId: number, startingState: GrammarParsingLeafState, allStates: GrammarParsingLeafState[]) {
     this.rule = rule;
     this.maxTokenId = maxTokenId;
     this.startingState = startingState;
@@ -235,16 +245,16 @@ export class ParseTable {
 
 }
 
-export class GrammarAnalysisState {
+export class GrammarParsingLeafState {
 
   readonly index: number;
 
   readonly startingPoint: PTerminalRef;
 
   // tokenId -> traversion state
-  readonly transitions: NumMapLike<GrammarAnalysisState>;
+  readonly transitions: NumMapLike<GrammarParsingLeafState>;
 
-  constructor(index: number, startingPoint: PTerminalRef, transitions: NumMapLike<GrammarAnalysisState>) {
+  constructor(index: number, startingPoint: PTerminalRef, transitions: NumMapLike<GrammarParsingLeafState>) {
     this.startingPoint = startingPoint;
     this.transitions = transitions;
   }
@@ -316,7 +326,7 @@ enum TraversionPurpose {
 }
 
 enum TraversionItemActionKind {
-  OMIT_SUBTREE, CHANGE_PURPOSE, SET_POSITION,
+  OMIT_SUBTREE, CHANGE_PURPOSE, RESET_POSITION,
   CONTINUE/*default*/
 }
 
@@ -341,7 +351,12 @@ class LinearTraversion {
     this.rule = rule;
     this.array = [];
 
-    this.createRecursively(rule, {});
+    var insertedItems = {};
+    insertedItems[rule.node.nodeIdx] = {
+      itemGeneratedForStarterNode:"", linkedRuleEntry:rule,
+      collectedFromIndex: 0    };
+
+    this.createRecursively(rule, insertedItems);
   }
 
   private createRecursively(item: RuleElementTraverser, insertedItems: StrMapLike<RuleElementTraverser>) {
@@ -381,7 +396,7 @@ class LinearTraversion {
     this.collectedTerminals = [];
     (this as any).purpose = initialPurpose;
     (this as any).purposeThen = purposeThen;
-    for (this.position = 0; this.position < this.array.length;) {
+    for (this.position = startPosition; this.position < this.array.length;) {
       this.positionOk = false;
       var item = this.array[this.position];
 
@@ -410,7 +425,7 @@ class LinearTraversion {
         this.positionOk = true;
         this.position = step.toPosition;
         break;
-      case TraversionItemActionKind.SET_POSITION:
+      case TraversionItemActionKind.RESET_POSITION:
         this.positionOk = true;
         this.position = step.fromPosition;
         break;
@@ -595,7 +610,7 @@ class OrMoreTraverser extends SingleCollectionTraverser {
       case TraversionPurpose.FIND_NEXT_TOKENS:
         break;
       case TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN:
-        inTraversion.execute(TraversionItemActionKind.SET_POSITION, step, step.fromPosition);
+        inTraversion.execute(TraversionItemActionKind.RESET_POSITION, step);
         inTraversion.execute(TraversionItemActionKind.CHANGE_PURPOSE, step, inTraversion.purposeThen);
         break;
     }
@@ -617,7 +632,7 @@ class OneOrMoreTraverser extends OrMoreTraverser {
 class RuleRefTraverser extends SingleTraverser {
 
   node: PRuleRef;
-  recursiveRuleRefOriginal: RuleRefTraverser;
+  recursiveRuleOriginal: RuleRefTraverser;
   collectedFromIndex: number;
   collectedToIndex: number;
 
@@ -657,15 +672,15 @@ class RuleRefTraverser extends SingleTraverser {
 
   checkLoopIsFinite(inTraversion: LinearTraversion, childPending: RuleElementTraverser, insertedItems: StrMapLike<RuleElementTraverser>) {
     // NOTE unique to rule ref nodes !
-    this.recursiveRuleRefOriginal = insertedItems[this.node.nodeIdx] as RuleRefTraverser;
-    if (this.recursiveRuleRefOriginal) {
+    this.recursiveRuleOriginal = insertedItems[this.targetRule.nodeIdx] as RuleRefTraverser;
+    if (this.recursiveRuleOriginal) {
       var tavItem = new TraversionControllerItem(inTraversion, TraversionItemKind.RECURSIVE_RULE, this.linkedRuleEntry, inTraversion.length);
       inTraversion.push(tavItem);
 
       return false;
     } else {
 
-      insertedItems[this.node.nodeIdx] = this;
+      insertedItems[this.targetRule.nodeIdx] = this.linkedRuleEntry;
 
       var tavItem = new TraversionControllerItem(inTraversion, TraversionItemKind.RULE, this.linkedRuleEntry, inTraversion.length);
       inTraversion.push(tavItem);
@@ -676,7 +691,7 @@ class RuleRefTraverser extends SingleTraverser {
 
   traversionActions(inTraversion: LinearTraversion, step: TraversionControllerItem) {
 
-    const r = this.recursiveRuleRefOriginal;
+    const r = this.recursiveRuleOriginal;
 
     switch (inTraversion.purpose) {
 
@@ -704,7 +719,7 @@ class RuleRefTraverser extends SingleTraverser {
           case TraversionItemKind.RULE:
             if (r) throw new Error();
 
-            this.collectedFromIndex = inTraversion.collectedTerminals.length;;
+            this.collectedFromIndex = inTraversion.collectedTerminals.length;
 
             break;
           default:
@@ -738,7 +753,7 @@ class TerminalRefTraverser extends EmptyTraverser {
 
   traverserStep: TraversionControllerItem;
 
-  stateGen: GrammarAnalysisStateGenerator;
+  stateGen: GrammarParsingLeafStateGenerator;
 
   
   constructor(parser: ParseTableGenerator, parent: RuleElementTraverser, node: PTerminalRef) {
@@ -764,9 +779,9 @@ class TerminalRefTraverser extends EmptyTraverser {
 
     rootTraversion.traverse(TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN, TraversionPurpose.FIND_NEXT_TOKENS, this.traverserStep.toPosition);
     if (rootTraversion.collectedTerminals.length) {
-      this.stateGen = new GrammarAnalysisStateGenerator(index, this, [].concat(rootTraversion.collectedTerminals));
+      this.stateGen = new GrammarParsingLeafStateGenerator(index, this, [].concat(rootTraversion.collectedTerminals));
     } else {
-      this.stateGen = GrammarAnalysisStateGenerator.FINAL_STATE_GEN;
+      this.stateGen = GrammarParsingLeafStateGenerator.FINAL_STATE_GEN;
     }
     return this.stateGen;
   }
@@ -818,10 +833,6 @@ export class EntryPointTraverser extends SingleTraverser {
     } else {
       return null;
     }
-  }
-
-  pushPrefixControllerItem(inTraversion: LinearTraversion) {
-    inTraversion.push(new TraversionControllerItem(inTraversion, TraversionItemKind.RULE, this, inTraversion.length));
   }
 
 }

@@ -1,4 +1,4 @@
-import { ParseTable, GrammarAnalysisState } from '.';
+import { ParseTable, GrammarParsingLeafState } from '.';
 import { IToken } from '.';
 
 
@@ -33,7 +33,7 @@ class ParseTblJumper {
 
   readonly runner: JmpTblRunner;
   readonly parseTable: ParseTable;
-  currentState: GrammarAnalysisState;
+  currentState: GrammarParsingLeafState;
 
   constructor(runner: JmpTblRunner, parseTable: ParseTable) {
     this.runner = runner;
