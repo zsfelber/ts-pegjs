@@ -543,6 +543,7 @@ abstract class RuleElementTraverser {
 
 
 class ChoiceTraverser extends RuleElementTraverser {
+
   readonly maybeEmpty: boolean;
 
   constructor(parser: ParseTableGenerator, parent: RuleElementTraverser, node: PNode) {
@@ -563,6 +564,7 @@ class ChoiceTraverser extends RuleElementTraverser {
 
 
 class SequenceTraverser extends RuleElementTraverser {
+
   readonly maybeEmpty: boolean;
 
   constructor(parser: ParseTableGenerator, parent: RuleElementTraverser, node: PNode) {
