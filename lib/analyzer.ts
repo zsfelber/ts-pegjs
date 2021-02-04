@@ -354,6 +354,7 @@ class LinearTraversion {
   readonly purposeThen: TraversionPurpose[];
   private position: number;
   private positionOk: boolean;
+  private stopped: boolean;
 
   get length() {
     return this.array.length;
@@ -415,13 +416,21 @@ class LinearTraversion {
     (this as any).purpose = initialPurpose;
     (this as any).purposeThen = purposeThen?purposeThen:[];
     var cache = new TraversionCache();
-    for (this.position = startPosition; this.position < this.array.length;) {
+    
+    if (this.position >= this.array.length) {
+      this.stopped = true;
+    }
+    for (this.position = startPosition; !this.stopped;) {
       this.positionOk = false;
       var item = this.array[this.position];
 
       item.value.traversionActions(this, item, cache);
 
       this.defaultActions(item);
+
+      if (this.position >= this.array.length) {
+        this.stopped = true;
+      }
     }
     return cache;
   }
@@ -461,8 +470,7 @@ class LinearTraversion {
         }
         break;
       case TraversionItemActionKind.STOP:
-        this.positionOk = true;
-        this.position = this.array.length
+        this.stopped = true;
         break;
       }
   }
@@ -477,6 +485,7 @@ abstract class RuleElementTraverser {
   readonly parent: RuleElementTraverser;
   readonly node: PNode;
   readonly children: RuleElementTraverser[] = [];
+  readonly maybeEmpty: boolean;
 
   constructor(parser: ParseTableGenerator, parent: RuleElementTraverser, node: PNode) {
     this.parent = parent;
@@ -492,6 +501,7 @@ abstract class RuleElementTraverser {
     //if (this.checkConstructFailed()) {
     //  throw new Error("Ast construction failed.");
     //}
+    this.maybeEmpty = this.node.allowStepThrough;
   }
 
   checkConstructFailed(): any {
@@ -533,7 +543,12 @@ abstract class RuleElementTraverser {
 
 
 class ChoiceTraverser extends RuleElementTraverser {
+  readonly maybeEmpty: boolean;
 
+  constructor(parser: ParseTableGenerator, parent: RuleElementTraverser, node: PNode) {
+    super(parser, parent, node);
+    this.maybeEmpty = this.children.some(itm=>itm.maybeEmpty);
+  }
 
   traversionActions(inTraversion: LinearTraversion, step: TraversionControllerItem, cache: TraversionCache) {
     switch (inTraversion.purpose) {
@@ -544,11 +559,16 @@ class ChoiceTraverser extends RuleElementTraverser {
     }
   }
 
-
 }
 
 
 class SequenceTraverser extends RuleElementTraverser {
+  readonly maybeEmpty: boolean;
+
+  constructor(parser: ParseTableGenerator, parent: RuleElementTraverser, node: PNode) {
+    super(parser, parent, node);
+    this.maybeEmpty = !this.children.some(itm=>!itm.maybeEmpty);
+  }
 
   checkConstructFailed() {
     if (!this.children.length) {
@@ -565,11 +585,11 @@ class SequenceTraverser extends RuleElementTraverser {
       case TraversionPurpose.FIND_NEXT_TOKENS:
 
         if (traverseLocals.steppingFromInsideThisSequence) {
-          if (!step.previousChild.node.allowStepThrough) {
+          if (!step.previousChild.maybeEmpty) {
             inTraversion.execute(TraversionItemActionKind.STOP, step);
           }
         } else {
-          if (!step.previousChild.node.allowStepThrough) {
+          if (!step.previousChild.maybeEmpty) {
             inTraversion.execute(TraversionItemActionKind.OMIT_SUBTREE, step);
           }
         }
@@ -671,6 +691,13 @@ class ZeroOrMoreTraverser extends OrMoreTraverser {
 
 class OneOrMoreTraverser extends OrMoreTraverser {
 
+  readonly maybeEmpty: boolean;
+
+  constructor(parser: ParseTableGenerator, parent: RuleElementTraverser, node: PNode) {
+    super(parser, parent, node);
+    this.maybeEmpty = this.child.maybeEmpty;
+  }
+
 }
 
 
@@ -686,11 +713,14 @@ class RuleRefTraverser extends SingleTraverser {
 
   collectedTerminalsFromHereToRecursiveRepetition: TerminalRefTraverser[];
 
+  readonly maybeEmpty: boolean;
+
   constructor(parser: ParseTableGenerator, parent: RuleElementTraverser, node: PRuleRef) {
     super(parser, parent, node);
     this.parser.allRuleReferences.push(this);
     this.targetRule = Analysis.ruleTable[this.node.ruleIndex];
 
+    this.maybeEmpty = this.linkedRuleEntry.maybeEmpty;
   }
 
   lazyCouldGenerateNew() {
@@ -867,12 +897,13 @@ export class EntryPointTraverser extends SingleTraverser {
   node: PRule;
   index: number;
 
+  readonly maybeEmpty: boolean;
 
   constructor(parser: ParseTableGenerator, parent: RuleElementTraverser, node: PRule) {
     super(parser, parent, node);
     this.index = node.index;
+    this.maybeEmpty = this.child.maybeEmpty;
   }
-
 
   findRuleNodeParent(rule: string, incl = false) {
     if (incl && rule === this.node.rule) {
