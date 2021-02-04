@@ -326,7 +326,7 @@ enum TraversionPurpose {
 }
 
 enum TraversionItemActionKind {
-  OMIT_SUBTREE, CHANGE_PURPOSE, RESET_POSITION,
+  OMIT_SUBTREE, STEP_PURPOSE, RESET_POSITION,
   CONTINUE/*default*/
 }
 
@@ -339,7 +339,7 @@ class LinearTraversion {
   collectedTerminals: TerminalRefTraverser[];
 
   readonly purpose: TraversionPurpose;
-  readonly purposeThen: TraversionPurpose;
+  readonly purposeThen: TraversionPurpose[];
   private position: number;
   private positionOk: boolean;
 
@@ -399,10 +399,10 @@ class LinearTraversion {
     this.array.push(item);
   }
 
-  traverse(initialPurpose: TraversionPurpose, purposeThen?: TraversionPurpose, startPosition = 0) {
+  traverse(initialPurpose: TraversionPurpose, purposeThen?: TraversionPurpose[], startPosition = 0) {
     this.collectedTerminals = [];
     (this as any).purpose = initialPurpose;
-    (this as any).purposeThen = purposeThen;
+    (this as any).purposeThen = purposeThen?purposeThen:[];
     for (this.position = startPosition; this.position < this.array.length;) {
       this.positionOk = false;
       var item = this.array[this.position];
@@ -426,7 +426,7 @@ class LinearTraversion {
     this.execute(TraversionItemActionKind.CONTINUE, null);
   }
 
-  execute(action: TraversionItemActionKind, step: TraversionControllerItem, ...etc) {
+  execute(action: TraversionItemActionKind, step: TraversionControllerItem) {
     switch (action) {
       case TraversionItemActionKind.OMIT_SUBTREE:
         this.positionOk = true;
@@ -442,8 +442,8 @@ class LinearTraversion {
           this.position++;
         }
         break;
-      case TraversionItemActionKind.CHANGE_PURPOSE:
-        (this as any).purpose = etc[0];
+      case TraversionItemActionKind.STEP_PURPOSE:
+        (this as any).purpose = this.purposeThen.shift();
         break;
     }
   }
@@ -548,7 +548,7 @@ class SequenceTraverser extends RuleElementTraverser {
         }
         break;
       case TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN:
-        inTraversion.execute(TraversionItemActionKind.CHANGE_PURPOSE, step, inTraversion.purposeThen);
+        inTraversion.execute(TraversionItemActionKind.STEP_PURPOSE, step);
         break;
     }
   }
@@ -620,7 +620,7 @@ class OrMoreTraverser extends SingleCollectionTraverser {
         break;
       case TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN:
         inTraversion.execute(TraversionItemActionKind.RESET_POSITION, step);
-        inTraversion.execute(TraversionItemActionKind.CHANGE_PURPOSE, step, inTraversion.purposeThen);
+        inTraversion.execute(TraversionItemActionKind.STEP_PURPOSE, step);
         break;
     }
   }
@@ -790,7 +790,7 @@ class TerminalRefTraverser extends EmptyTraverser {
 
     if (!this.traverserStep || this.traverserStep.parent !== rootTraversion) throw new Error();
 
-    rootTraversion.traverse(TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN, TraversionPurpose.FIND_NEXT_TOKENS, this.traverserStep.toPosition);
+    rootTraversion.traverse(TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN, [TraversionPurpose.FIND_NEXT_TOKENS], this.traverserStep.toPosition);
     if (rootTraversion.collectedTerminals.length) {
       this.stateGen = new GrammarParsingLeafStateGenerator(index, this, [].concat(rootTraversion.collectedTerminals));
     } else {
