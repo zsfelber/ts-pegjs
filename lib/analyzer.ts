@@ -222,7 +222,7 @@ export class GrammarAnalysisState {
 }
 
 enum TraversionItemKind {
-  RULE, TERMINAL, NEXT_SUBTREE
+  RULE, RECURSIVE_RULE, TERMINAL, NEXT_SUBTREE
 }
 class TraversionItem {
   kind: TraversionItemKind;
@@ -240,6 +240,7 @@ class TraversionItem {
     this.value = v;
     switch (this.kind) {
       case TraversionItemKind.RULE:
+      case TraversionItemKind.RECURSIVE_RULE:
         this.entry = v as any;
         break;
       case TraversionItemKind.TERMINAL:
@@ -259,8 +260,13 @@ class TraversionItem {
   }
 }
 
+enum TraversionPurpose {
+  FIND_NEXT_TOKENS, BACKSTEP_TO_PARENT
+}
+
 enum TraversionItemActionKind {
-  OMIT_SUBTREE, CONTINUE/*default*/
+  OMIT_SUBTREE, CHANGE_PURPOSE,
+  CONTINUE/*default*/
 }
 
 class Traversion {
@@ -269,6 +275,7 @@ class Traversion {
 
   readonly array: TraversionItem[];
 
+  readonly purpose: TraversionPurpose;
   private position: number;
   private positionOk: boolean;
 
@@ -285,11 +292,35 @@ class Traversion {
     this.array.push(item);
   }
 
-  findFirstJumpsFromStartRule() {
+  createLinearTraversion(item: RuleElementTraverser) {
+
+    item.pushItemsToLinearTraversion(this);
+
+    var first = 1;
+    item.children.forEach(child => {
+      var separator: TraversionItem;
+      if (!first) {
+        separator = new TraversionItem(TraversionItemKind.NEXT_SUBTREE, item, this.length);
+        this.push(separator);
+      }
+
+      this.createLinearTraversion(child);
+
+      if (separator) {
+        separator.toPosition = this.length;
+      }
+    })
+  }
+
+
+  traverse(initialPurpose: TraversionPurpose, startPosition = 0) {
+    (this as any).purpose = initialPurpose;
+
     for (this.position = 0; this.position < this.array.length;) {
       this.positionOk = false;
       var item = this.array[this.position];
-      item.value.firstStepsFromStartActions(this, item);
+
+      item.value.traversionActions(this, item);
 
       if (!this.positionOk) {
         this.position++;
@@ -297,19 +328,7 @@ class Traversion {
     }
   }
 
-  findNextJumpsFromTerminal(term: TerminalRefTraverser) {
-    for (this.position = term.positionInTraversion + 1; this.position < this.array.length;) {
-      this.positionOk = false;
-      var item = this.array[this.position];
-      item.value.nextStepsFromTerminalActions(this, item);
-
-      if (!this.positionOk) {
-        this.position++;
-      }
-    }
-  }
-
-  execute(action: TraversionItemActionKind, step: TraversionItem) {
+  execute(action: TraversionItemActionKind, step: TraversionItem, ...etc) {
     switch (action) {
       case TraversionItemActionKind.OMIT_SUBTREE:
         this.positionOk = true;
@@ -320,6 +339,10 @@ class Traversion {
           this.positionOk = true;
           this.position++;
         }
+        break;
+      case TraversionItemActionKind.CHANGE_PURPOSE:
+        (this as any).purpose = etc[0];
+        break;
     }
   }
 }
@@ -333,8 +356,6 @@ abstract class RuleElementTraverser {
   readonly parent: RuleElementTraverser;
   readonly node: PValueNode;
   readonly children: RuleElementTraverser[] = [];
-
-  positionInTraversion: number;
 
   constructor(parser: ParseTableGenerator, parent: RuleElementTraverser, node: PValueNode) {
     this.parent = parent;
@@ -352,30 +373,6 @@ abstract class RuleElementTraverser {
   }
 
   checkConstructFailed(): any {
-  }
-
-  createLinearTraversion(inTraversion: Traversion) {
-    this.positionInTraversion = inTraversion.length;
-    var first = 1;
-    this.children.forEach(child => {
-      var separator: TraversionItem;
-      if (!first) {
-        separator = new TraversionItem(TraversionItemKind.NEXT_SUBTREE, this, inTraversion.length);
-        inTraversion.push(separator);
-      }
-      child.createLinearTraversion(inTraversion);
-      if (separator) {
-        separator.toPosition = inTraversion.length;
-      }
-    })
-  }
-
-  firstStepsFromStartActions(inTraversion: Traversion, step: TraversionItem) {
-
-  }
-
-  nextStepsFromTerminalActions(inTraversion: Traversion, step: TraversionItem) {
-
   }
 
   findParent(node: PValueNode, incl = false) {
@@ -396,15 +393,26 @@ abstract class RuleElementTraverser {
     }
   }
 
+  pushItemsToLinearTraversion(inTraversion: Traversion) {
+  }
+
+  traversionActions(inTraversion: Traversion, step: TraversionItem) {
+  }
 }
 
 // NOTE Not exported.  The only exported one is EntryPointTraverser
 class ChoiceTraverser extends RuleElementTraverser {
 
 
-  nextStepsFromTerminalActions(inTraversion: Traversion, step: TraversionItem) {
-    if (step.kind === TraversionItemKind.NEXT_SUBTREE) {
-      inTraversion.execute(TraversionItemActionKind.OMIT_SUBTREE, step);
+  traversionActions(inTraversion: Traversion, step: TraversionItem) {
+    switch (inTraversion.purpose) {
+      case TraversionPurpose.FIND_NEXT_TOKENS:
+        break;
+      case TraversionPurpose.BACKSTEP_TO_PARENT:
+        if (step.kind === TraversionItemKind.NEXT_SUBTREE) {
+          inTraversion.execute(TraversionItemActionKind.OMIT_SUBTREE, step);
+        }
+        break;
     }
   }
 
@@ -421,18 +429,15 @@ class SequenceTraverser extends RuleElementTraverser {
     }
   }
 
-  firstStepsFromStartActions(inTraversion: Traversion, step: TraversionItem) {
-    if (step.kind === TraversionItemKind.NEXT_SUBTREE) {
-      inTraversion.execute(TraversionItemActionKind.OMIT_SUBTREE, step);
-    }
-  }
-
-  nextStepsFromTerminalActions(inTraversion: Traversion, step: TraversionItem) {
-    var ind = this.children.indexOf(fromChild) + 1;
-    if (ind < this.children.length) {
-      this.children[ind].createLinearTraversion([], nextStepsFromTerminal);
-    } else if (this.parent) {
-      this.parent.nextStepsFromTerminalAction(nextStepsFromTerminal, this);
+  traversionActions(inTraversion: Traversion, step: TraversionItem) {
+    switch (inTraversion.purpose) {
+      case TraversionPurpose.FIND_NEXT_TOKENS:
+        if (step.kind === TraversionItemKind.NEXT_SUBTREE) {
+          inTraversion.execute(TraversionItemActionKind.OMIT_SUBTREE, step);
+        }
+        break;
+      case TraversionPurpose.BACKSTEP_TO_PARENT:
+        break;
     }
   }
 
@@ -488,9 +493,15 @@ class OptionalTraverser extends SingleTraverser {
 // NOTE Not exported.  The only exported one is EntryPointTraverser
 class ZeroOrMoreTraverser extends SingleCollectionTraverser {
 
-  nextStepsFromTerminalActions(inTraversion: Traversion, step: TraversionItem) {
-    this.createLinearTraversion([], nextStepsFromTerminal);
 
+  traversionActions(inTraversion: Traversion, step: TraversionItem) {
+    switch (inTraversion.purpose) {
+      case TraversionPurpose.FIND_NEXT_TOKENS:
+        break;
+      case TraversionPurpose.BACKSTEP_TO_PARENT:
+        this.pushItemsToLinearTraversion([], nextStepsFromTerminal);
+        break;
+    }
   }
 
 
@@ -499,10 +510,17 @@ class ZeroOrMoreTraverser extends SingleCollectionTraverser {
 // NOTE Not exported.  The only exported one is EntryPointTraverser
 class OneOrMoreTraverser extends SingleCollectionTraverser {
 
-  nextStepsFromTerminalActions(inTraversion: Traversion, step: TraversionItem) {
-    this.createLinearTraversion([], nextStepsFromTerminal);
 
+  traversionActions(inTraversion: Traversion, step: TraversionItem) {
+    switch (inTraversion.purpose) {
+      case TraversionPurpose.FIND_NEXT_TOKENS:
+        break;
+      case TraversionPurpose.BACKSTEP_TO_PARENT:
+        this.pushItemsToLinearTraversion([], nextStepsFromTerminal);
+        break;
+    }
   }
+
 }
 
 // NOTE Not exported.  The only exported one is EntryPointTraverser
@@ -546,26 +564,32 @@ class RuleRefTraverser extends EmptyTraverser {
     return dirty;
   }
 
-  createLinearTraversion(inTraversion: Traversion) {
-    this.positionInTraversion = inTraversion.length;
-    inTraversion.push(new TraversionItem(TraversionItemKind.RULE, this.linkedRuleEntry, inTraversion.length));
-  }
-
-  firstStepsFromStartActions(inTraversion: Traversion, step: TraversionItem) {
-
+  pushItemsToLinearTraversion(inTraversion: Traversion) {
+    var item: TraversionItem;
     if (inTraversion.all[this.targetRule.nodeIdx]) {
-
-      //backward jump : no new first step token possible
-
+      //mark it is a backward jump
+      item = new TraversionItem(TraversionItemKind.RECURSIVE_RULE, this.linkedRuleEntry, inTraversion.length);
     } else {
-      this.linkedRuleEntry.traversion.forEach(step => {
-      var applied = step.stackedRefClone(this);
-      firstSteps.push(applied);
+      item = new TraversionItem(TraversionItemKind.RULE, this.linkedRuleEntry, inTraversion.length);
     }
+    inTraversion.push(item);
+
   }
 
-  nextStepsFromTerminalActions(inTraversion: Traversion, step: TraversionItem) {
+  traversionActions(inTraversion: Traversion, step: TraversionItem) {
+    switch (inTraversion.purpose) {
 
+      case TraversionPurpose.FIND_NEXT_TOKENS:
+        if (step.kind === TraversionItemKind.RULE) {
+          this.linkedRuleEntry.traversion.forEach(step => {
+            var applied = step.stackedRefClone(this);
+            firstSteps.push(applied);
+          });
+        } else {
+          //backward jump : no new first step token possible
+        }
+        break;
+    }
   }
 
 
@@ -585,7 +609,7 @@ class RuleRefTraverser extends EmptyTraverser {
 class TerminalRefTraverser extends EmptyTraverser {
 
   node: PTerminalRef;
-  nextStepsFromTerminal: Traversion = [];
+  nextStepsFromTerminal: Traversion = new Traversion();
   stateGen: GrammarAnalysisStateGenerator;
 
   stackedIn: RuleRefTraverser;
@@ -605,6 +629,10 @@ class TerminalRefTraverser extends EmptyTraverser {
     return result;
   }
 
+  stateTransitionsFromHere(rootTraversion: Traversion) {
+    rootTraversion.traverse(TraversionPurpose.BACKSTEP_TO_PARENT, this.positionInTraversion);
+  }
+
   checkConstructFailed() {
     var dirty = super.checkConstructFailed();
     if (!this.node.terminal) {
@@ -614,14 +642,17 @@ class TerminalRefTraverser extends EmptyTraverser {
     return dirty;
   }
 
-  createLinearTraversion(inTraversion: Traversion) {
-    this.positionInTraversion = inTraversion.length;
+  pushItemsToLinearTraversion(inTraversion: Traversion) {
     inTraversion.push(new TraversionItem(TraversionItemKind.TERMINAL, this, inTraversion.length));
   }
 
-
-  nextStepsFromTerminalAction(nextStepsFromTerminal: null, fromChild: null) {
-    if (this.parent) this.parent.nextStepsFromTerminalAction(this.nextStepsFromTerminal, this);
+  traversionActions(inTraversion: Traversion, step: TraversionItem) {
+    switch (inTraversion.purpose) {
+      case TraversionPurpose.FIND_NEXT_TOKENS:
+        break;
+      case TraversionPurpose.BACKSTEP_TO_PARENT:
+        break;
+    }
   }
 }
 
@@ -631,7 +662,7 @@ export class EntryPointTraverser extends SingleTraverser {
   node: PRule;
   index: number;
   _traversed = false;
-  _traversion: Traversion = [];
+  _traversion: Traversion = new Traversion();
 
   constructor(parser: ParseTableGenerator, parent: RuleElementTraverser, node: PRule) {
     super(parser, parent, node);
@@ -641,7 +672,7 @@ export class EntryPointTraverser extends SingleTraverser {
   get traversion(): Traversion {
     if (!this._traversed) {
       this._traversed = true;
-      this.createLinearTraversion();
+      this._traversion.createLinearTraversion(this);
     }
     return this._traversion;
   }
@@ -657,10 +688,8 @@ export class EntryPointTraverser extends SingleTraverser {
     }
   }
 
-  createLinearTraversion() {
-    this.positionInTraversion = 0;
-    this._traversion[this.node.nodeIdx] = this;
-    this.child.createLinearTraversion(this._traversion);
+  pushItemsToLinearTraversion(inTraversion: Traversion) {
+    inTraversion.push(new TraversionItem(TraversionItemKind.RULE, this, inTraversion.length));
   }
 
 }
