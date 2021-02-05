@@ -276,7 +276,7 @@ export class GrammarParsingLeafState {
 }
 
 enum TraversionItemKind {
-  RULE, RECURSIVE_RULE, REPEAT, OPTIONAL, TERMINAL, NEXT_SUBTREE
+  RULE, RECURSIVE_RULE, REPEAT, OPTIONAL, TERMINAL, SEPARATE_NEXT_SUBTREE
 }
 class TraversionControl {
   readonly parent: LinearTraversion;
@@ -306,7 +306,7 @@ class TraversionControl {
         break;
       case TraversionItemKind.REPEAT:
       case TraversionItemKind.OPTIONAL:
-      case TraversionItemKind.NEXT_SUBTREE:
+      case TraversionItemKind.SEPARATE_NEXT_SUBTREE:
 
         break;
       default:
@@ -389,7 +389,7 @@ class LinearTraversion {
         if (first) {
           first = 0;
         } else {
-          separator = new TraversionControl(this, TraversionItemKind.NEXT_SUBTREE, item);
+          separator = new TraversionControl(this, TraversionItemKind.SEPARATE_NEXT_SUBTREE, item);
           separator.child = child;
           separator.previousChild = previousChild;
           this.push(separator);
@@ -408,6 +408,11 @@ class LinearTraversion {
     });
 
     item.pushPostfixControllerItem(this);
+    this.pushDefaultPostfixControllerItems(item);
+  }
+
+  pushDefaultPostfixControllerItems(item: RuleElementTraverser) {
+
   }
 
   push(item: TraversionControl) {
@@ -440,7 +445,7 @@ class LinearTraversion {
   defaultActions(step: TraversionControl) {
     switch (this.purpose) {
       case TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN:
-        if (step.kind === TraversionItemKind.NEXT_SUBTREE) {
+        if (step.kind === TraversionItemKind.SEPARATE_NEXT_SUBTREE) {
           this.execute(TraversionItemActionKind.OMIT_SUBTREE, step);
         }
         break;
@@ -452,7 +457,7 @@ class LinearTraversion {
   execute(action: TraversionItemActionKind, step: TraversionControl) {
     switch (action) {
       case TraversionItemActionKind.OMIT_SUBTREE:
-        if (step.kind !== TraversionItemKind.NEXT_SUBTREE) {
+        if (step.kind !== TraversionItemKind.SEPARATE_NEXT_SUBTREE) {
           throw new Error();
         }
         this.positionOk = true;
@@ -554,11 +559,16 @@ class ChoiceTraverser extends RuleElementTraverser {
   }
 
   traversionActions(inTraversion: LinearTraversion, step: TraversionControl, cache: TraversionCache) {
-    switch (inTraversion.purpose) {
-      case TraversionPurpose.FIND_NEXT_TOKENS:
+    switch (step.kind) {
+      case TraversionItemKind.SEPARATE_NEXT_SUBTREE:
+        switch (inTraversion.purpose) {
+          case TraversionPurpose.FIND_NEXT_TOKENS:
+            break;
+          case TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN:
+            break;
+        }
         break;
-      case TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN:
-        break;
+      default:
     }
   }
 
@@ -585,43 +595,48 @@ class SequenceTraverser extends RuleElementTraverser {
 
     var traverseLocals = cache.nodeLocal(this);
 
-    switch (inTraversion.purpose) {
-      case TraversionPurpose.FIND_NEXT_TOKENS:
+    switch (step.kind) {
+      case TraversionItemKind.SEPARATE_NEXT_SUBTREE:
+        switch (inTraversion.purpose) {
+          case TraversionPurpose.FIND_NEXT_TOKENS:
 
-        if (traverseLocals.steppingFromInsideThisSequence) {
-          // Rule = A B C? D
-          // looking for the next possible tokens inside a sequence, started from
-          // A B or C  which, in previous rounds, 
-          // raised BACKSTEP_TO_SEQUENCE_THEN > FIND_NEXT_TOKENS,  
-          // which triggered traversion to next branch B C or D 
-          // and we are after that
+            if (traverseLocals.steppingFromInsideThisSequence) {
+              // Rule = A B C? D
+              // looking for the next possible tokens inside a sequence, started from
+              // A B or C  which, in previous rounds, 
+              // raised BACKSTEP_TO_SEQUENCE_THEN > FIND_NEXT_TOKENS,  
+              // which triggered traversion to next branch B C or D 
+              // and we are after that
 
-          // now, if the mandatory item of the sequence WAS n't coming,
-          // makes the whole parse Invalid   if prev was optional, continuing 
-          // regurarly and traversing the next (C or D) or moving upwards
+              // now, if the mandatory item of the sequence WAS n't coming,
+              // makes the whole parse Invalid   if prev was optional, continuing 
+              // regurarly and traversing the next (C or D) or moving upwards
 
-          if (!step.previousChild.optionalBranch) {
-            inTraversion.execute(TraversionItemActionKind.STOP, step);
-          }
+              if (!step.previousChild.optionalBranch) {
+                inTraversion.execute(TraversionItemActionKind.STOP, step);
+              }
 
-        } else {
-          // it is the 2..n th branch of sequence, their first items  may not be
-          // the following  unless the 1..(n-1)th (previous) branch was optional
-          //
-          // if so then traversing the next branch / moving upwards  regurarly
-          //
-          if (!step.previousChild.optionalBranch) {
-            inTraversion.execute(TraversionItemActionKind.OMIT_SUBTREE, step);
-          }
+            } else {
+              // it is the 2..n th branch of sequence, their first items  may not be
+              // the following  unless the 1..(n-1)th (previous) branch was optional
+              //
+              // if so then traversing the next branch / moving upwards  regurarly
+              //
+              if (!step.previousChild.optionalBranch) {
+                inTraversion.execute(TraversionItemActionKind.OMIT_SUBTREE, step);
+              }
+            }
+
+            break;
+          case TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN:
+
+            traverseLocals.steppingFromInsideThisSequence = true;
+
+            inTraversion.execute(TraversionItemActionKind.STEP_PURPOSE, step);
+            break;
         }
-
         break;
-      case TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN:
-
-        traverseLocals.steppingFromInsideThisSequence = true;
-
-        inTraversion.execute(TraversionItemActionKind.STEP_PURPOSE, step);
-        break;
+      default:
     }
   }
 
@@ -687,13 +702,18 @@ class OrMoreTraverser extends SingleCollectionTraverser {
   }
 
   traversionActions(inTraversion: LinearTraversion, step: TraversionControl, cache: TraversionCache) {
-    switch (inTraversion.purpose) {
-      case TraversionPurpose.FIND_NEXT_TOKENS:
+    switch (step.kind) {
+      case TraversionItemKind.REPEAT:
+        switch (inTraversion.purpose) {
+          case TraversionPurpose.FIND_NEXT_TOKENS:
+            break;
+          case TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN:
+            inTraversion.execute(TraversionItemActionKind.RESET_POSITION, step);
+            inTraversion.execute(TraversionItemActionKind.STEP_PURPOSE, step);
+            break;
+        }
         break;
-      case TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN:
-        inTraversion.execute(TraversionItemActionKind.RESET_POSITION, step);
-        inTraversion.execute(TraversionItemActionKind.STEP_PURPOSE, step);
-        break;
+      default:
     }
   }
 }
@@ -897,12 +917,17 @@ class TerminalRefTraverser extends EmptyTraverser {
   }
 
   traversionActions(inTraversion: LinearTraversion, step: TraversionControl, cache: TraversionCache) {
-    switch (inTraversion.purpose) {
-      case TraversionPurpose.FIND_NEXT_TOKENS:
-        cache.collectedTerminals.push(this);
+    switch (step.kind) {
+      case TraversionItemKind.TERMINAL:
+        switch (inTraversion.purpose) {
+          case TraversionPurpose.FIND_NEXT_TOKENS:
+            cache.collectedTerminals.push(this);
+            break;
+          case TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN:
+            break;
+        }
         break;
-      case TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN:
-        break;
+      default:
     }
   }
 }
