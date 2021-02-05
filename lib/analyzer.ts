@@ -357,6 +357,8 @@ class TraversionCache {
 
   readonly collectedStateJumpingTokens: TerminalRefTraverser[] = [];
 
+  readonly runtimeControls: RuntimeControl[];
+
   readonly reducedNodesAtBegin: RuleElementTraverser[] = [];
 
 
@@ -380,7 +382,7 @@ class LinearTraversion {
 
   readonly rule: EntryPointTraverser;
 
-  readonly array: TraversionControl[];
+  readonly traversionControls: TraversionControl[];
 
   readonly purpose: TraversionPurpose;
   readonly purposeThen: TraversionPurpose[];
@@ -389,12 +391,12 @@ class LinearTraversion {
   private stopped: boolean;
 
   get length() {
-    return this.array.length;
+    return this.traversionControls.length;
   }
 
   constructor(rule: EntryPointTraverser) {
     this.rule = rule;
-    this.array = [];
+    this.traversionControls = [];
 
     var recursionCacheStack = {};
     recursionCacheStack[rule.node.nodeIdx] = {
@@ -424,7 +426,7 @@ class LinearTraversion {
           separator = new TraversionControl(this, TraversionItemKind.CHILD_SEPARATOR, item);
           separator.child = child;
           separator.previousChild = previousChild;
-          this.push(separator);
+          this.pushControl(separator);
         }
 
         this.createRecursively(child, newRecursionStack);
@@ -445,16 +447,16 @@ class LinearTraversion {
 
   pushDefaultPrefixControllerItems(item: RuleElementTraverser) {
     var startnode = new TraversionControl(this, TraversionItemKind.NODE_START, item);
-    this.push(startnode);
+    this.pushControl(startnode);
   }
 
   pushDefaultPostfixControllerItems(item: RuleElementTraverser) {
     var endnode = new TraversionControl(this, TraversionItemKind.NODE_END, item);
-    this.push(endnode);
+    this.pushControl(endnode);
   }
 
-  push(item: TraversionControl) {
-    this.array.push(item);
+  pushControl(item: TraversionControl) {
+    this.traversionControls.push(item);
   }
 
   traverse(initialPurpose: TraversionPurpose, purposeThen?: TraversionPurpose[], startPosition = 0): TraversionCache {
@@ -463,18 +465,18 @@ class LinearTraversion {
     t.purposeThen = purposeThen ? purposeThen : [];
     var cache = new TraversionCache();
 
-    if (this.position >= this.array.length) {
+    if (this.position >= this.traversionControls.length) {
       this.stopped = true;
     }
     for (this.position = startPosition; !this.stopped;) {
       this.positionOk = false;
-      var item = this.array[this.position];
+      var item = this.traversionControls[this.position];
 
       item.item.traversionActions(this, item, cache);
 
       this.defaultActions(item, cache);
 
-      if (this.position >= this.array.length) {
+      if (this.position >= this.traversionControls.length) {
         this.stopped = true;
       }
     }
@@ -507,19 +509,44 @@ class LinearTraversion {
             if (cache.collectedStateJumpingTokens.length) {
               throw new Error();
             }
+            // REDUCE action (default or user function)
             // node succeeded, previous terminal is a sub-/main-end state
             // :
-            // triggering the user-defined action if any exists  
-            // or default runtime action otherwise  here
+            // triggers to the user-defined action if any exists  
+            // or default runtime action otherwise  generated here
+            // 
+            // conditions:
+            // - at beginning of starting state traversion
+            // excluded:
+            // - reduction checking omitted after first terminal 
+            //   ( this is the expected behavior since we are
+            //     analyzing one from-token to-tokens state transition
+            //     table which is holding all reduction cases in the front
+            //     of that  and  contains all token jumps after that )
             if (step.item.isReducable) {
               cache.reducedNodesAtBegin.push(step.item);
             }
 
             break;
           case TraversionPurpose.FIND_NEXT_TOKENS:
-            // a whole branch was empty...
-            // This case demands a behaviour  which is exactly like
+            // Epsilon REDUCE action (default or user function)
+            // A whole branch was empty and it is accepted as a 
+            // a valid empty node success, which should be of an
+            // optionalBranch==true node ...
+            // 
+            // This case demands a behavior  which is exactly like
             // that of BACKSTEP_TO_SEQUENCE_THEN ...
+            // conditions:
+            // - at beginning of starting state traversion
+            // - or at traversion beginning after token jump state
+            //     a) before anything
+            //     b) between / after regular reductions
+            // excluded:
+            // - reduction checking omitted after first terminal 
+            //   ( this is the expected behavior since we are
+            //     analyzing one from-token to-tokens state transition
+            //     table which is holding all reduction cases in the front
+            //     of that  and  contains all token jumps after that )
             if (cache.nodeLocal(step.item).terminalsAtStart === cache.collectedStateJumpingTokens.length) {
                 // TODO
             }
@@ -798,7 +825,7 @@ class OrMoreTraverser extends SingleCollectionTraverser {
   }
   pushPostfixControllerItem(inTraversion: LinearTraversion) {
     this.crrTrItem.toPosition = inTraversion.length;
-    inTraversion.push(this.crrTrItem);
+    inTraversion.pushControl(this.crrTrItem);
     this.crrTrItem = null;
   }
 
@@ -895,7 +922,7 @@ class RuleRefTraverser extends SingleTraverser {
 
     if (this.recursiveRuleOriginal) {
       var tavItem = new TraversionControl(inTraversion, TraversionItemKind.RECURSIVE_RULE, this.linkedRuleEntry);
-      inTraversion.push(tavItem);
+      inTraversion.pushControl(tavItem);
 
       return false;
     } else {
@@ -903,7 +930,7 @@ class RuleRefTraverser extends SingleTraverser {
       recursionCacheStack[this.targetRule.nodeIdx] = this.linkedRuleEntry;
 
       var tavItem = new TraversionControl(inTraversion, TraversionItemKind.RULE, this.linkedRuleEntry);
-      inTraversion.push(tavItem);
+      inTraversion.pushControl(tavItem);
 
       return true;
     }
@@ -1022,7 +1049,7 @@ class TerminalRefTraverser extends EmptyTraverser {
   pushPrefixControllerItem(inTraversion: LinearTraversion) {
     if (this.traverserStep) throw new Error();
     this.traverserStep = new TraversionControl(inTraversion, TraversionItemKind.TERMINAL, this);
-    inTraversion.push(this.traverserStep);
+    inTraversion.pushControl(this.traverserStep);
   }
 
   traversionActions(inTraversion: LinearTraversion, step: TraversionControl, cache: TraversionCache) {
@@ -1101,11 +1128,11 @@ class PredicateNotTraverser extends PredicateTraverser {
 
   pushPrefixControllerItem(inTraversion: LinearTraversion) {
     var action = new TraversionControl(inTraversion, TraversionItemKind.NEGATE, this);
-    inTraversion.push(action);
+    inTraversion.pushControl(action);
   }
   pushPostfixControllerItem(inTraversion: LinearTraversion) {
     var action = new TraversionControl(inTraversion, TraversionItemKind.NEGATE, this);
-    inTraversion.push(action);
+    inTraversion.pushControl(action);
   }
 
 }
