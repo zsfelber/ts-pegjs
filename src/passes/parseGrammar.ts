@@ -47,7 +47,9 @@ function generate(ast, ...args) {
     "one_or_more": PValueNode,
     "zero_or_more": PValueNode,
     "semantic_and": PSemanticAnd,
-    "semantic_not": PSemanticNot
+    "semantic_not": PSemanticNot,
+    "simple_and": PValueNode,
+    "simple_not": PValueNode,
   }
   var KK = {
     "grammar": PNodeKind.GRAMMAR,
@@ -58,7 +60,9 @@ function generate(ast, ...args) {
     "one_or_more": PNodeKind.ONE_OR_MORE,
     "zero_or_more": PNodeKind.ZERO_OR_MORE,
     "semantic_and": PNodeKind.SEMANTIC_AND,
-    "semantic_not": PNodeKind.SEMANTIC_NOT
+    "semantic_not": PNodeKind.SEMANTIC_NOT,
+    "simple_and": PNodeKind.PREDICATE_AND,
+    "simple_not": PNodeKind.PREDICATE_NOT,
   }
 
   function gencode(code: string): string[] {
@@ -211,7 +215,9 @@ function generate(ast, ...args) {
       case "optional":
       case "zero_or_more":
       case "one_or_more":
-
+      case "simple_and":
+      case "simple_not":
+    
         ctx.pushNode(KT[node.type], KK[node.type]);
         parseGrammarAst(node, node.expression);
         return ctx.popNode();
@@ -223,7 +229,7 @@ function generate(ast, ...args) {
         // this generates the function arguments from preceeding nodes, as expected 
         var action = ctx.generateAction(child, current, PActionKind.PREDICATE, node);
         return ctx.popNode();
-
+  
       case "rule_ref":
         // terminal rule
         if (/^Ł/.exec(node.name)) {

@@ -276,7 +276,7 @@ export class GrammarParsingLeafState {
 }
 
 enum TraversionItemKind {
-  RULE, RECURSIVE_RULE, REPEAT, OPTIONAL, TERMINAL, SEPARATE_NEXT_SUBTREE
+  RULE, RECURSIVE_RULE, REPEAT, OPTIONAL, TERMINAL, SEPARATE_NEXT_SUBTREE, ACTION
 }
 class TraversionControl {
   readonly parent: LinearTraversion;
@@ -307,6 +307,7 @@ class TraversionControl {
       case TraversionItemKind.REPEAT:
       case TraversionItemKind.OPTIONAL:
       case TraversionItemKind.SEPARATE_NEXT_SUBTREE:
+      case TraversionItemKind.ACTION:
 
         break;
       default:
@@ -505,9 +506,9 @@ abstract class RuleElementTraverser {
     this.node.children.forEach(n => {
       this.children.push(Factory.createTraverser(parser, this, n));
     });
-    //if (this.checkConstructFailed()) {
+    if (this.checkConstructFailed()) {
     //  throw new Error("Ast construction failed.");
-    //}
+    }
     this.optionalBranch = this.node.optionalNode;
   }
 
@@ -558,6 +559,13 @@ class ChoiceTraverser extends RuleElementTraverser {
     this.optionalBranch = this.children.some(itm => itm.optionalBranch);
   }
 
+  pushPostfixControllerItem(inTraversion: LinearTraversion) {
+    if (this.parent && this.parent.node.kind !== PNodeKind.RULE) {
+      var action = new TraversionControl(inTraversion, TraversionItemKind.ACTION, this);
+      inTraversion.push(action);
+    }
+  }
+
   traversionActions(inTraversion: LinearTraversion, step: TraversionControl, cache: TraversionCache) {
     switch (step.kind) {
       case TraversionItemKind.SEPARATE_NEXT_SUBTREE:
@@ -588,6 +596,13 @@ class SequenceTraverser extends RuleElementTraverser {
     if (!this.children.length) {
       console.error("!parser.children.length (empty sequence)  " + this.node);
       return 1;
+    }
+  }
+
+  pushPostfixControllerItem(inTraversion: LinearTraversion) {
+    if (this.parent && this.parent.node.kind !== PNodeKind.RULE) {
+      var action = new TraversionControl(inTraversion, TraversionItemKind.ACTION, this);
+      inTraversion.push(action);
     }
   }
 
@@ -958,6 +973,17 @@ export class EntryPointTraverser extends SingleTraverser {
 
 }
 
+abstract class PredicateTraverser extends SingleTraverser {
+
+}
+
+
+class PredicateAndTraverser extends PredicateTraverser {
+}
+
+
+class PredicateNotTraverser extends PredicateTraverser {
+} 
 
 
 abstract class SemanticTraverser extends EmptyTraverser {
@@ -971,6 +997,13 @@ abstract class SemanticTraverser extends EmptyTraverser {
     }
     return dirty;
   }
+
+  pushPostfixControllerItem(inTraversion: LinearTraversion) {
+    if (this.parent && this.parent.node.kind !== PNodeKind.RULE) {
+      var action = new TraversionControl(inTraversion, TraversionItemKind.ACTION, this);
+      inTraversion.push(action);
+    }
+  }
 }
 
 
@@ -978,5 +1011,5 @@ class SemanticAndTraverser extends SemanticTraverser {
 }
 
 
-class SemanticNotTraverser extends SingleTraverser {
+class SemanticNotTraverser extends SemanticTraverser {
 } 

@@ -15,6 +15,8 @@ export enum PNodeKind {
   SINGLE = "single",
   SEMANTIC_AND = "semantic_and",
   SEMANTIC_NOT = "semantic_not",
+  PREDICATE_AND = "predicate_and",
+  PREDICATE_NOT = "predicate_not",
   RULE_REF = "rule_ref",
   TERMINAL_REF = "terminal_ref"
 }
@@ -31,8 +33,10 @@ Codes[PNodeKind.EMPTY] = 8;
 Codes[PNodeKind.SINGLE] = 9;
 Codes[PNodeKind.SEMANTIC_AND] = 10;
 Codes[PNodeKind.SEMANTIC_NOT] = 11;
-Codes[PNodeKind.RULE_REF] = 12;
-Codes[PNodeKind.TERMINAL_REF] = 13;
+Codes[PNodeKind.PREDICATE_AND] = 12;
+Codes[PNodeKind.PREDICATE_NOT] = 13;
+Codes[PNodeKind.RULE_REF] = 14;
+Codes[PNodeKind.TERMINAL_REF] = 15;
 
 Strings[0] = PNodeKind.GRAMMAR;
 Strings[1] = PNodeKind.RULE;
@@ -46,8 +50,10 @@ Strings[8] = PNodeKind.EMPTY;
 Strings[9] = PNodeKind.SINGLE;
 Strings[10] = PNodeKind.SEMANTIC_AND;
 Strings[11] = PNodeKind.SEMANTIC_NOT;
-Strings[12] = PNodeKind.RULE_REF;
-Strings[13] = PNodeKind.TERMINAL_REF;
+Strings[12] = PNodeKind.PREDICATE_AND;
+Strings[13] = PNodeKind.PREDICATE_NOT;
+Strings[14] = PNodeKind.RULE_REF;
+Strings[15] = PNodeKind.TERMINAL_REF;
 
 
 export enum PActionKind {
@@ -324,6 +330,8 @@ export const PConss = {
   "zero_or_more": PValueNode,
   "semantic_and": PSemanticAnd,
   "semantic_not": PSemanticNot,
+  "predicate_and": PValueNode,
+  "predicate_not": PValueNode,
 
    "terminal":PTerminal,
    "empty":PValueNode,
