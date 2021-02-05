@@ -278,7 +278,7 @@ export class GrammarParsingLeafState {
 enum TraversionItemKind {
   RULE, RECURSIVE_RULE, REPEAT, OPTIONAL, TERMINAL, NEXT_SUBTREE
 }
-class TraversionControllerItem {
+class TraversionControl {
   readonly parent: LinearTraversion;
 
   kind: TraversionItemKind;
@@ -349,7 +349,7 @@ class LinearTraversion {
 
   readonly rule: EntryPointTraverser;
 
-  readonly array: TraversionControllerItem[];
+  readonly array: TraversionControl[];
 
   readonly purpose: TraversionPurpose;
   readonly purposeThen: TraversionPurpose[];
@@ -385,11 +385,11 @@ class LinearTraversion {
     var previousChild = null;
     item.children.forEach(child => {
       if (item.checkLoopIsFinitePrefix(this, child, newRecursionStack)) {
-        var separator: TraversionControllerItem;
+        var separator: TraversionControl;
         if (first) {
           first = 0;
         } else {
-          separator = new TraversionControllerItem(this, TraversionItemKind.NEXT_SUBTREE, item, this.length);
+          separator = new TraversionControl(this, TraversionItemKind.NEXT_SUBTREE, item, this.length);
           separator.child = child;
           separator.previousChild = previousChild;
           this.push(separator);
@@ -410,7 +410,7 @@ class LinearTraversion {
     item.pushPostfixControllerItem(this);
   }
 
-  push(item: TraversionControllerItem) {
+  push(item: TraversionControl) {
     this.array.push(item);
   }
 
@@ -437,7 +437,7 @@ class LinearTraversion {
     return cache;
   }
 
-  defaultActions(step: TraversionControllerItem) {
+  defaultActions(step: TraversionControl) {
     switch (this.purpose) {
       case TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN:
         if (step.kind === TraversionItemKind.NEXT_SUBTREE) {
@@ -449,7 +449,7 @@ class LinearTraversion {
     this.execute(TraversionItemActionKind.CONTINUE, null);
   }
 
-  execute(action: TraversionItemActionKind, step: TraversionControllerItem) {
+  execute(action: TraversionItemActionKind, step: TraversionControl) {
     switch (action) {
       case TraversionItemActionKind.OMIT_SUBTREE:
         if (step.kind !== TraversionItemKind.NEXT_SUBTREE) {
@@ -487,7 +487,7 @@ abstract class RuleElementTraverser {
   readonly parent: RuleElementTraverser;
   readonly node: PNode;
   readonly children: RuleElementTraverser[] = [];
-  readonly maybeEmpty: boolean;
+  readonly optionalBranch: boolean;
 
   constructor(parser: ParseTableGenerator, parent: RuleElementTraverser, node: PNode) {
     this.parent = parent;
@@ -503,7 +503,7 @@ abstract class RuleElementTraverser {
     //if (this.checkConstructFailed()) {
     //  throw new Error("Ast construction failed.");
     //}
-    this.maybeEmpty = this.node.allowStepThrough;
+    this.optionalBranch = this.node.optionalNode;
   }
 
   checkConstructFailed(): any {
@@ -539,21 +539,21 @@ abstract class RuleElementTraverser {
   pushPostfixControllerItem(inTraversion: LinearTraversion) {
   }
 
-  traversionActions(inTraversion: LinearTraversion, step: TraversionControllerItem, cache: TraversionCache) {
+  traversionActions(inTraversion: LinearTraversion, step: TraversionControl, cache: TraversionCache) {
   }
 }
 
 
 class ChoiceTraverser extends RuleElementTraverser {
 
-  readonly maybeEmpty: boolean;
+  readonly optionalBranch: boolean;
 
   constructor(parser: ParseTableGenerator, parent: RuleElementTraverser, node: PNode) {
     super(parser, parent, node);
-    this.maybeEmpty = this.children.some(itm => itm.maybeEmpty);
+    this.optionalBranch = this.children.some(itm => itm.optionalBranch);
   }
 
-  traversionActions(inTraversion: LinearTraversion, step: TraversionControllerItem, cache: TraversionCache) {
+  traversionActions(inTraversion: LinearTraversion, step: TraversionControl, cache: TraversionCache) {
     switch (inTraversion.purpose) {
       case TraversionPurpose.FIND_NEXT_TOKENS:
         break;
@@ -567,11 +567,11 @@ class ChoiceTraverser extends RuleElementTraverser {
 
 class SequenceTraverser extends RuleElementTraverser {
 
-  readonly maybeEmpty: boolean;
+  readonly optionalBranch: boolean;
 
   constructor(parser: ParseTableGenerator, parent: RuleElementTraverser, node: PNode) {
     super(parser, parent, node);
-    this.maybeEmpty = !this.children.some(itm => !itm.maybeEmpty);
+    this.optionalBranch = !this.children.some(itm => !itm.optionalBranch);
   }
 
   checkConstructFailed() {
@@ -581,7 +581,7 @@ class SequenceTraverser extends RuleElementTraverser {
     }
   }
 
-  traversionActions(inTraversion: LinearTraversion, step: TraversionControllerItem, cache: TraversionCache) {
+  traversionActions(inTraversion: LinearTraversion, step: TraversionControl, cache: TraversionCache) {
 
     var traverseLocals = cache.nodeLocal(this);
 
@@ -589,11 +589,14 @@ class SequenceTraverser extends RuleElementTraverser {
       case TraversionPurpose.FIND_NEXT_TOKENS:
 
         if (traverseLocals.steppingFromInsideThisSequence) {
-          if (!step.previousChild.maybeEmpty) {
+          // 
+          if (!step.previousChild.optionalBranch) {
             inTraversion.execute(TraversionItemActionKind.STOP, step);
           }
         } else {
-          if (!step.previousChild.maybeEmpty) {
+          // it is the 2..n th branch of sequence, they may not be
+          // the following  unless the 1..(n-1)th (previous) branch was optional
+          if (!step.previousChild.optionalBranch) {
             inTraversion.execute(TraversionItemActionKind.OMIT_SUBTREE, step);
           }
         }
@@ -658,10 +661,10 @@ class OptionalTraverser extends SingleTraverser {
 
 class OrMoreTraverser extends SingleCollectionTraverser {
 
-  crrTrItem: TraversionControllerItem;
+  crrTrItem: TraversionControl;
 
   pushPrefixControllerItem(inTraversion: LinearTraversion) {
-    this.crrTrItem = new TraversionControllerItem(inTraversion, TraversionItemKind.REPEAT, this, inTraversion.length);
+    this.crrTrItem = new TraversionControl(inTraversion, TraversionItemKind.REPEAT, this, inTraversion.length);
   }
   pushPostfixControllerItem(inTraversion: LinearTraversion) {
     this.crrTrItem.toPosition = inTraversion.length;
@@ -669,7 +672,7 @@ class OrMoreTraverser extends SingleCollectionTraverser {
     this.crrTrItem = null;
   }
 
-  traversionActions(inTraversion: LinearTraversion, step: TraversionControllerItem, cache: TraversionCache) {
+  traversionActions(inTraversion: LinearTraversion, step: TraversionControl, cache: TraversionCache) {
     switch (inTraversion.purpose) {
       case TraversionPurpose.FIND_NEXT_TOKENS:
         break;
@@ -682,22 +685,22 @@ class OrMoreTraverser extends SingleCollectionTraverser {
 }
 
 
-// node.allowStepThrough == true 
+// node.optionalNode == true 
 
 class ZeroOrMoreTraverser extends OrMoreTraverser {
 
 
 }
 
-// node.allowStepThrough == false 
+// node.optionalNode == false 
 
 class OneOrMoreTraverser extends OrMoreTraverser {
 
-  readonly maybeEmpty: boolean;
+  readonly optionalBranch: boolean;
 
   constructor(parser: ParseTableGenerator, parent: RuleElementTraverser, node: PNode) {
     super(parser, parent, node);
-    this.maybeEmpty = this.child.maybeEmpty;
+    this.optionalBranch = this.child.optionalBranch;
   }
 
 }
@@ -715,14 +718,14 @@ class RuleRefTraverser extends SingleTraverser {
 
   collectedTerminalsFromHereToRecursiveRepetition: TerminalRefTraverser[];
 
-  readonly maybeEmpty: boolean;
+  readonly optionalBranch: boolean;
 
   constructor(parser: ParseTableGenerator, parent: RuleElementTraverser, node: PRuleRef) {
     super(parser, parent, node);
     this.parser.allRuleReferences.push(this);
     this.targetRule = Analysis.ruleTable[this.node.ruleIndex];
 
-    this.maybeEmpty = this.linkedRuleEntry.maybeEmpty;
+    this.optionalBranch = this.linkedRuleEntry.optionalBranch;
   }
 
   lazyCouldGenerateNew() {
@@ -752,7 +755,7 @@ class RuleRefTraverser extends SingleTraverser {
     this.recursiveRuleOriginal = recursionCacheStack[this.targetRule.nodeIdx] as RuleRefTraverser;
 
     if (this.recursiveRuleOriginal) {
-      var tavItem = new TraversionControllerItem(inTraversion, TraversionItemKind.RECURSIVE_RULE, this.linkedRuleEntry, inTraversion.length);
+      var tavItem = new TraversionControl(inTraversion, TraversionItemKind.RECURSIVE_RULE, this.linkedRuleEntry, inTraversion.length);
       inTraversion.push(tavItem);
 
       return false;
@@ -760,7 +763,7 @@ class RuleRefTraverser extends SingleTraverser {
 
       recursionCacheStack[this.targetRule.nodeIdx] = this.linkedRuleEntry;
 
-      var tavItem = new TraversionControllerItem(inTraversion, TraversionItemKind.RULE, this.linkedRuleEntry, inTraversion.length);
+      var tavItem = new TraversionControl(inTraversion, TraversionItemKind.RULE, this.linkedRuleEntry, inTraversion.length);
       inTraversion.push(tavItem);
 
       return true;
@@ -770,7 +773,7 @@ class RuleRefTraverser extends SingleTraverser {
   checkLoopIsFinitePostfix(inTraversion: LinearTraversion, childPending: RuleElementTraverser, recursionCacheStack: StrMapLike<RuleElementTraverser>) {
   }
 
-  traversionActions(inTraversion: LinearTraversion, step: TraversionControllerItem, cache: TraversionCache) {
+  traversionActions(inTraversion: LinearTraversion, step: TraversionControl, cache: TraversionCache) {
 
     const r = this.recursiveRuleOriginal;
 
@@ -832,7 +835,7 @@ class TerminalRefTraverser extends EmptyTraverser {
   stackedIn: RuleRefTraverser;
   original: TerminalRefTraverser;
 
-  traverserStep: TraversionControllerItem;
+  traverserStep: TraversionControl;
 
   stateGen: GrammarParsingLeafStateGenerator;
 
@@ -878,11 +881,11 @@ class TerminalRefTraverser extends EmptyTraverser {
 
   pushPrefixControllerItem(inTraversion: LinearTraversion) {
     if (this.traverserStep) throw new Error();
-    this.traverserStep = new TraversionControllerItem(inTraversion, TraversionItemKind.TERMINAL, this, inTraversion.length);
+    this.traverserStep = new TraversionControl(inTraversion, TraversionItemKind.TERMINAL, this, inTraversion.length);
     inTraversion.push(this.traverserStep);
   }
 
-  traversionActions(inTraversion: LinearTraversion, step: TraversionControllerItem, cache: TraversionCache) {
+  traversionActions(inTraversion: LinearTraversion, step: TraversionControl, cache: TraversionCache) {
     switch (inTraversion.purpose) {
       case TraversionPurpose.FIND_NEXT_TOKENS:
         cache.collectedTerminals.push(this);
@@ -899,12 +902,12 @@ export class EntryPointTraverser extends SingleTraverser {
   node: PRule;
   index: number;
 
-  readonly maybeEmpty: boolean;
+  readonly optionalBranch: boolean;
 
   constructor(parser: ParseTableGenerator, parent: RuleElementTraverser, node: PRule) {
     super(parser, parent, node);
     this.index = node.index;
-    this.maybeEmpty = this.child.maybeEmpty;
+    this.optionalBranch = this.child.optionalBranch;
   }
 
   findRuleNodeParent(rule: string, incl = false) {
