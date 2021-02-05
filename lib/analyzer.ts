@@ -39,6 +39,10 @@ namespace Factory {
         return new SemanticAndTraverser(parser, parent, node);
       case PNodeKind.SEMANTIC_NOT:
         return new SemanticNotTraverser(parser, parent, node);
+      case PNodeKind.PREDICATE_AND:
+        return new SemanticAndTraverser(parser, parent, node);
+      case PNodeKind.PREDICATE_NOT:
+        return new SemanticNotTraverser(parser, parent, node);
       case PNodeKind.ZERO_OR_MORE:
         return new ZeroOrMoreTraverser(parser, parent, node);
       case PNodeKind.ONE_OR_MORE:
@@ -507,7 +511,7 @@ abstract class RuleElementTraverser {
       this.children.push(Factory.createTraverser(parser, this, n));
     });
     if (this.checkConstructFailed()) {
-    //  throw new Error("Ast construction failed.");
+      //  throw new Error("Ast construction failed.");
     }
     this.optionalBranch = this.node.optionalNode;
   }
@@ -979,11 +983,24 @@ abstract class PredicateTraverser extends SingleTraverser {
 
 
 class PredicateAndTraverser extends PredicateTraverser {
+  readonly optionalBranch: boolean;
+
+  constructor(parser: ParseTableGenerator, parent: RuleElementTraverser, node: PNode) {
+    super(parser, parent, node);
+    this.optionalBranch = this.child.optionalBranch;
+  }
 }
 
 
 class PredicateNotTraverser extends PredicateTraverser {
-} 
+  readonly optionalBranch: boolean;
+
+  constructor(parser: ParseTableGenerator, parent: RuleElementTraverser, node: PNode) {
+    super(parser, parent, node);
+    // NOTE it is good , somewhat thoughtfully tricky
+    this.optionalBranch = !this.child.optionalBranch;
+  }
+}
 
 
 abstract class SemanticTraverser extends EmptyTraverser {
@@ -1008,8 +1025,17 @@ abstract class SemanticTraverser extends EmptyTraverser {
 
 
 class SemanticAndTraverser extends SemanticTraverser {
+  constructor(parser: ParseTableGenerator, parent: RuleElementTraverser, node: PNode) {
+    super(parser, parent, node);
+    this.optionalBranch = 
+  }
+
 }
 
 
 class SemanticNotTraverser extends SemanticTraverser {
+  constructor(parser: ParseTableGenerator, parent: RuleElementTraverser, node: PNode) {
+    super(parser, parent, node);
+    this.optionalBranch = 
+  }
 } 
