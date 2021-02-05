@@ -86,7 +86,7 @@ export class ParseTableGenerator {
   allRuleReferences: RuleRefTraverser[] = [];
   allTerminalReferences: TerminalRefTraverser[] = [];
   mainEntryTraversion: LinearTraversion;
-  firstStates: TerminalRefTraverser[];
+  transitionsFromStartingState: ShiftReduce[];
 
   entryPoints: StrMapLike<EntryPointTraverser> = {};
   allNodes: NumMapLike<RuleElementTraverser> = {};
@@ -115,7 +115,7 @@ export class ParseTableGenerator {
 
     this.mainEntryTraversion = new LinearTraversion(mainEntryPoint);
     var cache = this.mainEntryTraversion.traverse(TraversionPurpose.FIND_NEXT_TOKENS);
-    this.firstStates = cache.collectedStateJumpingTokens;
+    this.transitionsFromStartingState = cache.shiftesAndReduces;
 
     // ================================================================
     // NOTE   terminal reference (node) <=>  persing state   
@@ -140,7 +140,7 @@ export class ParseTableGenerator {
 
     // this should be the latter one because  of
     // allTerminalReferences->stateTransitionsFromHere  which generates  *.stateGen
-    this.startingStateGen = new GrammarParsingLeafStateGenerator(1, null, this.firstStates);
+    this.startingStateGen = new GrammarParsingLeafStateGenerator(1, null, this.transitionsFromStartingState);
 
     //var result = new ParseTable(rule, step0, Factory.allTerminals, Factory.maxTokenId);
     //, startingState : GrammarAnalysisState, allTerminals: TerminalRefTraverser[], maxTokenId: number
@@ -191,15 +191,15 @@ export class GrammarParsingLeafStateGenerator {
 
   readonly index: number;
   readonly startingPointTraverser: TerminalRefTraverser;
-  readonly firstStates: TerminalRefTraverser[];
+  readonly transitions: ShiftReduce[];
   jumpToRule: PRule;
   jumpToRuleTokenId: number;
   actionNodeId: number;
 
-  constructor(index: number, startingPointTraverser: TerminalRefTraverser, firstStates: TerminalRefTraverser[]) {
+  constructor(index: number, startingPointTraverser: TerminalRefTraverser, transitions: ShiftReduce[]) {
     this.index = index;
     this.startingPointTraverser = startingPointTraverser;
-    this.firstStates = firstStates;
+    this.transitions = transitions;
   }
 
   generateState() {
@@ -262,7 +262,7 @@ export class GrammarParsingLeafState {
     this.actionNodeId = g.actionNodeId;
 
     var transitions = {};
-    g.firstStates.forEach(nextTerm => {
+    g.transitions.forEach(nextTerm => {
       if (!transitions[nextTerm.node.value]) {
         transitions[nextTerm.node.value] = nextTerm.stateGen.generateState();
       }
@@ -344,22 +344,38 @@ enum TraversionItemActionKind {
   OMIT_SUBTREE, STEP_PURPOSE, RESET_POSITION,
   STOP, CONTINUE/*default*/
 }
+enum ShiftReduceKind {
+  SHIFT, SHIFT_RECURSIVE, REDUCE
+}
+class ShiftReduce {
+  kind: ShiftReduceKind;
 
-enum RuntimeItemActionKind {
-  NODE_ACCEPTED_DEFAULT, NODE_ACCEPTED_USER,
-  PREDICATE_DEFAULT, PREDICATE_USER,
-  PREDICATE_NOT_DEFAULT, PREDICATE_NOT_USER
+  item: RuleElementTraverser;
+
+  isEpsilonReduce?: boolean;
+  intoRule?: EntryPointTraverser;
+}
+
+class Shift extends ShiftReduce {
+
+  kind = ShiftReduceKind.SHIFT;
+
+  item: TerminalRefTraverser;
+}
+
+class Reduce extends ShiftReduce {
+  kind = ShiftReduceKind.REDUCE;
+
+  isEpsilonReduce: boolean;
 }
 
 class TraversionCache {
 
   readonly isNegative = false;
 
-  readonly collectedStateJumpingTokens: TerminalRefTraverser[] = [];
+  readonly shiftesAndReduces: ShiftReduce[] = [];
 
-  readonly runtimeControls: RuntimeControl[];
-
-  readonly reducedNodesAtBegin: RuleElementTraverser[] = [];
+  readonly reducedNodes: Reduce[] = [];
 
 
   private nodeLocals: any[] = [];
@@ -498,7 +514,7 @@ class LinearTraversion {
       case TraversionItemKind.NODE_START:
         switch (this.purpose) {
           case TraversionPurpose.FIND_NEXT_TOKENS:
-            cache.nodeLocal(step.item).terminalsAtStart = cache.collectedStateJumpingTokens.length;
+            cache.nodeLocal(step.item).shiftReducesAtStart = cache.shiftesAndReduces.length;
             break;
         }
         break;
@@ -506,17 +522,17 @@ class LinearTraversion {
       case TraversionItemKind.NODE_END:
         switch (this.purpose) {
           case TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN:
-            if (cache.collectedStateJumpingTokens.length) {
+            if (cache.shiftesAndReduces.length) {
               throw new Error();
             }
             // REDUCE action (default or user function)
-            // node succeeded, previous terminal is a sub-/main-end state
+            // node succeeded, previous terminal was in a sub-/main-end state
             // :
             // triggers to the user-defined action if any exists  
             // or default runtime action otherwise  generated here
             // 
             // conditions:
-            // - at beginning of starting state traversion
+            // - at beginning of any state traversion
             // excluded:
             // - reduction checking omitted after first terminal 
             //   ( this is the expected behavior since we are
@@ -524,31 +540,20 @@ class LinearTraversion {
             //     table which is holding all reduction cases in the front
             //     of that  and  contains all token jumps after that )
             if (step.item.isReducable) {
-              cache.reducedNodesAtBegin.push(step.item);
+              cache.shiftesAndReduces.push({kind:ShiftReduceKind.REDUCE, item:step.item, isEpsilonReduce:false});
             }
 
             break;
           case TraversionPurpose.FIND_NEXT_TOKENS:
             // Epsilon REDUCE action (default or user function)
             // A whole branch was empty and it is accepted as a 
-            // a valid empty node success, which should be of an
-            // optionalBranch==true node ...
+            // a valid empty node success (which should be of an
+            // optionalBranch==true node) ...
             // 
             // This case demands a behavior  which is exactly like
             // that of BACKSTEP_TO_SEQUENCE_THEN ...
-            // conditions:
-            // - at beginning of starting state traversion
-            // - or at traversion beginning after token jump state
-            //     a) before anything
-            //     b) between / after regular reductions
-            // excluded:
-            // - reduction checking omitted after first terminal 
-            //   ( this is the expected behavior since we are
-            //     analyzing one from-token to-tokens state transition
-            //     table which is holding all reduction cases in the front
-            //     of that  and  contains all token jumps after that )
-            if (cache.nodeLocal(step.item).terminalsAtStart === cache.collectedStateJumpingTokens.length) {
-                // TODO
+            if (cache.nodeLocal(step.item).shiftReducesAtStart === cache.shiftesAndReduces.length) {
+              cache.shiftesAndReduces.push({kind:ShiftReduceKind.REDUCE, item:step.item, isEpsilonReduce:true});
             }
             break;
           }
@@ -878,7 +883,7 @@ class RuleRefTraverser extends SingleTraverser {
   targetRule: PRule;
   linkedRuleEntry: EntryPointTraverser;
 
-  collectedTerminalsFromHereToRecursiveRepetition: TerminalRefTraverser[];
+  shiftReducesBeforeRecursion: ShiftReduce[];
 
   readonly optionalBranch: boolean;
 
@@ -947,17 +952,26 @@ class RuleRefTraverser extends SingleTraverser {
           case TraversionItemKind.RECURSIVE_RULE:
             if (!r) throw new Error();
 
-            if (!r.collectedTerminalsFromHereToRecursiveRepetition) {
-              r.collectedToIndex = cache.collectedStateJumpingTokens.length;
-              r.collectedTerminalsFromHereToRecursiveRepetition =
-                cache.collectedStateJumpingTokens.slice(r.collectedFromIndex, r.collectedToIndex);
+            if (!r.shiftReducesBeforeRecursion) {
+              r.collectedToIndex = cache.shiftesAndReduces.length;
+              r.shiftReducesBeforeRecursion =
+                cache.shiftesAndReduces.slice(r.collectedFromIndex, r.collectedToIndex);
             }
 
             // for transitions jumping to a recursive section,
             // generating a state which mapped to a sub - Starting- Rule- ParseTable :
-            r.collectedTerminalsFromHereToRecursiveRepetition.forEach(infiniteItem => {
-              var newSubruleStarter = infiniteItem.stackedRefClone(this);
-              cache.collectedStateJumpingTokens.push(newSubruleStarter);
+            r.shiftReducesBeforeRecursion.forEach(infiniteItem => {
+              switch (infiniteItem.kind) {
+                case ShiftReduceKind.SHIFT:
+                  cache.shiftesAndReduces.push({kind:ShiftReduceKind.SHIFT_RECURSIVE, item:infiniteItem.item, intoRule: this.linkedRuleEntry});
+                  break;
+                case ShiftReduceKind.REDUCE:
+                  var newSubruleReduction = infiniteItem;
+                  cache.shiftesAndReduces.push({kind:ShiftReduceKind.REDUCE, item:infiniteItem.item, });
+                  break;
+
+              }
+
             });
             // maybe this start rule has not existed, should be generated now :
             this.parser.startRuleDependencies[this.node.rule] = this.node;
@@ -966,7 +980,7 @@ class RuleRefTraverser extends SingleTraverser {
           case TraversionItemKind.RULE:
             if (r) throw new Error();
 
-            this.collectedFromIndex = cache.collectedStateJumpingTokens.length;
+            this.collectedFromIndex = cache.shiftesAndReduces.length;
 
             break;
           default:
@@ -995,9 +1009,6 @@ class TerminalRefTraverser extends EmptyTraverser {
 
   node: PTerminalRef;
 
-  stackedIn: RuleRefTraverser;
-  original: TerminalRefTraverser;
-
   traverserStep: TraversionControl;
 
   stateGen: GrammarParsingLeafStateGenerator;
@@ -1013,24 +1024,17 @@ class TerminalRefTraverser extends EmptyTraverser {
     return true;
   }
 
-  stackedRefClone(stackedIn: RuleRefTraverser) {
-    var result = new TerminalRefTraverser(this.parser, this.parent, this.node);
-    result.stackedIn = stackedIn;
-    result.original = this;
-    return result;
-  }
-
-  stateTransitionsFromHere(index: number, rootTraversion: LinearTraversion) {
+  stateTransitionsFromHere(index: number, rootTraversion: LinearTraversion, recursiveJumpIntoRule: EntryPointTraverser) {
     // opens another parser of sub-start rule :
-    if (this.stackedIn) {
-      return this.parser.jumpToTableState(this.stackedIn.linkedRuleEntry.node, this.node.value);
+    if (recursiveJumpIntoRule) {
+      return this.parser.jumpToTableState(recursiveJumpIntoRule.node, this.node.value);
     }
 
     if (!this.traverserStep || this.traverserStep.parent !== rootTraversion) throw new Error();
 
     var cache = rootTraversion.traverse(TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN, [TraversionPurpose.FIND_NEXT_TOKENS], this.traverserStep.toPosition);
-    if (cache.collectedStateJumpingTokens.length) {
-      this.stateGen = new GrammarParsingLeafStateGenerator(index, this, cache.collectedStateJumpingTokens);
+    if (cache.shiftesAndReduces.length) {
+      this.stateGen = new GrammarParsingLeafStateGenerator(index, this, cache.shiftesAndReduces);
     } else {
       this.stateGen = GrammarParsingLeafStateGenerator.FINAL_STATE_GEN;
     }
@@ -1057,7 +1061,7 @@ class TerminalRefTraverser extends EmptyTraverser {
       case TraversionItemKind.TERMINAL:
         switch (inTraversion.purpose) {
           case TraversionPurpose.FIND_NEXT_TOKENS:
-            cache.collectedStateJumpingTokens.push(this);
+            cache.shiftesAndReduces.push({kind:ShiftReduceKind.SHIFT, item:this});
             break;
           case TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN:
             break;
