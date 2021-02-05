@@ -314,11 +314,11 @@ class TraversionControl {
     }
   }
 
-  constructor(parent: LinearTraversion, kind: TraversionItemKind, val: RuleElementTraverser, position: number) {
+  constructor(parent: LinearTraversion, kind: TraversionItemKind, val: RuleElementTraverser) {
     this.parent = parent;
     this.kind = kind;
     this._value = val;
-    this.fromPosition = this.toPosition = position;
+    this.fromPosition = this.toPosition = parent.length;
   }
 }
 
@@ -389,7 +389,7 @@ class LinearTraversion {
         if (first) {
           first = 0;
         } else {
-          separator = new TraversionControl(this, TraversionItemKind.NEXT_SUBTREE, item, this.length);
+          separator = new TraversionControl(this, TraversionItemKind.NEXT_SUBTREE, item);
           separator.child = child;
           separator.previousChild = previousChild;
           this.push(separator);
@@ -589,13 +589,27 @@ class SequenceTraverser extends RuleElementTraverser {
       case TraversionPurpose.FIND_NEXT_TOKENS:
 
         if (traverseLocals.steppingFromInsideThisSequence) {
-          // 
+          // Rule = A B C? D
+          // looking for the next possible tokens inside a sequence, started from
+          // A B or C  which, in previous rounds, 
+          // raised BACKSTEP_TO_SEQUENCE_THEN > FIND_NEXT_TOKENS,  
+          // which triggered traversion to next branch B C or D 
+          // and we are after that
+
+          // now, if the mandatory item of the sequence WAS n't coming,
+          // makes the whole parse Invalid   if prev was optional, continuing 
+          // regurarly and traversing the next (C or D) or moving upwards
+
           if (!step.previousChild.optionalBranch) {
             inTraversion.execute(TraversionItemActionKind.STOP, step);
           }
+
         } else {
-          // it is the 2..n th branch of sequence, they may not be
+          // it is the 2..n th branch of sequence, their first items  may not be
           // the following  unless the 1..(n-1)th (previous) branch was optional
+          //
+          // if so then traversing the next branch / moving upwards  regurarly
+          //
           if (!step.previousChild.optionalBranch) {
             inTraversion.execute(TraversionItemActionKind.OMIT_SUBTREE, step);
           }
@@ -664,7 +678,7 @@ class OrMoreTraverser extends SingleCollectionTraverser {
   crrTrItem: TraversionControl;
 
   pushPrefixControllerItem(inTraversion: LinearTraversion) {
-    this.crrTrItem = new TraversionControl(inTraversion, TraversionItemKind.REPEAT, this, inTraversion.length);
+    this.crrTrItem = new TraversionControl(inTraversion, TraversionItemKind.REPEAT, this);
   }
   pushPostfixControllerItem(inTraversion: LinearTraversion) {
     this.crrTrItem.toPosition = inTraversion.length;
@@ -755,7 +769,7 @@ class RuleRefTraverser extends SingleTraverser {
     this.recursiveRuleOriginal = recursionCacheStack[this.targetRule.nodeIdx] as RuleRefTraverser;
 
     if (this.recursiveRuleOriginal) {
-      var tavItem = new TraversionControl(inTraversion, TraversionItemKind.RECURSIVE_RULE, this.linkedRuleEntry, inTraversion.length);
+      var tavItem = new TraversionControl(inTraversion, TraversionItemKind.RECURSIVE_RULE, this.linkedRuleEntry);
       inTraversion.push(tavItem);
 
       return false;
@@ -763,14 +777,11 @@ class RuleRefTraverser extends SingleTraverser {
 
       recursionCacheStack[this.targetRule.nodeIdx] = this.linkedRuleEntry;
 
-      var tavItem = new TraversionControl(inTraversion, TraversionItemKind.RULE, this.linkedRuleEntry, inTraversion.length);
+      var tavItem = new TraversionControl(inTraversion, TraversionItemKind.RULE, this.linkedRuleEntry);
       inTraversion.push(tavItem);
 
       return true;
     }
-  }
-
-  checkLoopIsFinitePostfix(inTraversion: LinearTraversion, childPending: RuleElementTraverser, recursionCacheStack: StrMapLike<RuleElementTraverser>) {
   }
 
   traversionActions(inTraversion: LinearTraversion, step: TraversionControl, cache: TraversionCache) {
@@ -881,7 +892,7 @@ class TerminalRefTraverser extends EmptyTraverser {
 
   pushPrefixControllerItem(inTraversion: LinearTraversion) {
     if (this.traverserStep) throw new Error();
-    this.traverserStep = new TraversionControl(inTraversion, TraversionItemKind.TERMINAL, this, inTraversion.length);
+    this.traverserStep = new TraversionControl(inTraversion, TraversionItemKind.TERMINAL, this);
     inTraversion.push(this.traverserStep);
   }
 
