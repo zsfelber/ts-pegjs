@@ -194,6 +194,7 @@ export class GrammarParsingLeafStateGenerator {
   readonly firstStates: TerminalRefTraverser[];
   jumpToRule: PRule;
   jumpToRuleTokenId: number;
+  actionNodeId: number;
 
   constructor(index: number, startingPointTraverser: TerminalRefTraverser, firstStates: TerminalRefTraverser[]) {
     this.index = index;
@@ -202,16 +203,7 @@ export class GrammarParsingLeafStateGenerator {
   }
 
   generateState() {
-    var transitions = {};
-    this.firstStates.forEach(nextTerm => {
-      if (!transitions[nextTerm.node.value]) {
-        transitions[nextTerm.node.value] = nextTerm.stateGen.generateState();
-      }
-    })
-    var result = new GrammarParsingLeafState(
-      this.index,
-      this.startingPointTraverser ? this.startingPointTraverser.node : null,
-      transitions);
+    var result = new GrammarParsingLeafState(this);
     return result;
   }
 }
@@ -258,9 +250,23 @@ export class GrammarParsingLeafState {
   // tokenId -> traversion state
   readonly transitions: NumMapLike<GrammarParsingLeafState>;
 
-  constructor(index: number, startingPoint: PTerminalRef, transitions: NumMapLike<GrammarParsingLeafState>) {
-    this.index = index;
-    this.startingPoint = startingPoint;
+  readonly jumpToRule: PRule;
+  readonly jumpToRuleTokenId: number;
+  readonly actionNodeId: number;
+
+  constructor(g: GrammarParsingLeafStateGenerator) {
+    this.index = g.index;
+    this.startingPoint = g.startingPointTraverser ? g.startingPointTraverser.node : null;
+    this.jumpToRule = g.jumpToRule;
+    this.jumpToRuleTokenId = g.jumpToRuleTokenId;
+    this.actionNodeId = g.actionNodeId;
+
+    var transitions = {};
+    g.firstStates.forEach(nextTerm => {
+      if (!transitions[nextTerm.node.value]) {
+        transitions[nextTerm.node.value] = nextTerm.stateGen.generateState();
+      }
+    })
     this.transitions = transitions;
   }
 
@@ -280,15 +286,16 @@ export class GrammarParsingLeafState {
 }
 
 enum TraversionItemKind {
-  RULE, RECURSIVE_RULE, REPEAT, OPTIONAL, TERMINAL, SEPARATE_NEXT_SUBTREE, ACTION, NEGATE
+  RULE, RECURSIVE_RULE, REPEAT, OPTIONAL, TERMINAL, NODE_START, NODE_END, CHILD_SEPARATOR, NEGATE
 }
 class TraversionControl {
   readonly parent: LinearTraversion;
 
   kind: TraversionItemKind;
+  item: RuleElementTraverser;
+
   entry: EntryPointTraverser;
   terminal: TerminalRefTraverser;
-  value: RuleElementTraverser;
   child: RuleElementTraverser;
   previousChild: RuleElementTraverser;
 
@@ -296,34 +303,35 @@ class TraversionControl {
   toPosition: number;
 
   get nodeTravId() {
-    return this.value.nodeTravId;
+    return this.item.nodeTravId;
   }
-  private set _value(v: RuleElementTraverser) {
-    this.value = v;
+  private _set_itm(itm: RuleElementTraverser) {
+    this.item = itm;
     switch (this.kind) {
       case TraversionItemKind.RULE:
       case TraversionItemKind.RECURSIVE_RULE:
-        this.entry = v as any;
+        this.entry = itm as any;
         break;
       case TraversionItemKind.TERMINAL:
-        this.terminal = v as any;
+        this.terminal = itm as any;
         break;
       case TraversionItemKind.REPEAT:
       case TraversionItemKind.OPTIONAL:
-      case TraversionItemKind.SEPARATE_NEXT_SUBTREE:
-      case TraversionItemKind.ACTION:
+      case TraversionItemKind.NODE_START:
+      case TraversionItemKind.NODE_END:
+      case TraversionItemKind.CHILD_SEPARATOR:
       case TraversionItemKind.NEGATE:
 
         break;
       default:
-        throw new Error();
+        throw new Error(TraversionItemKind[this.kind]);
     }
   }
 
-  constructor(parent: LinearTraversion, kind: TraversionItemKind, val: RuleElementTraverser) {
+  constructor(parent: LinearTraversion, kind: TraversionItemKind, itm: RuleElementTraverser) {
     this.parent = parent;
     this.kind = kind;
-    this._value = val;
+    this._set_itm(itm);
     this.fromPosition = this.toPosition = parent.length;
   }
 }
@@ -343,21 +351,13 @@ enum RuntimeItemActionKind {
   PREDICATE_NOT_DEFAULT, PREDICATE_NOT_USER
 }
 
-class RuntimeActionItem {
-
-  kind: RuntimeItemActionKind;
-
-  terminal: TerminalRefTraverser;
-
-}
-
 class TraversionCache {
 
   readonly isNegative = false;
 
   readonly collectedStateJumpingTokens: TerminalRefTraverser[] = [];
 
-  readonly runtimeActionsAtBegin: RuntimeActionItem[] = [];
+  readonly reducedNodesAtBegin: RuleElementTraverser[] = [];
 
 
   private nodeLocals: any[] = [];
@@ -410,6 +410,7 @@ class LinearTraversion {
     var newRecursionStack = {};
     Object.setPrototypeOf(newRecursionStack, recursionCacheStack);
 
+    this.pushDefaultPrefixControllerItems(item);
     item.pushPrefixControllerItem(this);
 
     var first = 1;
@@ -420,7 +421,7 @@ class LinearTraversion {
         if (first) {
           first = 0;
         } else {
-          separator = new TraversionControl(this, TraversionItemKind.SEPARATE_NEXT_SUBTREE, item);
+          separator = new TraversionControl(this, TraversionItemKind.CHILD_SEPARATOR, item);
           separator.child = child;
           separator.previousChild = previousChild;
           this.push(separator);
@@ -442,8 +443,14 @@ class LinearTraversion {
     this.pushDefaultPostfixControllerItems(item);
   }
 
-  pushDefaultPostfixControllerItems(item: RuleElementTraverser) {
+  pushDefaultPrefixControllerItems(item: RuleElementTraverser) {
+    var startnode = new TraversionControl(this, TraversionItemKind.NODE_START, item);
+    this.push(startnode);
+  }
 
+  pushDefaultPostfixControllerItems(item: RuleElementTraverser) {
+    var endnode = new TraversionControl(this, TraversionItemKind.NODE_END, item);
+    this.push(endnode);
   }
 
   push(item: TraversionControl) {
@@ -463,7 +470,7 @@ class LinearTraversion {
       this.positionOk = false;
       var item = this.array[this.position];
 
-      item.value.traversionActions(this, item, cache);
+      item.item.traversionActions(this, item, cache);
 
       this.defaultActions(item, cache);
 
@@ -476,7 +483,7 @@ class LinearTraversion {
 
   defaultActions(step: TraversionControl, cache: TraversionCache) {
     switch (step.kind) {
-      case TraversionItemKind.SEPARATE_NEXT_SUBTREE:
+      case TraversionItemKind.CHILD_SEPARATOR:
         switch (this.purpose) {
           case TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN:
             this.execute(TraversionItemActionKind.OMIT_SUBTREE, step);
@@ -486,7 +493,15 @@ class LinearTraversion {
       case TraversionItemKind.NEGATE:
         cache.negate();
         break;
-      case TraversionItemKind.ACTION:
+      case TraversionItemKind.NODE_START:
+        switch (this.purpose) {
+          case TraversionPurpose.FIND_NEXT_TOKENS:
+            cache.nodeLocal(step.item).terminalsAtStart = cache.collectedStateJumpingTokens.length;
+            break;
+        }
+        break;
+
+      case TraversionItemKind.NODE_END:
         switch (this.purpose) {
           case TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN:
             if (cache.collectedStateJumpingTokens.length) {
@@ -496,11 +511,20 @@ class LinearTraversion {
             // :
             // triggering the user-defined action if any exists  
             // or default runtime action otherwise  here
-            cache
-
+            if (step.item.isReducable) {
+              cache.reducedNodesAtBegin.push(step.item);
+            }
 
             break;
-        }
+          case TraversionPurpose.FIND_NEXT_TOKENS:
+            // a whole branch was empty...
+            // This case demands a behaviour  which is exactly like
+            // that of BACKSTEP_TO_SEQUENCE_THEN ...
+            if (cache.nodeLocal(step.item).terminalsAtStart === cache.collectedStateJumpingTokens.length) {
+                // TODO
+            }
+            break;
+          }
 
         break;
     }
@@ -510,7 +534,7 @@ class LinearTraversion {
   execute(action: TraversionItemActionKind, step: TraversionControl) {
     switch (action) {
       case TraversionItemActionKind.OMIT_SUBTREE:
-        if (step.kind !== TraversionItemKind.SEPARATE_NEXT_SUBTREE) {
+        if (step.kind !== TraversionItemKind.CHILD_SEPARATOR) {
           throw new Error();
         }
         this.positionOk = true;
@@ -564,6 +588,10 @@ abstract class RuleElementTraverser {
     this.optionalBranch = this.node.optionalNode;
   }
 
+  get isReducable() {
+    return false;
+  }
+
   checkConstructFailed(): any {
   }
 
@@ -611,16 +639,13 @@ class ChoiceTraverser extends RuleElementTraverser {
     this.optionalBranch = this.children.some(itm => itm.optionalBranch);
   }
 
-  pushPostfixControllerItem(inTraversion: LinearTraversion) {
-    if (this.parent && this.parent.node.kind !== PNodeKind.RULE) {
-      var action = new TraversionControl(inTraversion, TraversionItemKind.ACTION, this);
-      inTraversion.push(action);
-    }
+  get isReducable() {
+    return true;
   }
 
   traversionActions(inTraversion: LinearTraversion, step: TraversionControl, cache: TraversionCache) {
     switch (step.kind) {
-      case TraversionItemKind.SEPARATE_NEXT_SUBTREE:
+      case TraversionItemKind.CHILD_SEPARATOR:
         switch (inTraversion.purpose) {
           case TraversionPurpose.FIND_NEXT_TOKENS:
             break;
@@ -651,11 +676,8 @@ class SequenceTraverser extends RuleElementTraverser {
     }
   }
 
-  pushPostfixControllerItem(inTraversion: LinearTraversion) {
-    if (this.parent && this.parent.node.kind !== PNodeKind.RULE) {
-      var action = new TraversionControl(inTraversion, TraversionItemKind.ACTION, this);
-      inTraversion.push(action);
-    }
+  get isReducable() {
+    return true;
   }
 
   traversionActions(inTraversion: LinearTraversion, step: TraversionControl, cache: TraversionCache) {
@@ -663,7 +685,7 @@ class SequenceTraverser extends RuleElementTraverser {
     var traverseLocals = cache.nodeLocal(this);
 
     switch (step.kind) {
-      case TraversionItemKind.SEPARATE_NEXT_SUBTREE:
+      case TraversionItemKind.CHILD_SEPARATOR:
         switch (inTraversion.purpose) {
           case TraversionPurpose.FIND_NEXT_TOKENS:
 
@@ -747,15 +769,27 @@ class EmptyTraverser extends RuleElementTraverser {
     }
   }
 
+  get isReducable() {
+    return true;
+  }
+
 }
 
 
 
 class OptionalTraverser extends SingleTraverser {
 
+  get isReducable() {
+    return true;
+  }
+
 }
 
 class OrMoreTraverser extends SingleCollectionTraverser {
+
+  get isReducable() {
+    return true;
+  }
 
   crrTrItem: TraversionControl;
 
@@ -827,6 +861,10 @@ class RuleRefTraverser extends SingleTraverser {
     this.targetRule = Analysis.ruleTable[this.node.ruleIndex];
 
     this.optionalBranch = this.linkedRuleEntry.optionalBranch;
+  }
+
+  get isReducable() {
+    return true;
   }
 
   lazyCouldGenerateNew() {
@@ -944,6 +982,10 @@ class TerminalRefTraverser extends EmptyTraverser {
     if (this.node && this.node.value > parser.maxTokenId) parser.maxTokenId = this.node.value;
   }
 
+  get isReducable() {
+    return true;
+  }
+
   stackedRefClone(stackedIn: RuleRefTraverser) {
     var result = new TerminalRefTraverser(this.parser, this.parent, this.node);
     result.stackedIn = stackedIn;
@@ -1013,6 +1055,10 @@ export class EntryPointTraverser extends SingleTraverser {
     this.optionalBranch = this.child.optionalBranch;
   }
 
+  get isReducable() {
+    return true;
+  }
+
   findRuleNodeParent(rule: string, incl = false) {
     if (incl && rule === this.node.rule) {
       return this;
@@ -1026,6 +1072,10 @@ export class EntryPointTraverser extends SingleTraverser {
 }
 
 abstract class PredicateTraverser extends SingleTraverser {
+
+  get isReducable() {
+    return true;
+  }
 
 }
 
@@ -1070,6 +1120,10 @@ abstract class SemanticTraverser extends EmptyTraverser {
     this.optionalBranch = false;
   }
 
+  get isReducable() {
+    return true;
+  }
+
   checkConstructFailed() {
     var dirty = super.checkConstructFailed();
     if (!this.node.action || !this.node.action.fun) {
@@ -1079,12 +1133,6 @@ abstract class SemanticTraverser extends EmptyTraverser {
     return dirty;
   }
 
-  pushPostfixControllerItem(inTraversion: LinearTraversion) {
-    if (this.parent && this.parent.node.kind !== PNodeKind.RULE) {
-      var action = new TraversionControl(inTraversion, TraversionItemKind.ACTION, this);
-      inTraversion.push(action);
-    }
-  }
 }
 
 
