@@ -115,7 +115,7 @@ export class ParseTableGenerator {
 
     this.mainEntryTraversion = new LinearTraversion(mainEntryPoint);
     var cache = this.mainEntryTraversion.traverse(TraversionPurpose.FIND_NEXT_TOKENS);
-    this.firstStates = cache.collectedTerminals;
+    this.firstStates = cache.collectedStateJumpingTokens;
 
     // ================================================================
     // NOTE   terminal reference (node) <=>  persing state   
@@ -337,9 +337,28 @@ enum TraversionItemActionKind {
   STOP, CONTINUE/*default*/
 }
 
+enum RuntimeItemActionKind {
+  NODE_ACCEPTED_DEFAULT, NODE_ACCEPTED_USER,
+  PREDICATE_DEFAULT, PREDICATE_USER,
+  PREDICATE_NOT_DEFAULT, PREDICATE_NOT_USER
+}
+
+class RuntimeActionItem {
+
+  kind: RuntimeItemActionKind;
+
+  terminal: TerminalRefTraverser;
+
+}
+
 class TraversionCache {
-  collectedTerminals: TerminalRefTraverser[] = [];
-  collectedAntiTerminals: TerminalRefTraverser[] = [];
+
+  readonly isNegative = false;
+
+  readonly collectedStateJumpingTokens: TerminalRefTraverser[] = [];
+
+  readonly runtimeActionsAtBegin: RuntimeActionItem[] = [];
+
 
   private nodeLocals: any[] = [];
 
@@ -352,10 +371,8 @@ class TraversionCache {
   }
 
   negate() {
-    var ref: TerminalRefTraverser[];
-    ref = this.collectedTerminals;
-    this.collectedTerminals = this.collectedAntiTerminals;
-    this.collectedAntiTerminals = ref;
+    var t = this as any;
+    t.isNegative = !this.isNegative;
   }
 }
 
@@ -434,8 +451,9 @@ class LinearTraversion {
   }
 
   traverse(initialPurpose: TraversionPurpose, purposeThen?: TraversionPurpose[], startPosition = 0): TraversionCache {
-    (this as any).purpose = initialPurpose;
-    (this as any).purposeThen = purposeThen ? purposeThen : [];
+    var t = this as any;
+    t.purpose = initialPurpose;
+    t.purposeThen = purposeThen ? purposeThen : [];
     var cache = new TraversionCache();
 
     if (this.position >= this.array.length) {
@@ -457,17 +475,35 @@ class LinearTraversion {
   }
 
   defaultActions(step: TraversionControl, cache: TraversionCache) {
-    switch (this.purpose) {
-      case TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN:
-        if (step.kind === TraversionItemKind.SEPARATE_NEXT_SUBTREE) {
-          this.execute(TraversionItemActionKind.OMIT_SUBTREE, step);
+    switch (step.kind) {
+      case TraversionItemKind.SEPARATE_NEXT_SUBTREE:
+        switch (this.purpose) {
+          case TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN:
+            this.execute(TraversionItemActionKind.OMIT_SUBTREE, step);
+            break;
         }
         break;
-    }
-    if (step.kind === TraversionItemKind.NEGATE) {
-      cache.negate();
-    }
+      case TraversionItemKind.NEGATE:
+        cache.negate();
+        break;
+      case TraversionItemKind.ACTION:
+        switch (this.purpose) {
+          case TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN:
+            if (cache.collectedStateJumpingTokens.length) {
+              throw new Error();
+            }
+            // node succeeded, previous terminal is a sub-/main-end state
+            // :
+            // triggering the user-defined action if any exists  
+            // or default runtime action otherwise  here
+            cache
 
+
+            break;
+        }
+
+        break;
+    }
     this.execute(TraversionItemActionKind.CONTINUE, null);
   }
 
@@ -847,16 +883,16 @@ class RuleRefTraverser extends SingleTraverser {
             if (!r) throw new Error();
 
             if (!r.collectedTerminalsFromHereToRecursiveRepetition) {
-              r.collectedToIndex = cache.collectedTerminals.length;
+              r.collectedToIndex = cache.collectedStateJumpingTokens.length;
               r.collectedTerminalsFromHereToRecursiveRepetition =
-                cache.collectedTerminals.slice(r.collectedFromIndex, r.collectedToIndex);
+                cache.collectedStateJumpingTokens.slice(r.collectedFromIndex, r.collectedToIndex);
             }
 
             // for transitions jumping to a recursive section,
             // generating a state which mapped to a sub - Starting- Rule- ParseTable :
             r.collectedTerminalsFromHereToRecursiveRepetition.forEach(infiniteItem => {
               var newSubruleStarter = infiniteItem.stackedRefClone(this);
-              cache.collectedTerminals.push(newSubruleStarter);
+              cache.collectedStateJumpingTokens.push(newSubruleStarter);
             });
             // maybe this start rule has not existed, should be generated now :
             this.parser.startRuleDependencies[this.node.rule] = this.node;
@@ -865,7 +901,7 @@ class RuleRefTraverser extends SingleTraverser {
           case TraversionItemKind.RULE:
             if (r) throw new Error();
 
-            this.collectedFromIndex = cache.collectedTerminals.length;
+            this.collectedFromIndex = cache.collectedStateJumpingTokens.length;
 
             break;
           default:
@@ -924,8 +960,8 @@ class TerminalRefTraverser extends EmptyTraverser {
     if (!this.traverserStep || this.traverserStep.parent !== rootTraversion) throw new Error();
 
     var cache = rootTraversion.traverse(TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN, [TraversionPurpose.FIND_NEXT_TOKENS], this.traverserStep.toPosition);
-    if (cache.collectedTerminals.length) {
-      this.stateGen = new GrammarParsingLeafStateGenerator(index, this, cache.collectedTerminals);
+    if (cache.collectedStateJumpingTokens.length) {
+      this.stateGen = new GrammarParsingLeafStateGenerator(index, this, cache.collectedStateJumpingTokens);
     } else {
       this.stateGen = GrammarParsingLeafStateGenerator.FINAL_STATE_GEN;
     }
@@ -952,7 +988,7 @@ class TerminalRefTraverser extends EmptyTraverser {
       case TraversionItemKind.TERMINAL:
         switch (inTraversion.purpose) {
           case TraversionPurpose.FIND_NEXT_TOKENS:
-            cache.collectedTerminals.push(this);
+            cache.collectedStateJumpingTokens.push(this);
             break;
           case TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN:
             break;
