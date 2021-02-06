@@ -1,5 +1,5 @@
 import { PNodeKind } from '.';
-import { PRule, PRuleRef, PTerminalRef, PValueNode, SerDeser, PNode } from './parsers';
+import { PRule, PRuleRef, PTerminalRef, PValueNode, SerDeser, PNode, PRef } from './parsers';
 
 interface StrMapLike<V> {
   [index: number]: V;
@@ -81,10 +81,7 @@ abstract class StateNode {
   abstract generateTransitions(parser: ParseTableGenerator, previous: StateNode, rootTraversion: LinearTraversion);
 
   
-  generateState() {
-    var result = new GrammarParsingLeafState(this);
-    return result;
-  }
+  abstract generateState(): GrammarParsingLeafState;
 
 }
 
@@ -99,11 +96,16 @@ class RootStateNode extends StateNode {
   }
 
   generateTransitions(parser: ParseTableGenerator, previous: StateNode, rootTraversion: LinearTraversion) {
-    if (parser.cntStates !== 1) throw new Error("Too many states : " + parser.cntStates);
+    if (parser.cntStates !== 1) throw new Error("?? staring state not the first : " + parser.cntStates);
 
     rootTraversion.traverse(this, previous, TraversionPurpose.FIND_NEXT_TOKENS);
     this.index = 1;
     parser.cntStates = 2;
+  }
+
+  generateState() {
+    var result: GrammarParsingLeafState = new GrammarParsingLeafState(this, null);
+    return result;
   }
 }
 
@@ -121,11 +123,9 @@ class TraversedLeafStateNode extends StateNode {
     var ts = this.terminalRef.traverserStep;
     if (!ts || ts.parent !== rootTraversion) throw new Error();
 
-    // when normal states and jumper states together reach max
-    if (parser.cntStates > parser.cntJumperStates) throw new Error("Too many states : " + parser.cntStates);
-
     rootTraversion.traverse(this, previous, TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN, 
       [TraversionPurpose.FIND_NEXT_TOKENS], ts.toPosition);
+
     this.index = parser.cntStates;
     parser.cntStates++;
   }
@@ -154,15 +154,16 @@ class JumpIntoSubroutineLeafStateNode extends StateNode {
 
     if (this.jumpInto.intoRule !== this) throw new Error();
 
-    // when normal states and jumper states together reach max
-    if (parser.cntStates > parser.cntJumperStates) throw new Error("Too many states : " + parser.cntStates);
-
-    // opens another parser of sub-start rule :
-    this.index = parser.recursiveJumpsToRule(this.ruleRef.linkedRuleEntry.node);
-
     rootTraversion.traverse(this, previous, TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN, 
       [TraversionPurpose.FIND_NEXT_TOKENS], ts.toPosition);
 
+    this.index = parser.cntStates;
+    parser.cntStates++;
+  }
+
+  generateState() {
+    var result: GrammarParsingLeafState = new GrammarParsingLeafState(this, this.ruleRef.node);
+    return result;
   }
 }
 
@@ -288,7 +289,6 @@ export class ParseTableGenerator {
 
   // 1 based index
   cntStates = 1;
-  cntJumperStates = 255;
 
   static createForRule(rule: PRule) {
     var parseTable: ParseTableGenerator = Factory.parseTables[rule.rule];
@@ -348,19 +348,6 @@ export class ParseTableGenerator {
     return result;
   }
 
-  recursiveJumpsToRule(rule: PRule) {
-    var js = this.jumperStates[rule.nodeIdx];
-    if (!js) {
-      // when normal states and jumper states together reach max
-      if (this.cntStates > this.cntJumperStates) throw new Error("Too many states : " + this.cntStates);
-
-      this.jumperStates[rule.nodeIdx] = js = this.cntJumperStates;
-      this.cntJumperStates--;
-    }
-
-    return js;
-  }
-
 }
 
 
@@ -400,7 +387,7 @@ export class GrammarParsingLeafState {
 
   readonly index: number;
 
-  readonly startingPoint: PTerminalRef;
+  readonly startingPoint: PRef;
   private startState: StateNode;
 
   // tokenId -> traversion state
@@ -412,7 +399,7 @@ export class GrammarParsingLeafState {
   readonly jumpToRuleTokenId: number;
   readonly actionNodeId: number;
 
-  constructor(startState: StateNode, startingPoint: PTerminalRef) {
+  constructor(startState: StateNode, startingPoint: PRef) {
     this.index = startState.index;
     this.startState = startState;
     this.startingPoint = startingPoint;
