@@ -334,7 +334,7 @@ export class ParseTableGenerator {
   generateParseTable() {
     var start = this.startingStateNode.generateState();
     var all = this.allLeafStateNodes.map(s => s.generateState());
-    var result = new ParseTable(this.rule, this.maxTokenId, start, all);
+    var result = new ParseTable(this.maxTokenId, this.rule, start, all);
     return result;
   }
 
@@ -344,15 +344,15 @@ export class ParseTableGenerator {
 
 export class ParseTable {
 
-  readonly rule: PRule;
   readonly maxTokenId: number;
+  readonly rule: PRule;
   readonly startingState: GrammarParsingLeafState;
   // Map  Leaf parser nodeTravId -> 
   readonly allStates: GrammarParsingLeafState[];
 
-  constructor(rule: PRule, maxTokenId: number, startingState: GrammarParsingLeafState, allStates: GrammarParsingLeafState[]) {
-    this.rule = rule;
+  constructor(maxTokenId: number, rule: PRule, startingState: GrammarParsingLeafState, allStates: GrammarParsingLeafState[]) {
     this.maxTokenId = maxTokenId;
+    this.rule = rule;
     this.startingState = startingState;
     this.allStates = allStates
   }
@@ -364,10 +364,14 @@ export class ParseTable {
 
   ser(): number[] {
     var serStates: number[] = [];
+    var maxIdx = 0;
     this.allStates.forEach(s => {
-      serStates = serStates.concat(s.ser(this.maxTokenId));
+      var ind = s.ser(this.maxTokenId, serStates);
+      if (ind > maxIdx) maxIdx = maxIdx;
     });
-    var result = [this.allStates.length, this.maxTokenId].concat(serStates);
+    if (this.allStates.length > maxIdx) maxIdx = this.allStates.length;
+
+    var result = [this.allStates.length, this.maxTokenId, maxIdx].concat(serStates);
     return result;
   }
 
@@ -423,27 +427,36 @@ export class GrammarParsingLeafState {
     return this._transitions;
   }
 
-  ser(maxTknId: number): number[] {
+  ser(maxTknId: number, buf: number[]): number {
     var toTknIds: number[] = [];
     toTknIds[maxTknId] = 0;
     toTknIds.fill(0, 0, maxTknId);
+
     var es = Object.entries(this.transitions);
-    var len = es.length;
     es.forEach(([key, trans]: [string, GrammarParsingLeafState]) => {
       var tokenId = Number(key);
       toTknIds[tokenId] = trans.index;
     });
 
+    var maxIdx = 0;
     var reduce: number[] = [];
     this.reduceActions.forEach(r=>{
       reduce.push(r.nodeIdx);
+      if (r.nodeIdx>maxIdx) maxIdx = r.nodeIdx;
     });
     var ereduce: number[] = [];
     this.epsilonReduceActions.forEach(r=>{
       ereduce.push(r.nodeIdx);
+      if (r.nodeIdx>maxIdx) maxIdx = r.nodeIdx;
     });
 
-    return [len,reduce.length,this.epsilonReduceActions.length].concat(toTknIds).concat(reduce).concat(ereduce);
+    buf.push(reduce.length);
+    buf.push(ereduce.length);
+    buf.push.apply(buf, toTknIds);
+    buf.push.apply(buf, reduce);
+    buf.push.apply(buf, ereduce);
+
+    return maxIdx;
   }
 
 }
