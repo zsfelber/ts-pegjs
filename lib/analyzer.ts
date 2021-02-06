@@ -74,9 +74,17 @@ function hex2(c) {
 
 abstract class StateNode {
 
+  index: number;
+
   readonly shiftesAndReduces: ShiftReduce[] = [];
 
-  abstract stateTransitionsFromHere(parser: ParseTableGenerator, previous: StateNode, index: number, rootTraversion: LinearTraversion);
+  abstract generateTransitions(parser: ParseTableGenerator, previous: StateNode, rootTraversion: LinearTraversion);
+
+  
+  generateState() {
+    var result = new GrammarParsingLeafState(this);
+    return result;
+  }
 
 }
 
@@ -90,13 +98,12 @@ class RootStateNode extends StateNode {
     this.rule = rule;
   }
 
-  stateTransitionsFromHere(parser: ParseTableGenerator, previous: StateNode, index: number, rootTraversion: LinearTraversion) {
-    if (parser.cntStates !== 0) throw new Error("Too many states : " + parser.cntStates);
+  generateTransitions(parser: ParseTableGenerator, previous: StateNode, rootTraversion: LinearTraversion) {
+    if (parser.cntStates !== 1) throw new Error("Too many states : " + parser.cntStates);
 
     rootTraversion.traverse(this, previous, TraversionPurpose.FIND_NEXT_TOKENS);
-    var startingStateGen = new GrammarParsingLeafStateGenerator(1, null, this.shiftesAndReduces);
-    parser.cntStates++;
-    return startingStateGen;
+    this.index = 1;
+    parser.cntStates = 2;
   }
 }
 
@@ -109,7 +116,7 @@ class TraversedLeafStateNode extends StateNode {
     this.terminal = terminal;
   }
 
-  stateTransitionsFromHere(parser: ParseTableGenerator, previous: StateNode, index: number, rootTraversion: LinearTraversion) {
+  generateTransitions(parser: ParseTableGenerator, previous: StateNode, rootTraversion: LinearTraversion) {
 
     var ts = this.terminal.traverserStep;
     if (!ts || ts.parent !== rootTraversion) throw new Error();
@@ -119,10 +126,8 @@ class TraversedLeafStateNode extends StateNode {
 
     rootTraversion.traverse(this, previous, TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN, 
       [TraversionPurpose.FIND_NEXT_TOKENS], ts.toPosition);
-    var stateGen = new GrammarParsingLeafStateGenerator(index, this.terminal,
-      this.shiftesAndReduces);
+    this.index = parser.cntStates;
     parser.cntStates++;
-    return stateGen;
   }
 }
 
@@ -131,13 +136,14 @@ class JumpIntoSubroutineLeafStateNode extends StateNode {
 
   rule: EntryPointTraverser;
   jumpInto: Shift;
+  allRecursiveShiftsToThisRule: Shift[];
 
   constructor(rule: EntryPointTraverser) {
     super();
     this.rule = rule;
   }
 
-  stateTransitionsFromHere(parser: ParseTableGenerator, previous: StateNode, index: number, rootTraversion: LinearTraversion) {
+  generateTransitions(parser: ParseTableGenerator, previous: StateNode, rootTraversion: LinearTraversion) {
 
     if (this.jumpInto.intoRule !== this) throw new Error();
 
@@ -145,9 +151,7 @@ class JumpIntoSubroutineLeafStateNode extends StateNode {
     if (parser.cntStates > parser.cntJumperStates) throw new Error("Too many states : " + parser.cntStates);
 
     // opens another parser of sub-start rule :
-    var jumpIntoState = parser.jumpToTableState(this.rule.node, this.jumpInto);
-    parser.allStateGens.push(jumpIntoState);
-    return jumpIntoState;
+    this.allRecursiveShiftsToThisRule = parser.jumpToTableState(this.rule.node, this.jumpInto);
   }
 }
 
@@ -229,9 +233,6 @@ export class ParseTableGenerator {
 
   startRuleDependencies: StrMapLike<PRuleRef> = [];
   startingStateNode: RootStateNode;
-  startingStateGen: GrammarParsingLeafStateGenerator;
-  // Map  Leaf parser nodeTravId -> 
-  allStateGens: GrammarParsingLeafStateGenerator[] = [];
   maxTokenId: number = 0;
 
   allRuleReferences: RuleRefTraverser[] = [];
@@ -242,10 +243,10 @@ export class ParseTableGenerator {
  
   entryPoints: StrMapLike<EntryPointTraverser> = {};
   allNodes: NumMapLike<RuleElementTraverser> = {};
-  jumperStates: NumMapLike<GrammarParsingLeafStateGenerator> = [];
+  jumperStates: NumMapLike<Shift[]> = [];
 
   // 1 based index
-  cntStates = 2;
+  cntStates = 1;
   cntJumperStates = 255;
 
   static createForRule(rule: PRule) {
@@ -270,7 +271,7 @@ export class ParseTableGenerator {
 
     this.startingStateNode = new RootStateNode(mainEntryPoint);
 
-    this.startingStateGen = this.startingStateNode.stateTransitionsFromHere(this, null, this.cntStates, this.theTraversion);
+    this.startingStateNode.generateTransitions(this, null, this.theTraversion);
 
 
     // This simple loop generates all possible state transitions at once:
@@ -279,21 +280,13 @@ export class ParseTableGenerator {
     // each state handles the jumped-through REDUCE actions as well
     // so simply these always must be made sequentially
 
-    this.allStateGens = this.allLeafStateNodes.map(previousStep => {
-
-
-      var trans = previousStep.stateTransitionsFromHere(this, previousStep, this.cntStates, this.theTraversion);
-
-      // So non - jumper state :
-      if (trans.index <= this.cntJumperStates) {
-        this.cntStates++;
-      }
-      return trans;
+    this.allLeafStateNodes.forEach(state => {
+      state.generateTransitions(this, state, this.theTraversion);
     });
 
     //var result = new ParseTable(rule, step0, Factory.allTerminals, Factory.maxTokenId);
     //, startingState : GrammarAnalysisState, allTerminals: TerminalRefTraverser[], maxTokenId: number
-    console.log("Parse table for   starting rule:" + rule.rule + "  nonterminals:" + Object.getOwnPropertyNames(this.entryPoints).length + "  tokens:" + this.maxTokenId + "   nonterminal nodes:" + this.allRuleReferences.length + "   state nodes:" + this.allLeafStateNodes.length + "  states:" + this.allStateGens.length + "  all nodes:" + Object.getOwnPropertyNames(this.allNodes).length);
+    console.log("Parse table for   starting rule:" + rule.rule + "  nonterminals:" + Object.getOwnPropertyNames(this.entryPoints).length + "  tokens:" + this.maxTokenId + "   nonterminal nodes:" + this.allRuleReferences.length + "   state nodes:" + this.allLeafStateNodes.length + "  states:" + this.allLeafStateNodes.length + "  all nodes:" + Object.getOwnPropertyNames(this.allNodes).length);
 
   }
 
@@ -309,48 +302,26 @@ export class ParseTableGenerator {
 
   generateParseTable() {
     var start = this.startingStateGen.generateState();
-    var all = this.allStateGens.map(s => s.generateState());
+    var all = this.allLeafStateNodes.map(s => s.generateState());
     var result = new ParseTable(this.rule, this.maxTokenId, start, all);
     return result;
   }
 
-  jumpToTableState(rule: PRule, recursiveJump: Shift): GrammarParsingLeafStateGenerator {
+  jumpToTableState(rule: PRule, recursiveJump: Shift): Shift[] {
     var js = this.jumperStates[rule.nodeIdx];
     if (!js) {
       // when normal states and jumper states together reach max
       if (this.cntStates > this.cntJumperStates) throw new Error("Too many states : " + this.cntStates);
 
-      this.jumperStates[rule.nodeIdx] = js = new GrammarParsingLeafStateGenerator(this.cntJumperStates, null, null);
-      js.jumpToRule = rule;
+      this.jumperStates[rule.nodeIdx] = js = [];
       this.cntJumperStates--;
     }
 
-    js.transitions.push(recursiveJump);//jumpToRuleTokenId = tokenId;
+    js.push(recursiveJump);//jumpToRuleTokenId = tokenId;
 
     return js;
   }
 
-}
-
-export class GrammarParsingLeafStateGenerator {
-
-  readonly index: number;
-  readonly startingPointTraverser: TerminalRefTraverser;
-  readonly transitions: ShiftReduce[];
-  jumpToRule: PRule;
-  jumpToRuleTokenId: number;
-  actionNodeId: number;
-
-  constructor(index: number, startingPointTraverser: TerminalRefTraverser, transitions: ShiftReduce[]) {
-    this.index = index;
-    this.startingPointTraverser = startingPointTraverser;
-    this.transitions = transitions;
-  }
-
-  generateState() {
-    var result = new GrammarParsingLeafState(this);
-    return result;
-  }
 }
 
 
@@ -399,7 +370,7 @@ export class GrammarParsingLeafState {
   readonly jumpToRuleTokenId: number;
   readonly actionNodeId: number;
 
-  constructor(g: GrammarParsingLeafStateGenerator) {
+  constructor(g: StateNode) {
     this.index = g.index;
     this.startingPoint = g.startingPointTraverser ? g.startingPointTraverser.node : null;
     this.jumpToRule = g.jumpToRule;
