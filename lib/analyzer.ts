@@ -449,7 +449,7 @@ export class GrammarParsingLeafState {
     var toTknIds: number[] = [];
     toTknIds[maxTknId] = 0;
     toTknIds.fill(0, 0, maxTknId);
-    var es = Object.entries(g.transitions);
+    var es = Object.entries(this.transitions);
     var len = es.length;
     es.forEach(([key, trans]) => {
       var tokenId = Number(key);
