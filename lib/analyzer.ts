@@ -78,6 +78,23 @@ abstract class StateNode {
 
 }
 
+
+class RootStateNode extends StateNode {
+
+  rule: EntryPointTraverser;
+
+  constructor(rule: EntryPointTraverser) {
+    super();
+    this.rule = rule;
+  }
+
+  stateTransitionsFromHere(parser: ParseTableGenerator, index: number, rootTraversion: LinearTraversion) {
+    var tresult = rootTraversion.traverse(this, TraversionPurpose.FIND_NEXT_TOKENS);
+    var startingStateGen = new GrammarParsingLeafStateGenerator(1, null, tresult.shiftesAndReduces);
+    return startingStateGen;
+  }
+}
+
 class TraversedLeafStateNode extends StateNode {
 
   terminal: TerminalRefTraverser;
@@ -92,31 +109,14 @@ class TraversedLeafStateNode extends StateNode {
     var ts = this.terminal.traverserStep;
     if (!ts || ts.parent !== rootTraversion) throw new Error();
 
-    var cache = rootTraversion.traverse(this, TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN, 
+    var tresult = rootTraversion.traverse(this, TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN, 
       [TraversionPurpose.FIND_NEXT_TOKENS], ts.toPosition);
     var stateGen = new GrammarParsingLeafStateGenerator(index, this.terminal,
-      cache.shiftesAndReduces);
+      tresult.shiftesAndReduces);
     return stateGen;
   }
 }
 
-
-class RootStateNode extends StateNode {
-
-  rule: EntryPointTraverser;
-
-  constructor(rule: EntryPointTraverser) {
-    super();
-    this.rule = rule;
-  }
-
-  stateTransitionsFromHere(parser: ParseTableGenerator, index: number, rootTraversion: LinearTraversion) {
-    var tresult = rootTraversion.traverse(this, TraversionPurpose.FIND_NEXT_TOKENS);
-    var transitionsFromStartingState = tresult.shiftesAndReduces;
-    var startingStateGen = new GrammarParsingLeafStateGenerator(1, null, transitionsFromStartingState);
-    return startingStateGen;
-  }
-}
 
 class JumpIntoSubroutineLeafStateNode extends StateNode {
 
@@ -216,6 +216,7 @@ export class ParseTableGenerator {
   theTraversion: LinearTraversion;
 
   startRuleDependencies: StrMapLike<PRuleRef> = [];
+  startingStateNode: RootStateNode;
   startingStateGen: GrammarParsingLeafStateGenerator;
   // Map  Leaf parser nodeTravId -> 
   allStateGens: GrammarParsingLeafStateGenerator[] = [];
@@ -255,9 +256,9 @@ export class ParseTableGenerator {
 
     this.theTraversion = new LinearTraversion(mainEntryPoint);
 
-    var startingStateNode = new RootStateNode(mainEntryPoint);
+    this.startingStateNode = new RootStateNode(mainEntryPoint);
 
-    this.startingStateGen = startingStateNode.stateTransitionsFromHere(this, this.cntStates, this.theTraversion);
+    this.startingStateGen = this.startingStateNode.stateTransitionsFromHere(this, this.cntStates, this.theTraversion);
 
 
     // This simple loop generates all possible state transitions at once:
