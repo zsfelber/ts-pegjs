@@ -42,7 +42,7 @@ class ParseTblJumper {
   }
 
   run() {
-    while (process());
+    while (this.process());
   }
   process() {
     var token = this.runner.next();
@@ -51,5 +51,6 @@ class ParseTblJumper {
     } else {
       this.currentState = null;
     }
+    return this.currentState;
   }
 }

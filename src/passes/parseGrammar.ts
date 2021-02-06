@@ -282,10 +282,10 @@ function generate(ast, ...args) {
   //console.log("parsed grammar : "+stringify(ctx.grammar, ""));
   var gs = new GraphStat();
   var json = {nodes:[], edges:[]};
-  countGraph(this.grammar, gs);
-  generateGraph(this.grammar, gs, json);
+  countGraph(ctx.grammar, gs);
+  generateGraph(ctx.grammar, gs, json);
 
-  const fnm = "pnodes-graph.json";
+  const fnm = "../www/pnodes-graph.json";
   fs.writeFileSync(fnm, JSON.stringify(json, null, "  "));
 
 }
@@ -301,7 +301,7 @@ class GraphStat {
   perLevel(level:number) {
     var lgs = this._perLevel[level];
     if (!lgs) {
-      this.perLevel[level] = lgs = new GraphStat();
+      this._perLevel[level] = lgs = new GraphStat();
     }
     return lgs;
   }
@@ -311,10 +311,10 @@ function countGraph(node: PNode, graphStat: GraphStat, l:number=0) {
   node.children.forEach(child=>{
     n += countGraph(child, graphStat, l+1);
   });
+  if (!node.children.length) n = 1;
 
   var lev = graphStat.perLevel(l);
-  var max = lev.maxN;
-  if (n > max) lev.maxN = n;
+  if (n > lev.maxN) lev.maxN = n;
   lev.totalN += n;
 
   return n;
@@ -335,8 +335,9 @@ function generateGraph(node: PNode, graphStat: GraphStat, json: {nodes:any[],edg
     };
     json.edges.push(edge);
   });
+  if (!node.children.length) n = 1;
 
-  var levheight = l0graphStat.totalN * 3;
+  var levheight = l0graphStat.totalN * 300;
   var radius = levheight * l;
   var angle0 = - 0.5;
   var angleFromAngle0 = 2 * lgraphStat.now / lgraphStat.totalN;
