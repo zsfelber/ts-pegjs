@@ -109,16 +109,16 @@ class RootStateNode extends StateNode {
 
 class TraversedLeafStateNode extends StateNode {
 
-  terminal: TerminalRefTraverser;
+  terminalRef: TerminalRefTraverser;
 
   constructor(terminal: TerminalRefTraverser) {
     super();
-    this.terminal = terminal;
+    this.terminalRef = terminal;
   }
 
   generateTransitions(parser: ParseTableGenerator, previous: StateNode, rootTraversion: LinearTraversion) {
 
-    var ts = this.terminal.traverserStep;
+    var ts = this.terminalRef.traverserStep;
     if (!ts || ts.parent !== rootTraversion) throw new Error();
 
     // when normal states and jumper states together reach max
@@ -131,7 +131,7 @@ class TraversedLeafStateNode extends StateNode {
   }
 
   generateState() {
-    var result: GrammarParsingLeafState = new GrammarParsingLeafState(this, this.terminal.node);
+    var result: GrammarParsingLeafState = new GrammarParsingLeafState(this, this.terminalRef.node);
     return result;
   }
 }
@@ -139,16 +139,18 @@ class TraversedLeafStateNode extends StateNode {
 
 class JumpIntoSubroutineLeafStateNode extends StateNode {
 
-  rule: EntryPointTraverser;
+  ruleRef: RuleRefTraverser;
   jumpInto: Shift;
-  allRecursiveShiftsToThisRule: Shift[];
 
-  constructor(rule: EntryPointTraverser) {
+  constructor(ruleRef: RuleRefTraverser) {
     super();
-    this.rule = rule;
+    this.ruleRef = ruleRef;
   }
 
   generateTransitions(parser: ParseTableGenerator, previous: StateNode, rootTraversion: LinearTraversion) {
+
+    var ts = this.ruleRef.traverserStep;
+    if (!ts || ts.parent !== rootTraversion) throw new Error();
 
     if (this.jumpInto.intoRule !== this) throw new Error();
 
@@ -156,7 +158,11 @@ class JumpIntoSubroutineLeafStateNode extends StateNode {
     if (parser.cntStates > parser.cntJumperStates) throw new Error("Too many states : " + parser.cntStates);
 
     // opens another parser of sub-start rule :
-    this.allRecursiveShiftsToThisRule = parser.jumpToTableState(this.rule.node, this.jumpInto);
+    this.index = parser.recursiveJumpsToRule(this.ruleRef.linkedRuleEntry.node);
+
+    rootTraversion.traverse(this, previous, TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN, 
+      [TraversionPurpose.FIND_NEXT_TOKENS], ts.toPosition);
+
   }
 }
 
@@ -278,7 +284,7 @@ export class ParseTableGenerator {
  
   entryPoints: StrMapLike<EntryPointTraverser> = {};
   allNodes: NumMapLike<RuleElementTraverser> = {};
-  jumperStates: NumMapLike<Shift[]> = [];
+  jumperStates: NumMapLike<number> = [];
 
   // 1 based index
   cntStates = 1;
@@ -342,17 +348,15 @@ export class ParseTableGenerator {
     return result;
   }
 
-  jumpToTableState(rule: PRule, recursiveJump: Shift): Shift[] {
+  recursiveJumpsToRule(rule: PRule) {
     var js = this.jumperStates[rule.nodeIdx];
     if (!js) {
       // when normal states and jumper states together reach max
       if (this.cntStates > this.cntJumperStates) throw new Error("Too many states : " + this.cntStates);
 
-      this.jumperStates[rule.nodeIdx] = js = [];
+      this.jumperStates[rule.nodeIdx] = js = this.cntJumperStates;
       this.cntJumperStates--;
     }
-
-    js.push(recursiveJump);//jumpToRuleTokenId = tokenId;
 
     return js;
   }
@@ -1047,6 +1051,7 @@ class RuleRefTraverser extends SingleTraverser implements RecursiveRuleDef {
 
   targetRule: PRule;
   linkedRuleEntry: EntryPointTraverser;
+  traverserStep: TraversionControl;
 
   shiftReducesBeforeRecursion: ShiftReduce[];
 
@@ -1091,16 +1096,16 @@ class RuleRefTraverser extends SingleTraverser implements RecursiveRuleDef {
     this.recursiveRuleOriginal = recursionCacheStack["rule_ref#"+this.targetRule.nodeIdx];
 
     if (this.recursiveRuleOriginal) {
-      var tavItem = new TraversionControl(inTraversion, TraversionItemKind.RECURSIVE_RULE, this.linkedRuleEntry);
-      inTraversion.pushControl(tavItem);
+      this.traverserStep = new TraversionControl(inTraversion, TraversionItemKind.RECURSIVE_RULE, this.linkedRuleEntry);
+      inTraversion.pushControl(this.traverserStep);
 
       return false;
     } else {
 
       recursionCacheStack["rule_ref#"+this.targetRule.nodeIdx] = this.linkedRuleEntry;
 
-      var tavItem = new TraversionControl(inTraversion, TraversionItemKind.RULE, this.linkedRuleEntry);
-      inTraversion.pushControl(tavItem);
+      this.traverserStep = new TraversionControl(inTraversion, TraversionItemKind.RULE, this.linkedRuleEntry);
+      inTraversion.pushControl(this.traverserStep);
 
       return true;
     }
@@ -1129,7 +1134,7 @@ class RuleRefTraverser extends SingleTraverser implements RecursiveRuleDef {
               switch (infiniteItem.kind) {
                 case ShiftReduceKind.SHIFT:
                   var normJump = infiniteItem as Shift;
-                  var jump = new JumpIntoSubroutineLeafStateNode(this.linkedRuleEntry);
+                  var jump = new JumpIntoSubroutineLeafStateNode(this);
                   this.parser.allLeafStateNodes.push(jump);
 
                   var jumpInto:Shift = {kind:ShiftReduceKind.SHIFT_RECURSIVE, 
