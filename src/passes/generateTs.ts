@@ -5,12 +5,11 @@
 // Adapted from base: (original file: generate-bycode.js for codegen JS)
 // Adapted for Typescript codegen (c) 2017, Pedro J. Molina
 
-import * as fs from "fs";
 import * as pack from '../../package.json';
 import * as ppack from 'pegjs/package.json';
 import {
   JSstringEscape, CodeTblToHex, PGrammar, PRule, PFunction,
-  PNodeKind, PActionKind, PRuleRef, PTerminalRef
+  PNodeKind, PActionKind, PRuleRef, PTerminalRef, SerDeser
 } from "../../lib";
 
 import { EntryPointTraverser, ParseTable, ParseTableGenerator } from '../../lib/analyzer';
@@ -679,6 +678,7 @@ function pushc(cache: any, item: any): any {
         "];"
       ].join('\n'));
 
+    SerDeser.cnt = 0;
     // peg$rules
     tables.push(
       ['const peg$rules = [',

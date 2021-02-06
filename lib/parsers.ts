@@ -63,6 +63,8 @@ export enum PActionKind {
 
 export namespace SerDeser {
 
+  export var cnt = 0;
+
   export var functionTable: ((...etc)=>any)[];
 
   export var ruleTable: PRule[];
@@ -83,6 +85,7 @@ export abstract class PNode {
   }
 
   static deseralize(arr: number[]): PNode {
+    SerDeser.cnt = 0;
     var res = [null];
     var pos = PNode.desone(arr, res, 0);
     if (pos !== arr.length) throw new Error("pos:"+pos+" !== "+arr.length);
@@ -90,9 +93,13 @@ export abstract class PNode {
   }
 
   ser(): number[] {
+    if (this.nodeIdx != (SerDeser.cnt++)) {
+      throw new Error("Invalid nodeIdx : "+this+"  this.nodeIdx:"+this.nodeIdx+" != "+SerDeser.cnt);
+    }
     return [Codes[this.kind]].concat(this.serchildren());
   }
   deser(arr: number[], pos: number): number {
+    this.nodeIdx = SerDeser.cnt++;
     pos = this.deschildren(arr, pos);
     return pos;
   }
