@@ -72,6 +72,108 @@ function hex2(c) {
   else return "??"
 }
 
+abstract class LeafStateNode {
+
+  abstract stateTransitionsFromHere(parser: ParseTableGenerator, index: number, rootTraversion: LinearTraversion);
+
+}
+
+class TraversedLeafStateNode {
+
+  terminal: TerminalRefTraverser;
+
+  constructor(terminal: TerminalRefTraverser) {
+    this.terminal = terminal;
+  }
+
+  stateTransitionsFromHere(parser: ParseTableGenerator, index: number, rootTraversion: LinearTraversion) {
+
+    var ts = this.terminal.traverserStep;
+    if (!ts || ts.parent !== rootTraversion) throw new Error();
+
+    var cache = rootTraversion.traverse(TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN, [TraversionPurpose.FIND_NEXT_TOKENS], ts.toPosition);
+    var stateGen = new GrammarParsingLeafStateGenerator(index, this.terminal, cache.shiftesAndReduces);
+    return stateGen;
+  }
+}
+
+class JumpIntoSubrutineLeafStateNode {
+
+  recursiveJumpInto: Shift;
+
+  constructor(recursiveJumpInto: Shift) {
+    this.recursiveJumpInto = recursiveJumpInto;
+  }
+
+  stateTransitionsFromHere(parser: ParseTableGenerator, index: number, rootTraversion: LinearTraversion) {
+
+    switch (this.recursiveJumpInto.kind) {
+      case ShiftReduceKind.SHIFT_RECURSIVE:
+        var s = this.recursiveJumpInto as Shift;
+        // opens another parser of sub-start rule :
+        var jumpInto = parser.jumpToTableState(s.intoRule.node, s.item.node.value);
+        parser.allStateGens.push(jumpInto);
+        return jumpInto;
+      default:
+        break;
+    }
+  }
+}
+
+
+// ================================================================
+// The Parse Table generator. 
+// The logic basically consist of SHIFT and REDUCE actions. The flow
+// of the 2 kind of actions are driven by incoming token stream,  
+// possibly 1 SHIFT step and N REDUCE steps for each incoming token. 
+//
+// There are three steps of producing it:
+// 1. Generating a parse graph first. 
+// 2. Then, creating a linear traversion stream. 
+// 3. Then traversing operations in 2 different modes. 
+// 4. Finally we can produce the jumping tables itself with all necessary 
+// information. 
+// 
+// 1. About parsing graph:
+// It should be a finite graph which may be circular. Logically, its
+// leaf nodes are the terminal refs, intermediate nodes are the rule nodes
+// and nonterminal refs.
+// Its circle points are 2 kind of, 1st the LOOP nodes, pointing to itself,
+// and 2nd the recursive JUMP nodes. But we can handle circularity in a 
+// very straight way.
+// The leaf nodes are the parse states and belong to SHIFT actions. To  
+// infinitely included sub sections, it also contains special recursive jumping
+// states in points  of the grammar ( as a special kind of SHIFT action ).
+// The root node means the starting and the final state.
+//
+// For the leaf (state) nodes, these are true:
+//    - these and the starting action are the linear parsing states as each 
+//      one is the starting point of and as well the result of a SHIFT action,
+//    - each SHIFT produces a leaf state, so
+//        1 starting state
+//        + leaf nodes      <=>    parsing state      in 1 : 1  relationship
+// For the intermediate (logic) nodes, these are true:
+//    - maybe a rule entry, choice, sequence, optional, zero or more cycle, 
+//      one or more cycle
+//
+// 3. Shift and REDUCEs are produced by traversion. 2 modes of traversion is
+//    - FIND_NEXT_TOKENS : collects the controller (so the possible Next) tokens. 
+//      These results are the SHIFT actions. 
+//      It may be 1)the Starting state jumps generation or 2)in the generation of 
+//      intermediate states, it starts after the initial reduction detections
+//      (following the starting point token). It also detects empty branch 
+//      REDUCE actions.
+//    - BACKSTEP_TO_SEQUENCE_THEN..FIND_NEXT_TOKENS
+//      This way of call the traverser detects the regular(explicit) REDUCE actions.
+//      There are implicit REDUCE actions 
+// For the REDUCE actions, these are true:
+//    - REDUCE actions coming in upward direction of the traversion
+// 
+//  
+// NOTE   (token SHIFT/recursive jump in)
+//        leaf node       <=>    parsing state   
+//                    in 1 : 1  relationship
+// ================================================================
 export class ParseTableGenerator {
 
   nodeTravIds: number = 0;
@@ -85,6 +187,10 @@ export class ParseTableGenerator {
 
   allRuleReferences: RuleRefTraverser[] = [];
   allTerminalReferences: TerminalRefTraverser[] = [];
+
+  // the state nodes 
+  allLeafStateNodes: LeafStateNode[] = [];
+ 
   mainEntryTraversion: LinearTraversion;
   transitionsFromStartingState: ShiftReduce[];
 
@@ -106,6 +212,7 @@ export class ParseTableGenerator {
   }
 
   private constructor(rule: PRule) {
+
     this.rule = rule;
     var mainEntryPoint = new EntryPointTraverser(this, null, rule);
     this.entryPoints[rule.rule] = mainEntryPoint;
@@ -117,19 +224,20 @@ export class ParseTableGenerator {
     var cache = this.mainEntryTraversion.traverse(TraversionPurpose.FIND_NEXT_TOKENS);
     this.transitionsFromStartingState = cache.shiftesAndReduces;
 
-    // ================================================================
-    // NOTE   terminal reference (node) <=>  persing state   
-    //                              in 1 : 1  relationship
-    // ================================================================
 
     // So this simple loop generates all possible state transitions at once:
 
-    this.allStateGens = this.allTerminalReferences.map(previousStep => {
+    // also NOTE
+    // each state handles the jumped-through REDUCE actions as well
+    // so simply these always must be made sequentially
+    // when a TOP node REDUCE action presents, it is the final state
+
+    this.allStateGens = this.allLeafStateNodes.map(previousStep => {
 
       // when normal states and jumper states together reach max
       if (this.cntStates > this.cntJumperStates) throw new Error("Too many states : " + this.cntStates);
 
-      var trans = previousStep.stateTransitionsFromHere(this.cntStates, this.mainEntryTraversion);
+      var trans = previousStep.stateTransitionsFromHere(this, this.cntStates, this.mainEntryTraversion);
 
       // So non final and non jumper state :
       if (trans.index <= this.cntJumperStates) {
@@ -144,7 +252,7 @@ export class ParseTableGenerator {
 
     //var result = new ParseTable(rule, step0, Factory.allTerminals, Factory.maxTokenId);
     //, startingState : GrammarAnalysisState, allTerminals: TerminalRefTraverser[], maxTokenId: number
-    console.log("Parse table for   starting rule:" + rule.rule + "  nonterminals:" + Object.getOwnPropertyNames(this.entryPoints).length + "  tokens:" + this.maxTokenId + "   nonterminal nodes:" + this.allRuleReferences.length + "   terminal nodes:" + this.allTerminalReferences.length + "  states:" + this.allStateGens.length + "  all nodes:" + Object.getOwnPropertyNames(this.allNodes).length);
+    console.log("Parse table for   starting rule:" + rule.rule + "  nonterminals:" + Object.getOwnPropertyNames(this.entryPoints).length + "  tokens:" + this.maxTokenId + "   nonterminal nodes:" + this.allRuleReferences.length + "   state nodes:" + this.allLeafStateNodes.length + "  states:" + this.allStateGens.length + "  all nodes:" + Object.getOwnPropertyNames(this.allNodes).length);
 
   }
 
@@ -185,9 +293,6 @@ export class ParseTableGenerator {
 }
 
 export class GrammarParsingLeafStateGenerator {
-
-  static FINAL_STATE_GEN: GrammarParsingLeafStateGenerator =
-    new GrammarParsingLeafStateGenerator(FINAL_STATE, null, null);
 
   readonly index: number;
   readonly startingPointTraverser: TerminalRefTraverser;
@@ -345,8 +450,9 @@ enum TraversionItemActionKind {
   STOP, CONTINUE/*default*/
 }
 enum ShiftReduceKind {
-  SHIFT, SHIFT_RECURSIVE, REDUCE
+  SHIFT, REDUCE, SHIFT_RECURSIVE, REDUCE_RECURSIVE
 }
+
 class ShiftReduce {
   kind: ShiftReduceKind;
 
@@ -963,11 +1069,14 @@ class RuleRefTraverser extends SingleTraverser {
             r.shiftReducesBeforeRecursion.forEach(infiniteItem => {
               switch (infiniteItem.kind) {
                 case ShiftReduceKind.SHIFT:
-                  cache.shiftesAndReduces.push({kind:ShiftReduceKind.SHIFT_RECURSIVE, item:infiniteItem.item, intoRule: this.linkedRuleEntry});
+                  var normJump = infiniteItem as Shift;
+                  var jumpInto:Shift = {kind:ShiftReduceKind.SHIFT_RECURSIVE, item:normJump.item, intoRule: this.linkedRuleEntry};
+                  cache.shiftesAndReduces.push(jumpInto);
+                  this.parser.allLeafStateNodes.push(new JumpIntoSubrutineLeafStateNode(jumpInto));
                   break;
                 case ShiftReduceKind.REDUCE:
-                  var newSubruleReduction = infiniteItem;
-                  cache.shiftesAndReduces.push({kind:ShiftReduceKind.REDUCE, item:infiniteItem.item, });
+                  var normReduce = infiniteItem as Reduce;
+                  cache.shiftesAndReduces.push({kind:ShiftReduceKind.REDUCE_RECURSIVE, item:infiniteItem.item, isEpsilonReduce:normReduce.isEpsilonReduce});
                   break;
 
               }
@@ -1017,28 +1126,12 @@ class TerminalRefTraverser extends EmptyTraverser {
   constructor(parser: ParseTableGenerator, parent: RuleElementTraverser, node: PTerminalRef) {
     super(parser, parent, node);
     parser.allTerminalReferences.push(this);
+    parser.allLeafStateNodes.push(new TraversedLeafStateNode(this));
     if (this.node && this.node.value > parser.maxTokenId) parser.maxTokenId = this.node.value;
   }
 
   get isReducable() {
     return true;
-  }
-
-  stateTransitionsFromHere(index: number, rootTraversion: LinearTraversion, recursiveJumpIntoRule: EntryPointTraverser) {
-    // opens another parser of sub-start rule :
-    if (recursiveJumpIntoRule) {
-      return this.parser.jumpToTableState(recursiveJumpIntoRule.node, this.node.value);
-    }
-
-    if (!this.traverserStep || this.traverserStep.parent !== rootTraversion) throw new Error();
-
-    var cache = rootTraversion.traverse(TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN, [TraversionPurpose.FIND_NEXT_TOKENS], this.traverserStep.toPosition);
-    if (cache.shiftesAndReduces.length) {
-      this.stateGen = new GrammarParsingLeafStateGenerator(index, this, cache.shiftesAndReduces);
-    } else {
-      this.stateGen = GrammarParsingLeafStateGenerator.FINAL_STATE_GEN;
-    }
-    return this.stateGen;
   }
 
   checkConstructFailed() {
