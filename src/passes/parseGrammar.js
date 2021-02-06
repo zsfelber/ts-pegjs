@@ -291,6 +291,31 @@ function nodeToGraph(node, processing) {
             result = { name: n2.name + "+", label: node.label, children: n2.children, nodeIdx: node.nodeIdx, n: n2.n };
             processing.n++;
             break;
+        case lib_1.PNodeKind.OPTIONAL:
+            var n2 = nodeToGraph(node.children[0], processing);
+            result = { name: n2.name + "?", label: node.label, children: n2.children, nodeIdx: node.nodeIdx, n: n2.n };
+            processing.n++;
+            break;
+        case lib_1.PNodeKind.SEMANTIC_AND:
+            var n2 = nodeToGraph(node.children[0], processing);
+            result = { name: "&{" + n2.name + "}", label: node.label, children: n2.children, nodeIdx: node.nodeIdx, n: n2.n };
+            processing.n++;
+            break;
+        case lib_1.PNodeKind.PREDICATE_AND:
+            var n2 = nodeToGraph(node.children[0], processing);
+            result = { name: "&" + n2.name, label: node.label, children: n2.children, nodeIdx: node.nodeIdx, n: n2.n };
+            processing.n++;
+            break;
+        case lib_1.PNodeKind.SEMANTIC_NOT:
+            var n2 = nodeToGraph(node.children[0], processing);
+            result = { name: "!{" + n2.name + "}", label: node.label, children: n2.children, nodeIdx: node.nodeIdx, n: n2.n };
+            processing.n++;
+            break;
+        case lib_1.PNodeKind.PREDICATE_NOT:
+            var n2 = nodeToGraph(node.children[0], processing);
+            result = { name: "!" + n2.name, label: node.label, children: n2.children, nodeIdx: node.nodeIdx, n: n2.n };
+            processing.n++;
+            break;
         case lib_1.PNodeKind.CHOICE:
             result = { name: "", label: node.label, children: [], nodeIdx: node.nodeIdx, n: 1 };
             var f = 1;

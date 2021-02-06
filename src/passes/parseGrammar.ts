@@ -215,9 +215,9 @@ function generate(ast, ...args) {
   }
 
   //console.log("parsed grammar : "+stringify(ctx.grammar, ""));
-  var vtree = nodeToGraph(ctx.grammar, {n:0, alreadyProc: {}});
+  var vtree = nodeToGraph(ctx.grammar, { n: 0, alreadyProc: {} });
 
-  var j = tojson(vtree, {n:0, alreadyProc: {}});
+  var j = tojson(vtree, { n: 0, alreadyProc: {} });
 
   const fnm = "../www/pnodes-graph.json";
   fs.writeFileSync(fnm, j);
@@ -290,7 +290,7 @@ function nodeToGraph(node: PNode, processing: RetekBufferMár) {
       var buf = [];
       nodesToGraph(node.children, processing, buf);
       result = { name: "O", label: "", children: buf, nodeIdx: node.nodeIdx, n: 1 };
-      processing.n ++;
+      processing.n++;
       result.n = processing.n - branchTotal0;
       break;
     case PNodeKind.RULE:
@@ -299,39 +299,65 @@ function nodeToGraph(node: PNode, processing: RetekBufferMár) {
         processing.alreadyProc[rule] = 1;
         var n2 = nodeToGraph(node.children[0], processing);
         result = { name: rule, label: node.label, children: n2.children, nodeIdx: node.nodeIdx, n: n2.n };
-        processing.n ++;
+        processing.n++;
       } else {
         result = null;
       }
       break;
     case PNodeKind.TERMINAL_REF:
-      result = { name: "Ł" + (node as PTerminalRef).terminal, label: node.label, children: [], nodeIdx: node.nodeIdx, n:1 };
-      processing.n ++;
+      result = { name: "Ł" + (node as PTerminalRef).terminal, label: node.label, children: [], nodeIdx: node.nodeIdx, n: 1 };
+      processing.n++;
       break;
     case PNodeKind.RULE_REF:
       var rule = (node as PRuleRef).rule;
       if (options.allowedStartRules[rule] || processing.alreadyProc[rule]) {
-        result = { name: rule + "->", label: node.label, children: [], nodeIdx: node.nodeIdx, n:1 };
-        processing.n ++;
+        result = { name: rule + "->", label: node.label, children: [], nodeIdx: node.nodeIdx, n: 1 };
+        processing.n++;
       } else {
         var rule0: PRule = ctx.rules.get(rule);
         var n2 = nodeToGraph(rule0, processing);
         result = { name: n2.name + "->", label: node.label, children: n2.children, nodeIdx: node.nodeIdx, n: n2.n };
-        processing.n ++;
+        processing.n++;
       }
       break;
     case PNodeKind.ZERO_OR_MORE:
       var n2 = nodeToGraph(node.children[0], processing);
       result = { name: n2.name + "*", label: node.label, children: n2.children, nodeIdx: node.nodeIdx, n: n2.n };
-      processing.n ++;
+      processing.n++;
       break;
     case PNodeKind.ONE_OR_MORE:
       var n2 = nodeToGraph(node.children[0], processing);
       result = { name: n2.name + "+", label: node.label, children: n2.children, nodeIdx: node.nodeIdx, n: n2.n };
-      processing.n ++;
+      processing.n++;
       break;
+    case PNodeKind.OPTIONAL:
+      var n2 = nodeToGraph(node.children[0], processing);
+      result = { name: n2.name + "?", label: node.label, children: n2.children, nodeIdx: node.nodeIdx, n: n2.n };
+      processing.n++;
+      break;
+    case PNodeKind.SEMANTIC_AND:
+      var n2 = nodeToGraph(node.children[0], processing);
+      result = { name: "&{" + n2.name + "}", label: node.label, children: n2.children, nodeIdx: node.nodeIdx, n: n2.n };
+      processing.n++;
+      break;
+    case PNodeKind.PREDICATE_AND:
+      var n2 = nodeToGraph(node.children[0], processing);
+      result = { name: "&" + n2.name, label: node.label, children: n2.children, nodeIdx: node.nodeIdx, n: n2.n };
+      processing.n++;
+      break;
+    case PNodeKind.SEMANTIC_NOT:
+      var n2 = nodeToGraph(node.children[0], processing);
+      result = { name: "!{" + n2.name + "}", label: node.label, children: n2.children, nodeIdx: node.nodeIdx, n: n2.n };
+      processing.n++;
+      break;
+    case PNodeKind.PREDICATE_NOT:
+      var n2 = nodeToGraph(node.children[0], processing);
+      result = { name: "!" + n2.name, label: node.label, children: n2.children, nodeIdx: node.nodeIdx, n: n2.n };
+      processing.n++;
+      break;
+
     case PNodeKind.CHOICE:
-      result = { name: "", label: node.label, children: [], nodeIdx: node.nodeIdx, n:1 };
+      result = { name: "", label: node.label, children: [], nodeIdx: node.nodeIdx, n: 1 };
       var f = 1;
       node.children.forEach(ch => {
         var c = nodeToGraph(ch, processing);
@@ -345,18 +371,18 @@ function nodeToGraph(node: PNode, processing: RetekBufferMár) {
         }
         f = 0;
       });
-      processing.n ++;
+      processing.n++;
       result.n = processing.n - branchTotal0;
       break;
     case PNodeKind.SEQUENCE:
-      result = { name: "", label: node.label, children: [], nodeIdx: node.nodeIdx, n:1 };
+      result = { name: "", label: node.label, children: [], nodeIdx: node.nodeIdx, n: 1 };
       node.children.forEach(ch => {
         var c = nodeToGraph(ch, processing);
 
         if (!c) return;//continue;
         result.children.push(c);
       });
-      processing.n ++;
+      processing.n++;
       result.n = processing.n - branchTotal0;
       break;
     case PNodeKind.TERMINAL:
