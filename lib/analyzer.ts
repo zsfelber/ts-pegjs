@@ -83,6 +83,9 @@ abstract class StateNode {
 
   abstract generateState(): GrammarParsingLeafState;
 
+  
+  abstract get isRule(): boolean;
+
 }
 
 
@@ -93,6 +96,10 @@ class RootStateNode extends StateNode {
   constructor(rule: EntryPointTraverser) {
     super();
     this.rule = rule;
+  }
+
+  get isRule(): boolean {
+    return false;
   }
 
   generateTransitions(parser: ParseTableGenerator, previous: StateNode, rootTraversion: LinearTraversion) {
@@ -109,7 +116,7 @@ class RootStateNode extends StateNode {
   }
 }
 
-class LeafStateNode extends StateNode {
+abstract class LeafStateNode extends StateNode {
 
   ref: RefTraverser;
 
@@ -117,7 +124,6 @@ class LeafStateNode extends StateNode {
     super();
     this.ref = ref;
   }
-
 
   generateTransitions(parser: ParseTableGenerator, previous: StateNode, rootTraversion: LinearTraversion) {
 
@@ -145,6 +151,11 @@ class TraversedLeafStateNode extends LeafStateNode {
   constructor(ref: TerminalRefTraverser) {
     super(ref);
   }
+
+  get isRule(): boolean {
+    return false;
+  }
+
 }
 
 class JumpIntoSubroutineLeafStateNode extends LeafStateNode {
@@ -153,6 +164,10 @@ class JumpIntoSubroutineLeafStateNode extends LeafStateNode {
 
   constructor(ref: RuleRefTraverser) {
     super(ref);
+  }
+
+  get isRule(): boolean {
+    return true;
   }
 
 }
@@ -379,7 +394,7 @@ export class ParseTable {
 
 export class GrammarParsingLeafState {
 
-  readonly kind: number;
+  readonly isRule: boolean;
   readonly index: number;
 
   readonly startingPoint: PRef;
@@ -391,6 +406,7 @@ export class GrammarParsingLeafState {
   readonly reduceActions: PNode[];
 
   constructor(startState: StateNode, startingPoint: PRef) {
+    this.isRule = startState.isRule;
     this.index = startState.index;
     this.startState = startState;
     this.startingPoint = startingPoint;
@@ -450,6 +466,9 @@ export class GrammarParsingLeafState {
       if (r.nodeIdx>maxIdx) maxIdx = r.nodeIdx;
     });
 
+    buf.push(this.isRule?1:0);
+    buf.push(this.startingPoint.nodeIdx);
+    if (this.startingPoint.nodeIdx>maxIdx) maxIdx = this.startingPoint.nodeIdx;
     buf.push(reduce.length);
     buf.push(ereduce.length);
     buf.push.apply(buf, toTknIds);
