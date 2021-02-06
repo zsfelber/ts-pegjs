@@ -91,8 +91,11 @@ class RootStateNode extends StateNode {
   }
 
   stateTransitionsFromHere(parser: ParseTableGenerator, previous: StateNode, index: number, rootTraversion: LinearTraversion) {
-    var tresult = rootTraversion.traverse(this, previous, TraversionPurpose.FIND_NEXT_TOKENS);
-    var startingStateGen = new GrammarParsingLeafStateGenerator(1, null, tresult.shiftesAndReduces);
+    if (parser.cntStates !== 0) throw new Error("Too many states : " + parser.cntStates);
+
+    rootTraversion.traverse(this, previous, TraversionPurpose.FIND_NEXT_TOKENS);
+    var startingStateGen = new GrammarParsingLeafStateGenerator(1, null, this.shiftesAndReduces);
+    parser.cntStates++;
     return startingStateGen;
   }
 }
@@ -111,10 +114,14 @@ class TraversedLeafStateNode extends StateNode {
     var ts = this.terminal.traverserStep;
     if (!ts || ts.parent !== rootTraversion) throw new Error();
 
-    var tresult = rootTraversion.traverse(this, previous, TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN, 
+    // when normal states and jumper states together reach max
+    if (parser.cntStates > parser.cntJumperStates) throw new Error("Too many states : " + parser.cntStates);
+
+    rootTraversion.traverse(this, previous, TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN, 
       [TraversionPurpose.FIND_NEXT_TOKENS], ts.toPosition);
     var stateGen = new GrammarParsingLeafStateGenerator(index, this.terminal,
-      tresult.shiftesAndReduces);
+      this.shiftesAndReduces);
+    parser.cntStates++;
     return stateGen;
   }
 }
@@ -133,6 +140,9 @@ class JumpIntoSubroutineLeafStateNode extends StateNode {
   stateTransitionsFromHere(parser: ParseTableGenerator, previous: StateNode, index: number, rootTraversion: LinearTraversion) {
 
     if (this.jumpInto.intoRule !== this) throw new Error();
+
+    // when normal states and jumper states together reach max
+    if (parser.cntStates > parser.cntJumperStates) throw new Error("Too many states : " + parser.cntStates);
 
     // opens another parser of sub-start rule :
     var jumpIntoState = parser.jumpToTableState(this.rule.node, this.jumpInto);
@@ -271,12 +281,10 @@ export class ParseTableGenerator {
 
     this.allStateGens = this.allLeafStateNodes.map(previousStep => {
 
-      // when normal states and jumper states together reach max
-      if (this.cntStates > this.cntJumperStates) throw new Error("Too many states : " + this.cntStates);
 
       var trans = previousStep.stateTransitionsFromHere(this, previousStep, this.cntStates, this.theTraversion);
 
-      // So non final and non jumper state :
+      // So non - jumper state :
       if (trans.index <= this.cntJumperStates) {
         this.cntStates++;
       }
