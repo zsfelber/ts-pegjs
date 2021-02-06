@@ -130,7 +130,7 @@ class JumpIntoSubrutineLeafStateNode {
 // There are three steps of producing it:
 // 1. Generating a parse graph first. 
 // 2. Then, creating a linear traversion stream. 
-// 3. Then traversing operations in 2 different modes. 
+// 3. Then traversing operations in 2 different modes (purposes). 
 // 4. Finally we can produce the jumping tables itself with all necessary 
 // information. 
 // 
@@ -139,11 +139,11 @@ class JumpIntoSubrutineLeafStateNode {
 // leaf nodes are the terminal refs, intermediate nodes are the rule nodes
 // and nonterminal refs.
 // Its circle points are 2 kind of, 1st the LOOP nodes, pointing to itself,
-// and 2nd the recursive JUMP nodes. But we can handle circularity in a 
-// very straight way.
+// and 2nd the recursive JUMP nodes. We can handle both kinds of circularity  
+// in a straight way.
 // The leaf nodes are the parse states and belong to SHIFT actions. To  
-// infinitely included sub sections, it also contains special recursive jumping
-// states in points  of the grammar ( as a special kind of SHIFT action ).
+// infinitely included sub sections, the graph also contains special recursive
+// jumping states in points  of the grammar ( as a special kind of SHIFT action ).
 // The root node means the starting and the final state.
 //
 // For the leaf (state) nodes, these are true:
@@ -155,24 +155,34 @@ class JumpIntoSubrutineLeafStateNode {
 // For the intermediate (logic) nodes, these are true:
 //    - maybe a rule entry, choice, sequence, optional, zero or more cycle, 
 //      one or more cycle
+//    - produces REDUCE actions, during bacwards direction of traversion
 //
-// 3. Shift and REDUCEs are produced by traversion. 2 modes of traversion is
-//    - FIND_NEXT_TOKENS : collects the controller (so the possible Next) tokens. 
-//      These results are the SHIFT actions. 
-//      It may be 1)the Starting state jumps generation or 2)in the generation of 
+// 2. The traversion handler is a simple linear stream of TraversionControl (may be
+//    called Action) items which generated  by  the Reference or Logic Nodes (which are 
+//    the graph nodes), subsequentially, by initial traversion. The object executes
+//    the travesing over and over again, in possible diffrent modes (called Purposes),
+//    so in a purpose- and action- driven  way.
+//
+// 3. SHIFTs and REDUCEs are produced by traversion. 2 modes (purposes) of traversion is
+//    - FIND_NEXT_TOKENS : collects the controlling (so the possible Next) tokens. 
+//      Simply, these are the SHIFT actions. 
+//      This process may be 1)the Starting state jumps generation or 2)in the generation of 
 //      intermediate states, it starts after the initial reduction detections
-//      (following the starting point token). It also detects empty branch 
+//      (following the starting point token). It also detects implicit (empty branch) 
 //      REDUCE actions.
 //    - BACKSTEP_TO_SEQUENCE_THEN..FIND_NEXT_TOKENS
-//      This way of call the traverser detects the regular(explicit) REDUCE actions.
-//      There are implicit REDUCE actions 
-// For the REDUCE actions, these are true:
+//      The initial reduction detections. This way of call the traversion 
+//      detects the regular(explicit) REDUCE actions.  There are implicit (empty branch)
+//      REDUCE actions as well which detected during the FIND_NEXT_TOKENS phase
+//
+//      For the REDUCE actions, these are true:
 //    - REDUCE actions coming in upward direction of the traversion
+//    - The regular ones collected in the beginning of each SHIFT but belongs to 
+//      the previous      Leaf State (so at runtime it is called immediately 
+//      After the Leaf State reached)
+//    - The implicit empty branch REDUCE actions collected before the SHIFT that
+//      belongs to
 // 
-//  
-// NOTE   (token SHIFT/recursive jump in)
-//        leaf node       <=>    parsing state   
-//                    in 1 : 1  relationship
 // ================================================================
 export class ParseTableGenerator {
 
