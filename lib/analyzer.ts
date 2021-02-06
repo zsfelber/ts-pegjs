@@ -142,11 +142,18 @@ class TraversedLeafStateNode extends LeafStateNode {
 
   ref: TerminalRefTraverser;
 
+  constructor(ref: TerminalRefTraverser) {
+    super(ref);
+  }
 }
 
 class JumpIntoSubroutineLeafStateNode extends LeafStateNode {
 
   ref: RuleRefTraverser;
+
+  constructor(ref: RuleRefTraverser) {
+    super(ref);
+  }
 
 }
 
@@ -426,7 +433,17 @@ export class GrammarParsingLeafState {
       var tokenId = Number(key);
       toTknIds[tokenId] = trans.index;
     });
-    return [len].concat(toTknIds);
+
+    var reduce: number[] = [];
+    this.reduceActions.forEach(r=>{
+      reduce.push(r.nodeIdx);
+    });
+    var ereduce: number[] = [];
+    this.epsilonReduceActions.forEach(r=>{
+      ereduce.push(r.nodeIdx);
+    });
+
+    return [len,reduce.length,this.epsilonReduceActions.length].concat(toTknIds).concat(reduce).concat(ereduce);
   }
 
 }
