@@ -63,80 +63,6 @@ function generate(ast) {
         "simple_and": lib_1.PNodeKind.PREDICATE_AND,
         "simple_not": lib_1.PNodeKind.PREDICATE_NOT,
     };
-    function gencode(code) {
-        var result = [];
-        result = code.split("\n").map(function (line) { return line.trim(); });
-        return result;
-    }
-    var Context = /** @class */ (function () {
-        function Context() {
-            this.nodeIdxs = 0;
-            this.ruleIndices = 0;
-            this.functionIndices = 0;
-            this.ruleRefs = [];
-            this.terminalRefs = [];
-            this.rules = new Map;
-            this.terminals = new Map;
-        }
-        Context.prototype.pushIdxNode = function (cons, index, kind) {
-            var child = new cons(this.current, index);
-            if (kind !== undefined)
-                child.kind = kind;
-            this.current = child;
-            child.nodeIdx = this.nodeIdxs++;
-            return child;
-        };
-        Context.prototype.pushNode = function (cons, kind) {
-            var child = new cons(this.current);
-            if (kind !== undefined)
-                child.kind = kind;
-            this.current = child;
-            child.nodeIdx = this.nodeIdxs++;
-            return child;
-        };
-        Context.prototype.popNode = function () {
-            var generatedNode = this.current;
-            this.current = this.current.parent;
-            return generatedNode;
-        };
-        Context.prototype.generateAction = function (target, argumentsOwner, kind, node) {
-            var action = {
-                kind: kind,
-                ownerRule: ctx.rule,
-                target: target,
-                nodeIdx: this.nodeIdxs++, index: ctx.functionIndices++,
-                code: gencode(node.code), args: [], fun: null
-            };
-            target.action = action;
-            this.grammar.actions.push(action);
-            this.rule.actions.push(action);
-            if (kind === lib_1.PActionKind.RULE) {
-                this.grammar.ruleActions.push(action);
-                this.rule.ruleActions.push(action);
-            }
-            var i = 0;
-            var addlabels = function (chch) {
-                if (chch.label) {
-                    var a = { label: chch.label, index: i, evaluate: chch };
-                    action.args.push(a);
-                }
-                else {
-                    //child.action.args.set(chch.label, {label: "$"+i, index: i, evaluate: chch});
-                }
-                i++;
-            };
-            if (argumentsOwner.kind === lib_1.PNodeKind.SEQUENCE || argumentsOwner.kind === lib_1.PNodeKind.CHOICE) {
-                argumentsOwner.children.forEach(function (chch) {
-                    addlabels(chch);
-                });
-            }
-            else {
-                addlabels(argumentsOwner);
-            }
-            return action;
-        };
-        return Context;
-    }());
     ctx = new Context();
     function parseGrammarAst(parent, node) {
         var child;
@@ -258,77 +184,130 @@ function generate(ast) {
     }
     //console.log("parsed grammar : "+stringify(ctx.grammar, ""));
     var vtree = nodeToGraph(ctx.grammar, {});
+    var j = tojson(vtree, {});
     var fnm = "../www/pnodes-graph.json";
-    fs.writeFileSync(fnm, JSON.stringify(vtree, null, "  "));
+    fs.writeFileSync(fnm, j);
 }
+function tojson(obj, already, ind) {
+    if (ind === void 0) { ind = ""; }
+    if (already[obj.nodeIdx])
+        return undefined;
+    already[obj.nodeIdx] = 1;
+    var chbuf = [];
+    obj.children.forEach(function (itm) {
+        var ij = tojson(itm, already, ind + "  ");
+        if (ij)
+            chbuf.push(ij);
+    });
+    var buffer = [];
+    buffer.push(ind + '{ "name":"' + obj.name + '", "n":' + (obj.n ? obj.n : 0) + ', "children":[');
+    buffer.push(chbuf.join(",\n"));
+    buffer.push(ind + "]  }");
+    return buffer.join("\n");
+}
+function gencode(code) {
+    var result = [];
+    result = code.split("\n").map(function (line) { return line.trim(); });
+    return result;
+}
+var Thingy = /** @class */ (function () {
+    function Thingy() {
+        this.clauseN = 0;
+    }
+    return Thingy;
+}());
 function nodesToGraph(src, already) {
     var target = [];
+    var n = 0;
     src.forEach(function (srcitm) {
         var targetitm = nodeToGraph(srcitm, already);
+        n += already.n;
+        if (!targetitm)
+            return; //continue;
         target.push(targetitm);
     });
+    already.n = n;
     return target;
 }
 function nodeToGraph(node, _already) {
-    if (node["$"]) {
-        return node["$"];
+    if (node["generated_"]) {
+        _already.n = node["generated_"].n;
+        return node["generated_"];
     }
     var already = {};
     Object.setPrototypeOf(already, _already);
-    var result = { name: "inf " + node.toString(), label: node.label, children: [] };
-    node["$"] = result;
+    var n = 0;
+    var result = { name: "? " + node.toString(), label: node.label, children: [],
+        nodeIdx: node.nodeIdx, n: 0 };
+    node["generated_"] = result;
     switch (node.kind) {
         case lib_1.PNodeKind.GRAMMAR:
-            result = { name: "O", label: "", children: nodesToGraph(node.children, already) };
+            result = { name: "O", label: "", children: nodesToGraph(node.children, already), nodeIdx: node.nodeIdx, n: 0 };
+            n += already.n;
             break;
         case lib_1.PNodeKind.RULE:
             var rule = node.rule;
             if (rule) {
                 already[rule] = 1;
                 var n2 = nodeToGraph(node.children[0], already);
-                result = { name: node.rule, label: node.label, children: n2.children };
+                result = { name: rule, label: node.label, children: n2.children, nodeIdx: node.nodeIdx, n: 0 };
+                n += already.n;
             }
             else {
                 result = null;
             }
             break;
         case lib_1.PNodeKind.TERMINAL_REF:
-            result = { name: "Ł" + node.terminal, label: node.label, children: [] };
+            result = { name: "Ł" + node.terminal, label: node.label, children: [], nodeIdx: node.nodeIdx, n: 0 };
             break;
         case lib_1.PNodeKind.RULE_REF:
             var rule = node.rule;
             if (options.allowedStartRules[rule] || already[rule]) {
-                result = { name: rule + "->", label: node.label, children: [] };
+                result = { name: rule + "->", label: node.label, children: [], nodeIdx: node.nodeIdx, n: 0 };
             }
             else {
                 var rule0 = ctx.rules.get(rule);
                 var n2 = nodeToGraph(rule0, already);
-                result = n2;
+                result = { name: n2.name + "->", label: node.label, children: n2.children, nodeIdx: node.nodeIdx, n: 0 };
+                n += already.n;
             }
             break;
         case lib_1.PNodeKind.ZERO_OR_MORE:
             var n2 = nodeToGraph(node.children[0], already);
-            result = { name: n2.name + "*", label: node.label, children: n2.children };
+            result = { name: n2.name + "*", label: node.label, children: n2.children, nodeIdx: node.nodeIdx, n: 0 };
+            n += already.n;
             break;
         case lib_1.PNodeKind.ONE_OR_MORE:
             var n2 = nodeToGraph(node.children[0], already);
-            result = { name: n2.name + "+", label: node.label, children: n2.children };
+            result = { name: n2.name + "+", label: node.label, children: n2.children, nodeIdx: node.nodeIdx, n: 0 };
+            n += already.n;
             break;
         case lib_1.PNodeKind.CHOICE:
-            result = { name: "", label: node.label, children: [] };
+            result = { name: "", label: node.label, children: [], nodeIdx: node.nodeIdx, n: 0 };
+            n += already.n;
             var f = 1;
             node.children.forEach(function (ch) {
                 var c = nodeToGraph(ch, already);
-                if (!f)
+                n += already.n;
+                if (!c)
+                    return; //continue;
+                if (!f) {
                     c.name = " / " + c.name;
+                    result.children.push({ name: " / " + c.name, children: c.children, label: c.label });
+                }
+                else {
+                    result.children.push(c);
+                }
                 f = 0;
-                result.children.push(c);
             });
             break;
         case lib_1.PNodeKind.SEQUENCE:
-            result = { name: "", label: node.label, children: [] };
+            result = { name: "", label: node.label, children: [], nodeIdx: node.nodeIdx, n: 0 };
             node.children.forEach(function (ch) {
                 var c = nodeToGraph(ch, already);
+                n += already.n;
+                if (!c)
+                    return; //continue;
                 result.children.push(c);
             });
             break;
@@ -337,12 +316,84 @@ function nodeToGraph(node, _already) {
             break;
     }
     if (result) {
+        result.nodeIdx = node.nodeIdx;
+        result.n = n;
         if (result.label) {
             result.name = result.label + ":" + result.name;
         }
-        node["$"] = result;
+        node["generated_"] = result;
     }
+    _already.n = n;
     return result;
 }
+var Context = /** @class */ (function () {
+    function Context() {
+        this.nodeIdxs = 0;
+        this.ruleIndices = 0;
+        this.functionIndices = 0;
+        this.ruleRefs = [];
+        this.terminalRefs = [];
+        this.rules = new Map;
+        this.terminals = new Map;
+    }
+    Context.prototype.pushIdxNode = function (cons, index, kind) {
+        var child = new cons(this.current, index);
+        if (kind !== undefined)
+            child.kind = kind;
+        this.current = child;
+        child.nodeIdx = this.nodeIdxs++;
+        return child;
+    };
+    Context.prototype.pushNode = function (cons, kind) {
+        var child = new cons(this.current);
+        if (kind !== undefined)
+            child.kind = kind;
+        this.current = child;
+        child.nodeIdx = this.nodeIdxs++;
+        return child;
+    };
+    Context.prototype.popNode = function () {
+        var generatedNode = this.current;
+        this.current = this.current.parent;
+        return generatedNode;
+    };
+    Context.prototype.generateAction = function (target, argumentsOwner, kind, node) {
+        var action = {
+            kind: kind,
+            ownerRule: ctx.rule,
+            target: target,
+            nodeIdx: this.nodeIdxs++, index: ctx.functionIndices++,
+            code: gencode(node.code), args: [], fun: null
+        };
+        target.action = action;
+        this.grammar.actions.push(action);
+        this.rule.actions.push(action);
+        if (kind === lib_1.PActionKind.RULE) {
+            this.grammar.ruleActions.push(action);
+            this.rule.ruleActions.push(action);
+        }
+        var i = 0;
+        var addlabels = function (chch) {
+            if (chch.label) {
+                var a = { label: chch.label, index: i, evaluate: chch };
+                action.args.push(a);
+            }
+            else {
+                //child.action.args.set(chch.label, {label: "$"+i, index: i, evaluate: chch});
+            }
+            i++;
+        };
+        if (argumentsOwner.kind === lib_1.PNodeKind.SEQUENCE || argumentsOwner.kind === lib_1.PNodeKind.CHOICE) {
+            argumentsOwner.children.forEach(function (chch) {
+                addlabels(chch);
+            });
+        }
+        else {
+            addlabels(argumentsOwner);
+        }
+        return action;
+    };
+    return Context;
+}());
 module.exports = generate;
 //# sourceMappingURL=parseGrammar.js.map

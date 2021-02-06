@@ -11,7 +11,8 @@ var stringifySafe = require('json-stringify-safe');
 var options;
 const terminals: string[] = [];
 const terminalConsts: Map<string, number> = new Map;
-var ctx;
+var ctx: Context;
+
 
 // Generates parser JavaScript code.
 function generate(ast, ...args) {
@@ -71,79 +72,6 @@ function generate(ast, ...args) {
     "simple_not": PNodeKind.PREDICATE_NOT,
   }
 
-  function gencode(code: string): string[] {
-    var result = [];
-    result = code.split("\n").map(line => line.trim());
-    return result;
-  }
-  class Context {
-    nodeIdxs = 0;
-    ruleIndices = 0;
-    functionIndices = 0;
-
-    current: PNode;
-    grammar: PGrammar;
-    rule: PActContainer;
-    ruleRefs: PRuleRef[] = [];
-    terminalRefs: PTerminalRef[] = [];
-    rules: Map<string, PRule> = new Map;
-    terminals: Map<string, PTerminal> = new Map;
-
-    pushIdxNode<T extends PNode>(cons: new (parent: PNode, index: number) => T, index: number, kind?: PNodeKind): T {
-      var child: T = new cons(this.current, index);
-      if (kind !== undefined) child.kind = kind;
-      this.current = child;
-      child.nodeIdx = this.nodeIdxs++;
-      return child;
-    }
-    pushNode<T extends PNode>(cons: new (parent: PNode) => T, kind?: PNodeKind): T {
-      var child: T = new cons(this.current);
-      if (kind !== undefined) child.kind = kind;
-      this.current = child;
-      child.nodeIdx = this.nodeIdxs++;
-      return child;
-    }
-
-    popNode() {
-      var generatedNode = this.current;
-      this.current = this.current.parent;
-      return generatedNode;
-    }
-    generateAction(target: PLogicNode, argumentsOwner: PNode, kind: PActionKind, node) {
-      var action: PFunction = {
-        kind, ownerRule: ctx.rule, target,
-        nodeIdx: this.nodeIdxs++, index: ctx.functionIndices++,
-        code: gencode(node.code), args: [], fun: null
-      };
-
-      target.action = action;
-      this.grammar.actions.push(action);
-      this.rule.actions.push(action);
-      if (kind === PActionKind.RULE) {
-        this.grammar.ruleActions.push(action);
-        this.rule.ruleActions.push(action);
-      }
-      var i = 0;
-      const addlabels = (chch: PValueNode) => {
-        if (chch.label) {
-          var a = { label: chch.label, index: i, evaluate: chch };
-          action.args.push(a);
-        } else {
-          //child.action.args.set(chch.label, {label: "$"+i, index: i, evaluate: chch});
-        }
-        i++;
-      }
-
-      if (argumentsOwner.kind === PNodeKind.SEQUENCE || argumentsOwner.kind === PNodeKind.CHOICE) {
-        argumentsOwner.children.forEach(chch => {
-          addlabels(chch);
-        });
-      } else {
-        addlabels(argumentsOwner);
-      }
-      return action;
-    }
-  }
 
   ctx = new Context();
 
@@ -289,80 +217,132 @@ function generate(ast, ...args) {
   //console.log("parsed grammar : "+stringify(ctx.grammar, ""));
   var vtree = nodeToGraph(ctx.grammar, {});
 
+  var j = tojson(vtree, {});
+
   const fnm = "../www/pnodes-graph.json";
-  fs.writeFileSync(fnm, JSON.stringify(vtree, null, "  "));
+  fs.writeFileSync(fnm, j);
 
 }
 
+
+function tojson(obj: any, already:any, ind="") {
+  if (already[obj.nodeIdx]) return undefined;
+  already[obj.nodeIdx] = 1;
+
+  var chbuf = [];
+  obj.children.forEach(itm=>{
+    var ij = tojson(itm, already, ind+"  ");
+    if (ij) chbuf.push(ij);
+  });
+
+  var buffer = [];
+  buffer.push(ind+'{ "name":"'+obj.name+'", "n":'+(obj.n?obj.n:0)+', "children":[');
+  buffer.push(chbuf.join(",\n"));
+  buffer.push(ind+"]  }");
+
+  return buffer.join("\n");
+}
+
+function gencode(code: string): string[] {
+  var result = [];
+  result = code.split("\n").map(line => line.trim());
+  return result;
+}
+
+class Thingy {
+  clauseN = 0;
+}
 function nodesToGraph(src: PNode[], already: any) {
   var target = [];
+  var n = 0;
   src.forEach(srcitm=>{
     var targetitm = nodeToGraph(srcitm, already);
+    n += already.n;
+    if (!targetitm) return;//continue;
     target.push(targetitm);
   });
+  already.n = n;
   return target;
 }
 
 function nodeToGraph(node: PNode, _already: any) {
-  if (node["$"]) {
-    return node["$"];
+  if (node["generated_"]) {
+    _already.n = node["generated_"].n;
+    return node["generated_"];
   }
 
-  var already = {};
+  var already:any = {};
   Object.setPrototypeOf(already, _already);
+  var n = 0;
 
-  var result = {name:"inf "+node.toString(), label:node.label, children:[]};
-  node["$"] = result;
+  var result = {name:"? "+node.toString(), label:node.label, children:[],
+        nodeIdx: node.nodeIdx, n:0 };
+  node["generated_"] = result;
 
   switch (node.kind) {
     case PNodeKind.GRAMMAR:
-      result = { name: "O", label:"", children: nodesToGraph(node.children, already) };
+      result = { name: "O", label:"", children: nodesToGraph(node.children, already), nodeIdx:node.nodeIdx, n:0 };
+      n += already.n;
       break;
     case PNodeKind.RULE:
       var rule = (node as PRule).rule;
       if (rule) {
         already[rule] = 1;
         var n2 = nodeToGraph(node.children[0], already);
-        result = { name: (node as PRule).rule, label:node.label, children: n2.children };
+        result = { name: rule, label:node.label, children: n2.children, nodeIdx:node.nodeIdx, n:0 };
+        n += already.n;
       } else {
         result = null;
       }
       break;
     case PNodeKind.TERMINAL_REF:
-      result = { name: "Ł" + (node as PTerminalRef).terminal, label:node.label, children: [] };
+      result = { name: "Ł" + (node as PTerminalRef).terminal, label:node.label, children: [], nodeIdx:node.nodeIdx, n:0 };
       break;
     case PNodeKind.RULE_REF:
       var rule = (node as PRuleRef).rule;
       if (options.allowedStartRules[rule] || already[rule]) {
-        result = { name: rule + "->", label:node.label, children: [] };
+        result = { name: rule + "->", label:node.label, children: [], nodeIdx:node.nodeIdx, n:0 };
       } else {
         var rule0: PRule = ctx.rules.get(rule);
         var n2 = nodeToGraph(rule0, already);
-        result = n2;
+        result = { name: n2.name + "->", label:node.label, children: n2.children, nodeIdx:node.nodeIdx, n:0 };
+        n += already.n;
       }
       break;
     case PNodeKind.ZERO_OR_MORE:
       var n2 = nodeToGraph(node.children[0], already);
-      result = { name: n2.name + "*", label:node.label, children: n2.children };
+      result = { name: n2.name + "*", label:node.label, children: n2.children, nodeIdx:node.nodeIdx, n:0 };
+      n += already.n;
       break;
     case PNodeKind.ONE_OR_MORE:
       var n2 = nodeToGraph(node.children[0], already);
-      result = { name: n2.name + "+", label:node.label, children: n2.children };
+      result = { name: n2.name + "+", label:node.label, children: n2.children, nodeIdx:node.nodeIdx, n:0 };
+      n += already.n;
       break;
     case PNodeKind.CHOICE:
-      result = { name:"", label:node.label, children: [] };
+      result = { name:"", label:node.label, children: [], nodeIdx:node.nodeIdx, n:0 };
       var f = 1;
       node.children.forEach(ch => {
         var c = nodeToGraph(ch, already);
-        if (!f) c.name = " / " + c.name;
+        n += already.n;
+
+        if (!c) return;//continue;
+        if (!f) {
+          c.name = " / " + c.name;
+          result.children.push({name:" / " + c.name, children: c.children, label: c.label});
+        } else {
+          result.children.push(c);
+        } 
         f = 0;
-        result.children.push(c);
       });
       break;
     case PNodeKind.SEQUENCE:
-      result = { name:"", label:node.label, children: [] };
+      result = { name:"", label:node.label, children: [], nodeIdx:node.nodeIdx, n:0 };
       node.children.forEach(ch => {
         var c = nodeToGraph(ch, already);
+        n += already.n;
+
+        if (!c) return;//continue;
         result.children.push(c);
       });
       break;
@@ -372,13 +352,110 @@ function nodeToGraph(node: PNode, _already: any) {
     }
 
   if (result) {
+    result.nodeIdx = node.nodeIdx;
+    result.n = n;
     if (result.label) {
       result.name = result.label+":"+result.name;
     }
-    node["$"] = result;
+    node["generated_"] = result;
   }
+  _already.n = n;
 
   return result;
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+class Context {
+  nodeIdxs = 0;
+  ruleIndices = 0;
+  functionIndices = 0;
+
+  current: PNode;
+  grammar: PGrammar;
+  rule: PActContainer;
+  ruleRefs: PRuleRef[] = [];
+  terminalRefs: PTerminalRef[] = [];
+  rules: Map<string, PRule> = new Map;
+  terminals: Map<string, PTerminal> = new Map;
+
+  pushIdxNode<T extends PNode>(cons: new (parent: PNode, index: number) => T, index: number, kind?: PNodeKind): T {
+    var child: T = new cons(this.current, index);
+    if (kind !== undefined) child.kind = kind;
+    this.current = child;
+    child.nodeIdx = this.nodeIdxs++;
+    return child;
+  }
+  pushNode<T extends PNode>(cons: new (parent: PNode) => T, kind?: PNodeKind): T {
+    var child: T = new cons(this.current);
+    if (kind !== undefined) child.kind = kind;
+    this.current = child;
+    child.nodeIdx = this.nodeIdxs++;
+    return child;
+  }
+
+  popNode() {
+    var generatedNode = this.current;
+    this.current = this.current.parent;
+    return generatedNode;
+  }
+  generateAction(target: PLogicNode, argumentsOwner: PNode, kind: PActionKind, node) {
+    var action: PFunction = {
+      kind, ownerRule: ctx.rule, target,
+      nodeIdx: this.nodeIdxs++, index: ctx.functionIndices++,
+      code: gencode(node.code), args: [], fun: null
+    };
+
+    target.action = action;
+    this.grammar.actions.push(action);
+    this.rule.actions.push(action);
+    if (kind === PActionKind.RULE) {
+      this.grammar.ruleActions.push(action);
+      this.rule.ruleActions.push(action);
+    }
+    var i = 0;
+    const addlabels = (chch: PValueNode) => {
+      if (chch.label) {
+        var a = { label: chch.label, index: i, evaluate: chch };
+        action.args.push(a);
+      } else {
+        //child.action.args.set(chch.label, {label: "$"+i, index: i, evaluate: chch});
+      }
+      i++;
+    }
+
+    if (argumentsOwner.kind === PNodeKind.SEQUENCE || argumentsOwner.kind === PNodeKind.CHOICE) {
+      argumentsOwner.children.forEach(chch => {
+        addlabels(chch);
+      });
+    } else {
+      addlabels(argumentsOwner);
+    }
+    return action;
+  }
+}
+
+
+
+
+
+
+
 module.exports = generate;
+
+
+
+
+
+
