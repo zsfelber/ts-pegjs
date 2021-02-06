@@ -76,6 +76,7 @@ export abstract class PNode {
   kind: PNodeKind;
   children: PNode[] = [];
   nodeIdx: number;
+  label?: string;
 
   static xkind = PNodeKind.GRAMMAR;
 
@@ -231,7 +232,6 @@ export class PLogicNode extends PNode {
 }
 
 export class PValueNode extends PLogicNode {
-  label?: string;
   get optionalNode() {
     return this.kind === PNodeKind.EMPTY || this.kind === PNodeKind.OPTIONAL ||
       this.kind === PNodeKind.ZERO_OR_MORE;

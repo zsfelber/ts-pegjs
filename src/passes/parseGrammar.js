@@ -3,6 +3,11 @@ Object.defineProperty(exports, "__esModule", { value: true });
 var fs = require("fs");
 var compiler_1 = require("pegjs/lib/compiler");
 var lib_1 = require("../../lib");
+var stringifySafe = require('json-stringify-safe');
+var options;
+var terminals = [];
+var terminalConsts = new Map;
+var ctx;
 // Generates parser JavaScript code.
 function generate(ast) {
     var args = [];
@@ -11,9 +16,7 @@ function generate(ast) {
     }
     // pegjs 0.10  api pass(ast, options)
     // pegjs 0.11+ api pass(ast, config, options);
-    var options = args[args.length - 1];
-    var terminals = [];
-    var terminalConsts = new Map;
+    options = args[args.length - 1];
     ast.terminals = terminals;
     ast.terminalConsts = terminalConsts;
     var findTerminals = compiler_1.visitor.build({
@@ -97,8 +100,13 @@ function generate(ast) {
             return generatedNode;
         };
         Context.prototype.generateAction = function (target, argumentsOwner, kind, node) {
-            var action = { kind: kind, ownerRule: ctx.rule, target: target, nodeIdx: this.nodeIdxs++, index: ctx.functionIndices++,
-                code: gencode(node.code), args: [], fun: null };
+            var action = {
+                kind: kind,
+                ownerRule: ctx.rule,
+                target: target,
+                nodeIdx: this.nodeIdxs++, index: ctx.functionIndices++,
+                code: gencode(node.code), args: [], fun: null
+            };
             target.action = action;
             this.grammar.actions.push(action);
             this.rule.actions.push(action);
@@ -129,7 +137,7 @@ function generate(ast) {
         };
         return Context;
     }());
-    var ctx = new Context();
+    ctx = new Context();
     function parseGrammarAst(parent, node) {
         var child;
         switch (node.type) {
@@ -249,113 +257,92 @@ function generate(ast) {
         throw new Error("Grammar parsing error(s).");
     }
     //console.log("parsed grammar : "+stringify(ctx.grammar, ""));
-    var gs = new GraphStat();
-    var json = { nodes: [], edges: [] };
-    countGraph(ctx.grammar, gs);
-    generateGraph(ctx.grammar, gs, json);
+    var vtree = nodeToGraph(ctx.grammar, {});
     var fnm = "../www/pnodes-graph.json";
-    fs.writeFileSync(fnm, JSON.stringify(json, null, "  "));
+    fs.writeFileSync(fnm, JSON.stringify(vtree, null, "  "));
 }
-var i = 0;
-var GraphStat = /** @class */ (function () {
-    function GraphStat() {
-        this.maxN = 0;
-        this.totalN = 0;
-        this.now = 0;
-        this._perLevel = [];
+function nodesToGraph(src, already) {
+    var target = [];
+    src.forEach(function (srcitm) {
+        var targetitm = nodeToGraph(srcitm, already);
+        target.push(targetitm);
+    });
+    return target;
+}
+function nodeToGraph(node, _already) {
+    if (node["$"]) {
+        return node["$"];
     }
-    GraphStat.prototype.perLevel = function (level) {
-        var lgs = this._perLevel[level];
-        if (!lgs) {
-            this._perLevel[level] = lgs = new GraphStat();
+    var already = {};
+    Object.setPrototypeOf(already, _already);
+    var result = { name: "inf " + node.toString(), label: node.label, children: [] };
+    node["$"] = result;
+    switch (node.kind) {
+        case lib_1.PNodeKind.GRAMMAR:
+            result = { name: "O", label: "", children: nodesToGraph(node.children, already) };
+            break;
+        case lib_1.PNodeKind.RULE:
+            var rule = node.rule;
+            if (rule) {
+                already[rule] = 1;
+                var n2 = nodeToGraph(node.children[0], already);
+                result = { name: node.rule, label: node.label, children: n2.children };
+            }
+            else {
+                result = null;
+            }
+            break;
+        case lib_1.PNodeKind.TERMINAL_REF:
+            result = { name: "Ł" + node.terminal, label: node.label, children: [] };
+            break;
+        case lib_1.PNodeKind.RULE_REF:
+            var rule = node.rule;
+            if (options.allowedStartRules[rule] || already[rule]) {
+                result = { name: rule + "->", label: node.label, children: [] };
+            }
+            else {
+                var rule0 = ctx.rules.get(rule);
+                var n2 = nodeToGraph(rule0, already);
+                result = n2;
+            }
+            break;
+        case lib_1.PNodeKind.ZERO_OR_MORE:
+            var n2 = nodeToGraph(node.children[0], already);
+            result = { name: n2.name + "*", label: node.label, children: n2.children };
+            break;
+        case lib_1.PNodeKind.ONE_OR_MORE:
+            var n2 = nodeToGraph(node.children[0], already);
+            result = { name: n2.name + "+", label: node.label, children: n2.children };
+            break;
+        case lib_1.PNodeKind.CHOICE:
+            result = { name: "", label: node.label, children: [] };
+            var f = 1;
+            node.children.forEach(function (ch) {
+                var c = nodeToGraph(ch, already);
+                if (!f)
+                    c.name = " / " + c.name;
+                f = 0;
+                result.children.push(c);
+            });
+            break;
+        case lib_1.PNodeKind.SEQUENCE:
+            result = { name: "", label: node.label, children: [] };
+            node.children.forEach(function (ch) {
+                var c = nodeToGraph(ch, already);
+                result.children.push(c);
+            });
+            break;
+        case lib_1.PNodeKind.TERMINAL:
+            result = null;
+            break;
+    }
+    if (result) {
+        if (result.label) {
+            result.name = result.label + ":" + result.name;
         }
-        return lgs;
-    };
-    return GraphStat;
-}());
-;
-function countGraph(node, graphStat, l) {
-    if (l === void 0) { l = 0; }
-    var n = 0;
-    node.children.forEach(function (child) {
-        n += countGraph(child, graphStat, l + 1);
-    });
-    if (!node.children.length)
-        n = 1;
-    var lev = graphStat.perLevel(l);
-    if (n > lev.maxN)
-        lev.maxN = n;
-    lev.totalN += n;
-    return n;
-}
-function generateGraph(node, graphStat, json, l) {
-    if (l === void 0) { l = 0; }
-    var n = 0;
-    var l0graphStat = graphStat.perLevel(0);
-    var lgraphStat = graphStat.perLevel(l);
-    node.children.forEach(function (child) {
-        n += generateGraph(child, graphStat, json, l + 1);
-        var edge = {
-            "id": "e" + node.nodeIdx + ":" + child.nodeIdx,
-            "source": "n" + node.nodeIdx,
-            "target": "n" + child.nodeIdx,
-            "label": child.label
-        };
-        json.edges.push(edge);
-    });
-    if (!node.children.length)
-        n = 1;
-    var levheight = l0graphStat.totalN * 300;
-    var radius = levheight * l;
-    var angle0 = -0.5;
-    var angleFromAngle0 = 2 * lgraphStat.now / lgraphStat.totalN;
-    var angle = angle0 + angleFromAngle0;
-    var x = radius * Math.cos(angle * Math.PI);
-    var y = radius * Math.sin(angle * Math.PI);
-    lgraphStat.now += n;
-    var gnode = {
-        "id": "n" + node.nodeIdx,
-        "label": node.toString(),
-        "x": x,
-        "y": y,
-        "size": n
-    };
-    json.nodes.push(gnode);
-    return n;
-}
-function stringify(obj, indent) {
-    if (!indent)
-        indent = "";
-    if (typeof obj !== 'object' || obj === null || obj instanceof Array) {
-        return value(obj, indent);
+        node["$"] = result;
     }
-    if (obj["$pr"]) {
-        return obj["$pr"];
-    }
-    obj["$pr"] = "$" + i;
-    var result = " " + i + "." + indent + ' {\n' + Object.keys(obj).map(function (k) {
-        return (typeof obj[k] === 'function') ? null : indent + "  " + k + " : " + value(obj[k], indent + "  ");
-    }).join(",\n") + "/" + i + "." + indent + '}\n';
     return result;
-}
-function value(val, indent) {
-    switch (typeof val) {
-        case 'string':
-            return '"' + val.replace(/\\/g, '\\\\').replace('"', '\\"') + '"';
-        case 'number':
-        case 'boolean':
-            return '' + val;
-        case 'function':
-            return 'null';
-        case 'object':
-            if (val instanceof Date)
-                return '"' + val.toISOString() + '"';
-            if (val instanceof Array)
-                return " " + i + "." + indent + '[\n' + val.map(function (v) { return value(v, indent + "  "); }).join(',\n') + +"/" + i + "." + indent + ']\n';
-            if (val === null)
-                return 'null';
-            return stringify(val, indent);
-    }
 }
 module.exports = generate;
 //# sourceMappingURL=parseGrammar.js.map

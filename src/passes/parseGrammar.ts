@@ -2,18 +2,23 @@ import * as fs from "fs";
 import { visitor } from "pegjs/lib/compiler";
 import {
   PActContainer, PActionKind, PFunction,
-  PGrammar,  PLogicNode, PNode, PNodeKind, PRule,
+  PGrammar, PLogicNode, PNode, PNodeKind, PRule,
   PRuleRef, PSemanticAnd, PSemanticNot, PTerminal,
   PTerminalRef, PValueNode
 } from '../../lib';
+var stringifySafe = require('json-stringify-safe');
+
+var options;
+const terminals: string[] = [];
+const terminalConsts: Map<string, number> = new Map;
+var ctx;
 
 // Generates parser JavaScript code.
 function generate(ast, ...args) {
   // pegjs 0.10  api pass(ast, options)
   // pegjs 0.11+ api pass(ast, config, options);
-  const options = args[args.length - 1];
-  const terminals: string[] = [];
-  const terminalConsts: Map<string, number> = new Map;
+  options = args[args.length - 1];
+
   ast.terminals = terminals;
   ast.terminalConsts = terminalConsts;
 
@@ -81,17 +86,17 @@ function generate(ast, ...args) {
     rule: PActContainer;
     ruleRefs: PRuleRef[] = [];
     terminalRefs: PTerminalRef[] = [];
-    rules: Map<string,PRule> = new Map;
-    terminals: Map<string,PTerminal> = new Map;
+    rules: Map<string, PRule> = new Map;
+    terminals: Map<string, PTerminal> = new Map;
 
-    pushIdxNode<T extends PNode>(cons:new (parent:PNode, index:number) => T, index: number, kind?: PNodeKind): T {
+    pushIdxNode<T extends PNode>(cons: new (parent: PNode, index: number) => T, index: number, kind?: PNodeKind): T {
       var child: T = new cons(this.current, index);
       if (kind !== undefined) child.kind = kind;
       this.current = child;
       child.nodeIdx = this.nodeIdxs++;
       return child;
     }
-    pushNode<T extends PNode>(cons:new (parent:PNode) => T, kind?: PNodeKind): T {
+    pushNode<T extends PNode>(cons: new (parent: PNode) => T, kind?: PNodeKind): T {
       var child: T = new cons(this.current);
       if (kind !== undefined) child.kind = kind;
       this.current = child;
@@ -105,9 +110,11 @@ function generate(ast, ...args) {
       return generatedNode;
     }
     generateAction(target: PLogicNode, argumentsOwner: PNode, kind: PActionKind, node) {
-      var action: PFunction = { kind, ownerRule:ctx.rule, target, 
-          nodeIdx: this.nodeIdxs++, index: ctx.functionIndices++,
-          code: gencode(node.code), args: [], fun: null };
+      var action: PFunction = {
+        kind, ownerRule: ctx.rule, target,
+        nodeIdx: this.nodeIdxs++, index: ctx.functionIndices++,
+        code: gencode(node.code), args: [], fun: null
+      };
 
       target.action = action;
       this.grammar.actions.push(action);
@@ -138,7 +145,7 @@ function generate(ast, ...args) {
     }
   }
 
-  var ctx = new Context();
+  ctx = new Context();
 
   function parseGrammarAst(parent, node): PNode {
 
@@ -189,7 +196,7 @@ function generate(ast, ...args) {
         });
 
         return ctx.popNode();
-  
+
       case "sequence":
 
         var sequence = ctx.pushNode(PValueNode, PNodeKind.SEQUENCE);
@@ -218,7 +225,7 @@ function generate(ast, ...args) {
       case "one_or_more":
       case "simple_and":
       case "simple_not":
-    
+
         ctx.pushNode(KT[node.type], KK[node.type]);
         parseGrammarAst(node, node.expression);
         return ctx.popNode();
@@ -230,7 +237,7 @@ function generate(ast, ...args) {
         // this generates the function arguments from preceeding nodes, as expected 
         var action = ctx.generateAction(child, current, PActionKind.PREDICATE, node);
         return ctx.popNode();
-  
+
       case "rule_ref":
         // terminal rule
         if (/^Ł/.exec(node.name)) {
@@ -256,21 +263,21 @@ function generate(ast, ...args) {
   parseGrammarAst(null, ast);
 
   var err = 0;
-  ctx.ruleRefs.forEach(rr=>{
+  ctx.ruleRefs.forEach(rr => {
     var target = ctx.rules.get(rr.rule);
     if (target) {
       rr.ruleIndex = target.index;
     } else {
-      console.error("No rule for rule ref : "+rr.rule);
+      console.error("No rule for rule ref : " + rr.rule);
       err = 1;
     }
   });
-  ctx.terminalRefs.forEach(tr=>{
+  ctx.terminalRefs.forEach(tr => {
     var target = ctx.terminals.get(tr.terminal);
     if (target) {
       //tr.terminalIndex = target.index;
     } else {
-      console.error("No terminal for terminal ref : "+tr.terminal);
+      console.error("No terminal for terminal ref : " + tr.terminal);
       err = 1;
     }
   });
@@ -280,119 +287,98 @@ function generate(ast, ...args) {
   }
 
   //console.log("parsed grammar : "+stringify(ctx.grammar, ""));
-  var gs = new GraphStat();
-  var json = {nodes:[], edges:[]};
-  countGraph(ctx.grammar, gs);
-  generateGraph(ctx.grammar, gs, json);
+  var vtree = nodeToGraph(ctx.grammar, {});
 
   const fnm = "../www/pnodes-graph.json";
-  fs.writeFileSync(fnm, JSON.stringify(json, null, "  "));
+  fs.writeFileSync(fnm, JSON.stringify(vtree, null, "  "));
 
 }
 
-var i = 0;
-class GraphStat {
-  maxN = 0;
-  totalN = 0;
-  now = 0;
+function nodesToGraph(src: PNode[], already: any) {
+  var target = [];
+  src.forEach(srcitm=>{
+    var targetitm = nodeToGraph(srcitm, already);
+    target.push(targetitm);
+  });
+  return target;
+}
 
-  _perLevel: GraphStat[] = [];
+function nodeToGraph(node: PNode, _already: any) {
+  if (node["$"]) {
+    return node["$"];
+  }
 
-  perLevel(level:number) {
-    var lgs = this._perLevel[level];
-    if (!lgs) {
-      this._perLevel[level] = lgs = new GraphStat();
+  var already = {};
+  Object.setPrototypeOf(already, _already);
+
+  var result = {name:"inf "+node.toString(), label:node.label, children:[]};
+  node["$"] = result;
+
+  switch (node.kind) {
+    case PNodeKind.GRAMMAR:
+      result = { name: "O", label:"", children: nodesToGraph(node.children, already) };
+      break;
+    case PNodeKind.RULE:
+      var rule = (node as PRule).rule;
+      if (rule) {
+        already[rule] = 1;
+        var n2 = nodeToGraph(node.children[0], already);
+        result = { name: (node as PRule).rule, label:node.label, children: n2.children };
+      } else {
+        result = null;
+      }
+      break;
+    case PNodeKind.TERMINAL_REF:
+      result = { name: "Ł" + (node as PTerminalRef).terminal, label:node.label, children: [] };
+      break;
+    case PNodeKind.RULE_REF:
+      var rule = (node as PRuleRef).rule;
+      if (options.allowedStartRules[rule] || already[rule]) {
+        result = { name: rule + "->", label:node.label, children: [] };
+      } else {
+        var rule0: PRule = ctx.rules.get(rule);
+        var n2 = nodeToGraph(rule0, already);
+        result = n2;
+      }
+      break;
+    case PNodeKind.ZERO_OR_MORE:
+      var n2 = nodeToGraph(node.children[0], already);
+      result = { name: n2.name + "*", label:node.label, children: n2.children };
+      break;
+    case PNodeKind.ONE_OR_MORE:
+      var n2 = nodeToGraph(node.children[0], already);
+      result = { name: n2.name + "+", label:node.label, children: n2.children };
+      break;
+    case PNodeKind.CHOICE:
+      result = { name:"", label:node.label, children: [] };
+      var f = 1;
+      node.children.forEach(ch => {
+        var c = nodeToGraph(ch, already);
+        if (!f) c.name = " / " + c.name;
+        f = 0;
+        result.children.push(c);
+      });
+      break;
+    case PNodeKind.SEQUENCE:
+      result = { name:"", label:node.label, children: [] };
+      node.children.forEach(ch => {
+        var c = nodeToGraph(ch, already);
+        result.children.push(c);
+      });
+      break;
+    case PNodeKind.TERMINAL:
+      result = null;
+      break;
     }
-    return lgs;
+
+  if (result) {
+    if (result.label) {
+      result.name = result.label+":"+result.name;
+    }
+    node["$"] = result;
   }
-};
-function countGraph(node: PNode, graphStat: GraphStat, l:number=0) {
-  var n = 0;
-  node.children.forEach(child=>{
-    n += countGraph(child, graphStat, l+1);
-  });
-  if (!node.children.length) n = 1;
-
-  var lev = graphStat.perLevel(l);
-  if (n > lev.maxN) lev.maxN = n;
-  lev.totalN += n;
-
-  return n;
-}
-
-function generateGraph(node: PNode, graphStat: GraphStat, json: {nodes:any[],edges:any[]}, l:number=0) {
-  var n = 0;
-  var l0graphStat = graphStat.perLevel(0);
-  var lgraphStat = graphStat.perLevel(l);
-
-  node.children.forEach(child=>{
-    n += generateGraph(child, graphStat, json, l+1);
-    var edge =     {
-      "id": "e"+node.nodeIdx+":"+child.nodeIdx,
-      "source": "n"+node.nodeIdx,
-      "target": "n"+child.nodeIdx,
-      "label": (child as any).label
-    };
-    json.edges.push(edge);
-  });
-  if (!node.children.length) n = 1;
-
-  var levheight = l0graphStat.totalN * 300;
-  var radius = levheight * l;
-  var angle0 = - 0.5;
-  var angleFromAngle0 = 2 * lgraphStat.now / lgraphStat.totalN;
-  var angle = angle0 + angleFromAngle0;
-  var x = radius * Math.cos(angle * Math.PI);
-  var y = radius * Math.sin(angle * Math.PI);
-
-  lgraphStat.now += n;
-
-  var gnode=
-  {
-    "id": "n"+node.nodeIdx,
-    "label": node.toString(),
-    "x": x,
-    "y": y,
-    "size": n
-  };
-  json.nodes.push(gnode);
-
-  return n;
-}
-
-
-function stringify(obj, indent) {
-  if (!indent) indent = "";
-  if (typeof obj !== 'object' || obj === null || obj instanceof Array) {
-    return value(obj, indent);
-  }
-  if (obj["$pr"]) {
-    return obj["$pr"];
-  }
-  obj["$pr"] = "$" + i;
-
-  var result = " " + i + "." + indent + ' {\n' + Object.keys(obj).map(k => {
-    return (typeof obj[k] === 'function') ? null : indent + "  " + k + " : " + value(obj[k], indent + "  ");
-  }).join(",\n") + "/" + i + "." + indent + '}\n';
 
   return result;
-}
-
-function value(val, indent) {
-  switch (typeof val) {
-    case 'string':
-      return '"' + val.replace(/\\/g, '\\\\').replace('"', '\\"') + '"';
-    case 'number':
-    case 'boolean':
-      return '' + val;
-    case 'function':
-      return 'null';
-    case 'object':
-      if (val instanceof Date) return '"' + val.toISOString() + '"';
-      if (val instanceof Array) return " " + i + "." + indent + '[\n' + val.map(v => value(v, indent + "  ")).join(',\n') + + "/" + i + "." + indent + ']\n';
-      if (val === null) return 'null';
-      return stringify(val, indent);
-  }
 }
 
 module.exports = generate;
