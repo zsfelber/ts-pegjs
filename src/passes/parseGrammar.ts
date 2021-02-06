@@ -296,7 +296,6 @@ function nodeToGraph(node: PNode, processing: RetekBufferMár) {
     case PNodeKind.RULE:
       var rule = (node as PRule).rule;
       if (rule) {
-        processing.alreadyProc[rule] = 1;
         var n2 = nodeToGraph(node.children[0], processing);
         result = { name: rule, label: node.label, children: n2.children, nodeIdx: node.nodeIdx, n: n2.n };
         processing.n++;
@@ -314,10 +313,12 @@ function nodeToGraph(node: PNode, processing: RetekBufferMár) {
         result = { name: rule + "->", label: node.label, children: [], nodeIdx: node.nodeIdx, n: 1 };
         processing.n++;
       } else {
+        processing.alreadyProc[rule] = 1;
         var rule0: PRule = ctx.rules.get(rule);
         var n2 = nodeToGraph(rule0, processing);
         result = { name: n2.name + "->", label: node.label, children: n2.children, nodeIdx: node.nodeIdx, n: n2.n };
         processing.n++;
+        processing.alreadyProc[rule] = 0;
       }
       break;
     case PNodeKind.ZERO_OR_MORE:
@@ -336,8 +337,7 @@ function nodeToGraph(node: PNode, processing: RetekBufferMár) {
       processing.n++;
       break;
     case PNodeKind.SEMANTIC_AND:
-      var n2 = nodeToGraph(node.children[0], processing);
-      result = { name: "&{" + n2.name + "}", label: node.label, children: n2.children, nodeIdx: node.nodeIdx, n: n2.n };
+      result = { name: "&{...}", label: node.label, children: [], nodeIdx: node.nodeIdx, n: 1 };
       processing.n++;
       break;
     case PNodeKind.PREDICATE_AND:
@@ -346,8 +346,7 @@ function nodeToGraph(node: PNode, processing: RetekBufferMár) {
       processing.n++;
       break;
     case PNodeKind.SEMANTIC_NOT:
-      var n2 = nodeToGraph(node.children[0], processing);
-      result = { name: "!{" + n2.name + "}", label: node.label, children: n2.children, nodeIdx: node.nodeIdx, n: n2.n };
+      result = { name: "!{...}", label: node.label, children: [], nodeIdx: node.nodeIdx, n: 1 };
       processing.n++;
       break;
     case PNodeKind.PREDICATE_NOT:

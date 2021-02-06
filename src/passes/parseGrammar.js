@@ -255,7 +255,6 @@ function nodeToGraph(node, processing) {
         case lib_1.PNodeKind.RULE:
             var rule = node.rule;
             if (rule) {
-                processing.alreadyProc[rule] = 1;
                 var n2 = nodeToGraph(node.children[0], processing);
                 result = { name: rule, label: node.label, children: n2.children, nodeIdx: node.nodeIdx, n: n2.n };
                 processing.n++;
@@ -275,10 +274,12 @@ function nodeToGraph(node, processing) {
                 processing.n++;
             }
             else {
+                processing.alreadyProc[rule] = 1;
                 var rule0 = ctx.rules.get(rule);
                 var n2 = nodeToGraph(rule0, processing);
                 result = { name: n2.name + "->", label: node.label, children: n2.children, nodeIdx: node.nodeIdx, n: n2.n };
                 processing.n++;
+                processing.alreadyProc[rule] = 0;
             }
             break;
         case lib_1.PNodeKind.ZERO_OR_MORE:
@@ -297,8 +298,7 @@ function nodeToGraph(node, processing) {
             processing.n++;
             break;
         case lib_1.PNodeKind.SEMANTIC_AND:
-            var n2 = nodeToGraph(node.children[0], processing);
-            result = { name: "&{" + n2.name + "}", label: node.label, children: n2.children, nodeIdx: node.nodeIdx, n: n2.n };
+            result = { name: "&{...}", label: node.label, children: [], nodeIdx: node.nodeIdx, n: 1 };
             processing.n++;
             break;
         case lib_1.PNodeKind.PREDICATE_AND:
@@ -307,8 +307,7 @@ function nodeToGraph(node, processing) {
             processing.n++;
             break;
         case lib_1.PNodeKind.SEMANTIC_NOT:
-            var n2 = nodeToGraph(node.children[0], processing);
-            result = { name: "!{" + n2.name + "}", label: node.label, children: n2.children, nodeIdx: node.nodeIdx, n: n2.n };
+            result = { name: "!{...}", label: node.label, children: [], nodeIdx: node.nodeIdx, n: 1 };
             processing.n++;
             break;
         case lib_1.PNodeKind.PREDICATE_NOT:
