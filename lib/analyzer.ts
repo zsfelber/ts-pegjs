@@ -1004,7 +1004,7 @@ class OneOrMoreTraverser extends OrMoreTraverser {
 
 }
 
-class RuleRefTraverser extends SingleTraverser {
+class RuleRefTraverser extends SingleTraverser implements RecursiveRuleDef {
 
   node: PRuleRef;
   recursiveRuleOriginal: RecursiveRuleDef;
@@ -1108,7 +1108,10 @@ class RuleRefTraverser extends SingleTraverser {
                   cache.intoState.shiftesAndReduces.push({kind:ShiftReduceKind.REDUCE_RECURSIVE, 
                       item:normReduce.item, isEpsilonReduce:normReduce.isEpsilonReduce});
                   break;
-
+                default:
+                  // NOTE simply omit subsequent recursions, it could never produce
+                  // next tokens here
+                  break;
               }
 
             });
