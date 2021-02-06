@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+var fs = require("fs");
 var compiler_1 = require("pegjs/lib/compiler");
 var lib_1 = require("../../lib");
 // Generates parser JavaScript code.
@@ -42,7 +43,9 @@ function generate(ast) {
         "one_or_more": lib_1.PValueNode,
         "zero_or_more": lib_1.PValueNode,
         "semantic_and": lib_1.PSemanticAnd,
-        "semantic_not": lib_1.PSemanticNot
+        "semantic_not": lib_1.PSemanticNot,
+        "simple_and": lib_1.PValueNode,
+        "simple_not": lib_1.PValueNode,
     };
     var KK = {
         "grammar": lib_1.PNodeKind.GRAMMAR,
@@ -53,7 +56,9 @@ function generate(ast) {
         "one_or_more": lib_1.PNodeKind.ONE_OR_MORE,
         "zero_or_more": lib_1.PNodeKind.ZERO_OR_MORE,
         "semantic_and": lib_1.PNodeKind.SEMANTIC_AND,
-        "semantic_not": lib_1.PNodeKind.SEMANTIC_NOT
+        "semantic_not": lib_1.PNodeKind.SEMANTIC_NOT,
+        "simple_and": lib_1.PNodeKind.PREDICATE_AND,
+        "simple_not": lib_1.PNodeKind.PREDICATE_NOT,
     };
     function gencode(code) {
         var result = [];
@@ -186,6 +191,8 @@ function generate(ast) {
             case "optional":
             case "zero_or_more":
             case "one_or_more":
+            case "simple_and":
+            case "simple_not":
                 ctx.pushNode(KT[node.type], KK[node.type]);
                 parseGrammarAst(node, node.expression);
                 return ctx.popNode();
@@ -242,8 +249,77 @@ function generate(ast) {
         throw new Error("Grammar parsing error(s).");
     }
     //console.log("parsed grammar : "+stringify(ctx.grammar, ""));
+    var gs = new GraphStat();
+    var json = { nodes: [], edges: [] };
+    countGraph(this.grammar, gs);
+    generateGraph(this.grammar, gs, json);
+    var fnm = "pnodes-graph.json";
+    fs.writeFileSync(fnm, JSON.stringify(json, null, "  "));
 }
 var i = 0;
+var GraphStat = /** @class */ (function () {
+    function GraphStat() {
+        this.maxN = 0;
+        this.totalN = 0;
+        this.now = 0;
+        this._perLevel = [];
+    }
+    GraphStat.prototype.perLevel = function (level) {
+        var lgs = this._perLevel[level];
+        if (!lgs) {
+            this.perLevel[level] = lgs = new GraphStat();
+        }
+        return lgs;
+    };
+    return GraphStat;
+}());
+;
+function countGraph(node, graphStat, l) {
+    if (l === void 0) { l = 0; }
+    var n = 0;
+    node.children.forEach(function (child) {
+        n += countGraph(child, graphStat, l + 1);
+    });
+    var lev = graphStat.perLevel(l);
+    var max = lev.maxN;
+    if (n > max)
+        lev.maxN = n;
+    lev.totalN += n;
+    return n;
+}
+function generateGraph(node, graphStat, json, l) {
+    if (l === void 0) { l = 0; }
+    var n = 0;
+    var l0graphStat = graphStat.perLevel(0);
+    var lgraphStat = graphStat.perLevel(l);
+    node.children.forEach(function (child) {
+        n += generateGraph(child, graphStat, json, l + 1);
+        var edge = {
+            "id": "e" + node.nodeIdx + ":" + child.nodeIdx,
+            "source": "n" + node.nodeIdx,
+            "target": "n" + child.nodeIdx,
+            "label": child.label
+        };
+        json.edges.push(edge);
+    });
+    var levheight = l0graphStat.totalN * 3;
+    var radius = levheight * l;
+    var angle0 = -0.5;
+    var angleFromAngle0 = 2 * lgraphStat.now / lgraphStat.totalN;
+    var angle = angle0 + angleFromAngle0;
+    var x = radius * Math.cos(angle * Math.PI);
+    var y = radius * Math.sin(angle * Math.PI);
+    lgraphStat.now += n;
+    var gnode = {
+        "id": "n" + node.nodeIdx,
+        "label": node.toString(),
+        "x": x,
+        "y": y,
+        "size": n
+    };
+    json.nodes.push(gnode);
+    return n;
+}
 function stringify(obj, indent) {
     if (!indent)
         indent = "";

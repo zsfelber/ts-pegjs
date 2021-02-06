@@ -1,3 +1,4 @@
+import * as fs from "fs";
 import { visitor } from "pegjs/lib/compiler";
 import {
   PActContainer, PActionKind, PFunction,
@@ -279,10 +280,85 @@ function generate(ast, ...args) {
   }
 
   //console.log("parsed grammar : "+stringify(ctx.grammar, ""));
+  var gs = new GraphStat();
+  var json = {nodes:[], edges:[]};
+  countGraph(this.grammar, gs);
+  generateGraph(this.grammar, gs, json);
+
+  const fnm = "pnodes-graph.json";
+  fs.writeFileSync(fnm, JSON.stringify(json, null, "  "));
 
 }
 
 var i = 0;
+class GraphStat {
+  maxN = 0;
+  totalN = 0;
+  now = 0;
+
+  _perLevel: GraphStat[] = [];
+
+  perLevel(level:number) {
+    var lgs = this._perLevel[level];
+    if (!lgs) {
+      this.perLevel[level] = lgs = new GraphStat();
+    }
+    return lgs;
+  }
+};
+function countGraph(node: PNode, graphStat: GraphStat, l:number=0) {
+  var n = 0;
+  node.children.forEach(child=>{
+    n += countGraph(child, graphStat, l+1);
+  });
+
+  var lev = graphStat.perLevel(l);
+  var max = lev.maxN;
+  if (n > max) lev.maxN = n;
+  lev.totalN += n;
+
+  return n;
+}
+
+function generateGraph(node: PNode, graphStat: GraphStat, json: {nodes:any[],edges:any[]}, l:number=0) {
+  var n = 0;
+  var l0graphStat = graphStat.perLevel(0);
+  var lgraphStat = graphStat.perLevel(l);
+
+  node.children.forEach(child=>{
+    n += generateGraph(child, graphStat, json, l+1);
+    var edge =     {
+      "id": "e"+node.nodeIdx+":"+child.nodeIdx,
+      "source": "n"+node.nodeIdx,
+      "target": "n"+child.nodeIdx,
+      "label": (child as any).label
+    };
+    json.edges.push(edge);
+  });
+
+  var levheight = l0graphStat.totalN * 3;
+  var radius = levheight * l;
+  var angle0 = - 0.5;
+  var angleFromAngle0 = 2 * lgraphStat.now / lgraphStat.totalN;
+  var angle = angle0 + angleFromAngle0;
+  var x = radius * Math.cos(angle * Math.PI);
+  var y = radius * Math.sin(angle * Math.PI);
+
+  lgraphStat.now += n;
+
+  var gnode=
+  {
+    "id": "n"+node.nodeIdx,
+    "label": node.toString(),
+    "x": x,
+    "y": y,
+    "size": n
+  };
+  json.nodes.push(gnode);
+
+  return n;
+}
+
 
 function stringify(obj, indent) {
   if (!indent) indent = "";
