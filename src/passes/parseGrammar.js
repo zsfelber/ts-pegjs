@@ -183,19 +183,25 @@ function generate(ast) {
         throw new Error("Grammar parsing error(s).");
     }
     //console.log("parsed grammar : "+stringify(ctx.grammar, ""));
-    var vtree = nodeToGraph(ctx.grammar, {});
-    var j = tojson(vtree, {});
+    var vtree = nodeToGraph(ctx.grammar, { n: 0, alreadyProc: {} });
+    var j = tojson(vtree, { n: 0, alreadyProc: {} });
     var fnm = "../www/pnodes-graph.json";
     fs.writeFileSync(fnm, j);
 }
-function tojson(obj, already, ind) {
+var RetekBufferMár = /** @class */ (function () {
+    function RetekBufferMár() {
+        this.n = 0;
+    }
+    return RetekBufferMár;
+}());
+function tojson(obj, processing, ind) {
     if (ind === void 0) { ind = ""; }
-    if (already[obj.nodeIdx])
+    if (processing.alreadyProc[obj.nodeIdx])
         return undefined;
-    already[obj.nodeIdx] = 1;
+    processing.alreadyProc[obj.nodeIdx] = 1;
     var chbuf = [];
     obj.children.forEach(function (itm) {
-        var ij = tojson(itm, already, ind + "  ");
+        var ij = tojson(itm, processing, ind + "  ");
         if (ij)
             chbuf.push(ij);
     });
@@ -216,100 +222,104 @@ var Thingy = /** @class */ (function () {
     }
     return Thingy;
 }());
-function nodesToGraph(src, already) {
-    var target = [];
-    var n = 0;
+function nodesToGraph(src, processing, target) {
     src.forEach(function (srcitm) {
-        var targetitm = nodeToGraph(srcitm, already);
-        n += already.n;
+        var targetitm = nodeToGraph(srcitm, processing);
         if (!targetitm)
             return; //continue;
         target.push(targetitm);
     });
-    already.n = n;
-    return target;
 }
-function nodeToGraph(node, _already) {
+function nodeToGraph(node, processing) {
     if (node["generated_"]) {
-        _already.n = node["generated_"].n;
-        return node["generated_"];
+        var s = node["generated_"];
+        return {
+            name: s.name, label: s.label, children: s.children,
+            nodeIdx: s.nodeIdx, n: s.n
+        };
     }
-    var already = {};
-    Object.setPrototypeOf(already, _already);
-    var n = 0;
-    var result = { name: "? " + node.toString(), label: node.label, children: [],
-        nodeIdx: node.nodeIdx, n: 0 };
+    var branchTotal0 = processing.n;
+    var result = {
+        name: "? " + node.toString(), label: node.label, children: [],
+        nodeIdx: node.nodeIdx, n: 1
+    };
     node["generated_"] = result;
     switch (node.kind) {
         case lib_1.PNodeKind.GRAMMAR:
-            result = { name: "O", label: "", children: nodesToGraph(node.children, already), nodeIdx: node.nodeIdx, n: 0 };
-            n += already.n;
+            var buf = [];
+            nodesToGraph(node.children, processing, buf);
+            result = { name: "O", label: "", children: buf, nodeIdx: node.nodeIdx, n: 1 };
+            processing.n++;
+            result.n = processing.n - branchTotal0;
             break;
         case lib_1.PNodeKind.RULE:
             var rule = node.rule;
             if (rule) {
-                already[rule] = 1;
-                var n2 = nodeToGraph(node.children[0], already);
-                result = { name: rule, label: node.label, children: n2.children, nodeIdx: node.nodeIdx, n: 0 };
-                n += already.n;
+                processing.alreadyProc[rule] = 1;
+                var n2 = nodeToGraph(node.children[0], processing);
+                result = { name: rule, label: node.label, children: n2.children, nodeIdx: node.nodeIdx, n: n2.n };
+                processing.n++;
             }
             else {
                 result = null;
             }
             break;
         case lib_1.PNodeKind.TERMINAL_REF:
-            result = { name: "Ł" + node.terminal, label: node.label, children: [], nodeIdx: node.nodeIdx, n: 0 };
+            result = { name: "Ł" + node.terminal, label: node.label, children: [], nodeIdx: node.nodeIdx, n: 1 };
+            processing.n++;
             break;
         case lib_1.PNodeKind.RULE_REF:
             var rule = node.rule;
-            if (options.allowedStartRules[rule] || already[rule]) {
-                result = { name: rule + "->", label: node.label, children: [], nodeIdx: node.nodeIdx, n: 0 };
+            if (options.allowedStartRules[rule] || processing.alreadyProc[rule]) {
+                result = { name: rule + "->", label: node.label, children: [], nodeIdx: node.nodeIdx, n: 1 };
+                processing.n++;
             }
             else {
                 var rule0 = ctx.rules.get(rule);
-                var n2 = nodeToGraph(rule0, already);
-                result = { name: n2.name + "->", label: node.label, children: n2.children, nodeIdx: node.nodeIdx, n: 0 };
-                n += already.n;
+                var n2 = nodeToGraph(rule0, processing);
+                result = { name: n2.name + "->", label: node.label, children: n2.children, nodeIdx: node.nodeIdx, n: n2.n };
+                processing.n++;
             }
             break;
         case lib_1.PNodeKind.ZERO_OR_MORE:
-            var n2 = nodeToGraph(node.children[0], already);
-            result = { name: n2.name + "*", label: node.label, children: n2.children, nodeIdx: node.nodeIdx, n: 0 };
-            n += already.n;
+            var n2 = nodeToGraph(node.children[0], processing);
+            result = { name: n2.name + "*", label: node.label, children: n2.children, nodeIdx: node.nodeIdx, n: n2.n };
+            processing.n++;
             break;
         case lib_1.PNodeKind.ONE_OR_MORE:
-            var n2 = nodeToGraph(node.children[0], already);
-            result = { name: n2.name + "+", label: node.label, children: n2.children, nodeIdx: node.nodeIdx, n: 0 };
-            n += already.n;
+            var n2 = nodeToGraph(node.children[0], processing);
+            result = { name: n2.name + "+", label: node.label, children: n2.children, nodeIdx: node.nodeIdx, n: n2.n };
+            processing.n++;
             break;
         case lib_1.PNodeKind.CHOICE:
-            result = { name: "", label: node.label, children: [], nodeIdx: node.nodeIdx, n: 0 };
-            n += already.n;
+            result = { name: "", label: node.label, children: [], nodeIdx: node.nodeIdx, n: 1 };
             var f = 1;
             node.children.forEach(function (ch) {
-                var c = nodeToGraph(ch, already);
-                n += already.n;
+                var c = nodeToGraph(ch, processing);
                 if (!c)
                     return; //continue;
                 if (!f) {
                     c.name = " / " + c.name;
-                    result.children.push({ name: " / " + c.name, children: c.children, label: c.label });
+                    result.children.push({ name: " / " + c.name, children: c.children, label: c.label, n: c.n });
                 }
                 else {
                     result.children.push(c);
                 }
                 f = 0;
             });
+            processing.n++;
+            result.n = processing.n - branchTotal0;
             break;
         case lib_1.PNodeKind.SEQUENCE:
-            result = { name: "", label: node.label, children: [], nodeIdx: node.nodeIdx, n: 0 };
+            result = { name: "", label: node.label, children: [], nodeIdx: node.nodeIdx, n: 1 };
             node.children.forEach(function (ch) {
-                var c = nodeToGraph(ch, already);
-                n += already.n;
+                var c = nodeToGraph(ch, processing);
                 if (!c)
                     return; //continue;
                 result.children.push(c);
             });
+            processing.n++;
+            result.n = processing.n - branchTotal0;
             break;
         case lib_1.PNodeKind.TERMINAL:
             result = null;
@@ -317,13 +327,11 @@ function nodeToGraph(node, _already) {
     }
     if (result) {
         result.nodeIdx = node.nodeIdx;
-        result.n = n;
         if (result.label) {
             result.name = result.label + ":" + result.name;
         }
         node["generated_"] = result;
     }
-    _already.n = n;
     return result;
 }
 var Context = /** @class */ (function () {

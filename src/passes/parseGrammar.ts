@@ -215,30 +215,34 @@ function generate(ast, ...args) {
   }
 
   //console.log("parsed grammar : "+stringify(ctx.grammar, ""));
-  var vtree = nodeToGraph(ctx.grammar, {});
+  var vtree = nodeToGraph(ctx.grammar, {n:0, alreadyProc: {}});
 
-  var j = tojson(vtree, {});
+  var j = tojson(vtree, {n:0, alreadyProc: {}});
 
   const fnm = "../www/pnodes-graph.json";
   fs.writeFileSync(fnm, j);
 
 }
 
+class RetekBufferMár {
+  n: number = 0;
+  alreadyProc: any
+}
 
-function tojson(obj: any, already:any, ind="") {
-  if (already[obj.nodeIdx]) return undefined;
-  already[obj.nodeIdx] = 1;
+function tojson(obj: any, processing: RetekBufferMár, ind = "") {
+  if (processing.alreadyProc[obj.nodeIdx]) return undefined;
+  processing.alreadyProc[obj.nodeIdx] = 1;
 
   var chbuf = [];
-  obj.children.forEach(itm=>{
-    var ij = tojson(itm, already, ind+"  ");
+  obj.children.forEach(itm => {
+    var ij = tojson(itm, processing, ind + "  ");
     if (ij) chbuf.push(ij);
   });
 
   var buffer = [];
-  buffer.push(ind+'{ "name":"'+obj.name+'", "n":'+(obj.n?obj.n:0)+', "children":[');
+  buffer.push(ind + '{ "name":"' + obj.name + '", "n":' + (obj.n ? obj.n : 0) + ', "children":[');
   buffer.push(chbuf.join(",\n"));
-  buffer.push(ind+"]  }");
+  buffer.push(ind + "]  }");
 
   return buffer.join("\n");
 }
@@ -252,114 +256,122 @@ function gencode(code: string): string[] {
 class Thingy {
   clauseN = 0;
 }
-function nodesToGraph(src: PNode[], already: any) {
-  var target = [];
-  var n = 0;
-  src.forEach(srcitm=>{
-    var targetitm = nodeToGraph(srcitm, already);
-    n += already.n;
+
+function nodesToGraph(src: PNode[], processing: RetekBufferMár, target: any[]) {
+
+  src.forEach(srcitm => {
+    var targetitm = nodeToGraph(srcitm, processing);
     if (!targetitm) return;//continue;
     target.push(targetitm);
   });
-  already.n = n;
-  return target;
 }
 
-function nodeToGraph(node: PNode, _already: any) {
+function nodeToGraph(node: PNode, processing: RetekBufferMár) {
+
   if (node["generated_"]) {
-    _already.n = node["generated_"].n;
-    return node["generated_"];
+    var s = node["generated_"];
+
+    return {
+      name: s.name, label: s.label, children: s.children,
+      nodeIdx: s.nodeIdx, n: s.n
+    };
   }
 
-  var already:any = {};
-  Object.setPrototypeOf(already, _already);
-  var n = 0;
+  var branchTotal0 = processing.n;
 
-  var result = {name:"? "+node.toString(), label:node.label, children:[],
-        nodeIdx: node.nodeIdx, n:0 };
+  var result = {
+    name: "? " + node.toString(), label: node.label, children: [],
+    nodeIdx: node.nodeIdx, n: 1
+  };
   node["generated_"] = result;
 
   switch (node.kind) {
     case PNodeKind.GRAMMAR:
-      result = { name: "O", label:"", children: nodesToGraph(node.children, already), nodeIdx:node.nodeIdx, n:0 };
-      n += already.n;
+      var buf = [];
+      nodesToGraph(node.children, processing, buf);
+      result = { name: "O", label: "", children: buf, nodeIdx: node.nodeIdx, n: 1 };
+      processing.n ++;
+      result.n = processing.n - branchTotal0;
       break;
     case PNodeKind.RULE:
       var rule = (node as PRule).rule;
       if (rule) {
-        already[rule] = 1;
-        var n2 = nodeToGraph(node.children[0], already);
-        result = { name: rule, label:node.label, children: n2.children, nodeIdx:node.nodeIdx, n:0 };
-        n += already.n;
+        processing.alreadyProc[rule] = 1;
+        var n2 = nodeToGraph(node.children[0], processing);
+        result = { name: rule, label: node.label, children: n2.children, nodeIdx: node.nodeIdx, n: n2.n };
+        processing.n ++;
       } else {
         result = null;
       }
       break;
     case PNodeKind.TERMINAL_REF:
-      result = { name: "Ł" + (node as PTerminalRef).terminal, label:node.label, children: [], nodeIdx:node.nodeIdx, n:0 };
+      result = { name: "Ł" + (node as PTerminalRef).terminal, label: node.label, children: [], nodeIdx: node.nodeIdx, n:1 };
+      processing.n ++;
       break;
     case PNodeKind.RULE_REF:
       var rule = (node as PRuleRef).rule;
-      if (options.allowedStartRules[rule] || already[rule]) {
-        result = { name: rule + "->", label:node.label, children: [], nodeIdx:node.nodeIdx, n:0 };
+      if (options.allowedStartRules[rule] || processing.alreadyProc[rule]) {
+        result = { name: rule + "->", label: node.label, children: [], nodeIdx: node.nodeIdx, n:1 };
+        processing.n ++;
       } else {
         var rule0: PRule = ctx.rules.get(rule);
-        var n2 = nodeToGraph(rule0, already);
-        result = { name: n2.name + "->", label:node.label, children: n2.children, nodeIdx:node.nodeIdx, n:0 };
-        n += already.n;
+        var n2 = nodeToGraph(rule0, processing);
+        result = { name: n2.name + "->", label: node.label, children: n2.children, nodeIdx: node.nodeIdx, n: n2.n };
+        processing.n ++;
       }
       break;
     case PNodeKind.ZERO_OR_MORE:
-      var n2 = nodeToGraph(node.children[0], already);
-      result = { name: n2.name + "*", label:node.label, children: n2.children, nodeIdx:node.nodeIdx, n:0 };
-      n += already.n;
+      var n2 = nodeToGraph(node.children[0], processing);
+      result = { name: n2.name + "*", label: node.label, children: n2.children, nodeIdx: node.nodeIdx, n: n2.n };
+      processing.n ++;
       break;
     case PNodeKind.ONE_OR_MORE:
-      var n2 = nodeToGraph(node.children[0], already);
-      result = { name: n2.name + "+", label:node.label, children: n2.children, nodeIdx:node.nodeIdx, n:0 };
-      n += already.n;
+      var n2 = nodeToGraph(node.children[0], processing);
+      result = { name: n2.name + "+", label: node.label, children: n2.children, nodeIdx: node.nodeIdx, n: n2.n };
+      processing.n ++;
       break;
     case PNodeKind.CHOICE:
-      result = { name:"", label:node.label, children: [], nodeIdx:node.nodeIdx, n:0 };
+      result = { name: "", label: node.label, children: [], nodeIdx: node.nodeIdx, n:1 };
       var f = 1;
       node.children.forEach(ch => {
-        var c = nodeToGraph(ch, already);
-        n += already.n;
+        var c = nodeToGraph(ch, processing);
 
         if (!c) return;//continue;
         if (!f) {
           c.name = " / " + c.name;
-          result.children.push({name:" / " + c.name, children: c.children, label: c.label});
+          result.children.push({ name: " / " + c.name, children: c.children, label: c.label, n: c.n });
         } else {
           result.children.push(c);
-        } 
+        }
         f = 0;
       });
+      processing.n ++;
+      result.n = processing.n - branchTotal0;
       break;
     case PNodeKind.SEQUENCE:
-      result = { name:"", label:node.label, children: [], nodeIdx:node.nodeIdx, n:0 };
+      result = { name: "", label: node.label, children: [], nodeIdx: node.nodeIdx, n:1 };
       node.children.forEach(ch => {
-        var c = nodeToGraph(ch, already);
-        n += already.n;
+        var c = nodeToGraph(ch, processing);
 
         if (!c) return;//continue;
         result.children.push(c);
       });
+      processing.n ++;
+      result.n = processing.n - branchTotal0;
       break;
     case PNodeKind.TERMINAL:
       result = null;
       break;
-    }
+  }
 
   if (result) {
     result.nodeIdx = node.nodeIdx;
-    result.n = n;
+
     if (result.label) {
-      result.name = result.label+":"+result.name;
+      result.name = result.label + ":" + result.name;
     }
     node["generated_"] = result;
   }
-  _already.n = n;
 
   return result;
 }
