@@ -129,6 +129,30 @@ class TraversedLeafStateNode extends StateNode {
     this.index = parser.cntStates;
     parser.cntStates++;
   }
+
+  generateState() {
+    var result = new GrammarParsingLeafState(this);
+    result.index = this.index;
+    result.startingPoint = this.terminal;
+    //result.jumpToRule = g.jumpToRule;
+    //result.jumpToRuleTokenId = g.jumpToRuleTokenId;
+    //result.actionNodeId = g.actionNodeId;
+
+    var transitions = {};
+    this.shiftesAndReduces.forEach(nextTerm => {
+      switch (nextTerm.kind) {
+        case ShiftReduceKind.SHIFT:
+          var s = nextTerm as Shift;
+          if (!transitions[s.item.node.value]) {
+            //nextTerm.
+            transitions[s.item.node.value] = s.item.stateGen;
+          }
+          break;
+        }
+    })
+    result.transitions = transitions;
+    return result;
+  }
 }
 
 
@@ -154,6 +178,36 @@ class JumpIntoSubroutineLeafStateNode extends StateNode {
     this.allRecursiveShiftsToThisRule = parser.jumpToTableState(this.rule.node, this.jumpInto);
   }
 }
+
+
+class ShiftReduce {
+  kind: ShiftReduceKind;
+
+  item: RuleElementTraverser;
+
+  isEpsilonReduce?: boolean;
+  intoRule?: JumpIntoSubroutineLeafStateNode;
+}
+
+class Shift extends ShiftReduce {
+
+  kind = ShiftReduceKind.SHIFT;
+
+  item: TerminalRefTraverser;
+}
+
+class Reduce extends ShiftReduce {
+
+  kind = ShiftReduceKind.REDUCE;
+
+  isEpsilonReduce: boolean;
+}
+
+enum ShiftReduceKind {
+  SHIFT, REDUCE, SHIFT_RECURSIVE, REDUCE_RECURSIVE
+}
+
+
 
 
 // ================================================================
@@ -371,19 +425,6 @@ export class GrammarParsingLeafState {
   readonly actionNodeId: number;
 
   constructor(g: StateNode) {
-    this.index = g.index;
-    this.startingPoint = g.startingPointTraverser ? g.startingPointTraverser.node : null;
-    this.jumpToRule = g.jumpToRule;
-    this.jumpToRuleTokenId = g.jumpToRuleTokenId;
-    this.actionNodeId = g.actionNodeId;
-
-    var transitions = {};
-    g.transitions.forEach(nextTerm => {
-      if (!transitions[nextTerm.node.value]) {
-        transitions[nextTerm.node.value] = nextTerm.stateGen.generateState();
-      }
-    })
-    this.transitions = transitions;
   }
 
   ser(maxTknId: number): number[] {
@@ -459,31 +500,6 @@ enum TraversionPurpose {
 enum TraversionItemActionKind {
   OMIT_SUBTREE, STEP_PURPOSE, RESET_POSITION,
   STOP, CONTINUE/*default*/
-}
-enum ShiftReduceKind {
-  SHIFT, REDUCE, SHIFT_RECURSIVE, REDUCE_RECURSIVE
-}
-
-class ShiftReduce {
-  kind: ShiftReduceKind;
-
-  item: RuleElementTraverser;
-
-  isEpsilonReduce?: boolean;
-  intoRule?: JumpIntoSubroutineLeafStateNode;
-}
-
-class Shift extends ShiftReduce {
-
-  kind = ShiftReduceKind.SHIFT;
-
-  item: TerminalRefTraverser;
-}
-
-class Reduce extends ShiftReduce {
-  kind = ShiftReduceKind.REDUCE;
-
-  isEpsilonReduce: boolean;
 }
 
 class TraversionCache {
@@ -1153,13 +1169,14 @@ class TerminalRefTraverser extends EmptyTraverser {
 
   traverserStep: TraversionControl;
 
-  stateGen: GrammarParsingLeafStateGenerator;
+  stateGen: TraversedLeafStateNode;
 
 
   constructor(parser: ParseTableGenerator, parent: RuleElementTraverser, node: PTerminalRef) {
     super(parser, parent, node);
     parser.allTerminalReferences.push(this);
-    parser.allLeafStateNodes.push(new TraversedLeafStateNode(this));
+    this.stateGen = new TraversedLeafStateNode(this);
+    parser.allLeafStateNodes.push(this.stateGen);
     if (this.node && this.node.value > parser.maxTokenId) parser.maxTokenId = this.node.value;
   }
 
