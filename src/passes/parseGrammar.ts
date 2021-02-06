@@ -215,12 +215,18 @@ function generate(ast, ...args) {
   }
 
   //console.log("parsed grammar : "+stringify(ctx.grammar, ""));
-  var vtree = nodeToGraph(ctx.grammar, { n: 0, alreadyProc: {} });
+  options.allowedStartRules.forEach(rnm=>{
+    console.log("Generating "+rnm+"...");
+    var rule = ctx.rules.get(rnm);
+    var vtree = nodeToGraph(rule, { n: 0, alreadyProc: {} });
+    var j = tojson(vtree, { n: 0, alreadyProc: {} });
 
-  var j = tojson(vtree, { n: 0, alreadyProc: {} });
+    const fnm = "../www/pnodes-graph-"+rule.rule+".json";
+    fs.writeFileSync(fnm, j);
+  });
 
-  const fnm = "../www/pnodes-graph.json";
-  fs.writeFileSync(fnm, j);
+  const fnm0 = "../www/pnodes-graph.json";
+  fs.writeFileSync(fnm0, JSON.stringify(options.allowedStartRules));
 
 }
 
@@ -230,8 +236,10 @@ class RetekBufferMár {
 }
 
 function tojson(obj: any, processing: RetekBufferMár, ind = "") {
-  if (processing.alreadyProc[obj.nodeIdx]) return undefined;
-  processing.alreadyProc[obj.nodeIdx] = 1;
+  if (obj["$jsproc"]) return undefined;
+  if (ind.length>50) return undefined;
+
+  obj["$jsproc"] = 1;
 
   var chbuf = [];
   obj.children.forEach(itm => {
@@ -243,6 +251,8 @@ function tojson(obj: any, processing: RetekBufferMár, ind = "") {
   buffer.push(ind + '{ "name":"' + obj.name + '", "n":' + (obj.n ? obj.n : 0) + ', "children":[');
   buffer.push(chbuf.join(",\n"));
   buffer.push(ind + "]  }");
+
+  obj["$jsproc"] = 0;
 
   return buffer.join("\n");
 }
@@ -296,9 +306,17 @@ function nodeToGraph(node: PNode, processing: RetekBufferMár) {
     case PNodeKind.RULE:
       var rule = (node as PRule).rule;
       if (rule) {
-        var n2 = nodeToGraph(node.children[0], processing);
-        result = { name: rule, label: node.label, children: n2.children, nodeIdx: node.nodeIdx, n: n2.n };
-        processing.n++;
+        if (processing.alreadyProc[rule]) {
+          result = { name: rule + "oo", label: node.label, children: [], nodeIdx: node.nodeIdx, n: 1 };
+          processing.n++;
+        } else {
+          processing.alreadyProc[rule] = 1;
+          var n2 = nodeToGraph(node.children[0], processing);
+          result = { name: rule, label: node.label, children: [n2], nodeIdx: node.nodeIdx, n: 1 };
+          processing.n++;
+          result.n = processing.n - branchTotal0;
+          processing.alreadyProc[rule] = 0;
+        }
       } else {
         result = null;
       }
@@ -309,17 +327,10 @@ function nodeToGraph(node: PNode, processing: RetekBufferMár) {
       break;
     case PNodeKind.RULE_REF:
       var rule = (node as PRuleRef).rule;
-      if (options.allowedStartRules[rule] || processing.alreadyProc[rule]) {
-        result = { name: rule + "->", label: node.label, children: [], nodeIdx: node.nodeIdx, n: 1 };
-        processing.n++;
-      } else {
-        processing.alreadyProc[rule] = 1;
-        var rule0: PRule = ctx.rules.get(rule);
-        var n2 = nodeToGraph(rule0, processing);
-        result = { name: n2.name + "->", label: node.label, children: n2.children, nodeIdx: node.nodeIdx, n: n2.n };
-        processing.n++;
-        processing.alreadyProc[rule] = 0;
-      }
+      var rule0: PRule = ctx.rules.get(rule);
+      var n2 = nodeToGraph(rule0, processing);
+      result = { name: n2.name + "->", label: node.label, children: n2.children, nodeIdx: node.nodeIdx, n: n2.n };
+      processing.n++;
       break;
     case PNodeKind.ZERO_OR_MORE:
       var n2 = nodeToGraph(node.children[0], processing);
@@ -362,12 +373,7 @@ function nodeToGraph(node: PNode, processing: RetekBufferMár) {
         var c = nodeToGraph(ch, processing);
 
         if (!c) return;//continue;
-        if (!f) {
-          c.name = " / " + c.name;
-          result.children.push({ name: " / " + c.name, children: c.children, label: c.label, n: c.n });
-        } else {
-          result.children.push(c);
-        }
+        result.children.push({ name: " / " + c.name, children: c.children, nodeIdx: c.nodeIdx, label: c.label, n: c.n });
         f = 0;
       });
       processing.n++;

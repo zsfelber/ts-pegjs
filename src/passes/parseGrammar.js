@@ -183,10 +183,16 @@ function generate(ast) {
         throw new Error("Grammar parsing error(s).");
     }
     //console.log("parsed grammar : "+stringify(ctx.grammar, ""));
-    var vtree = nodeToGraph(ctx.grammar, { n: 0, alreadyProc: {} });
-    var j = tojson(vtree, { n: 0, alreadyProc: {} });
-    var fnm = "../www/pnodes-graph.json";
-    fs.writeFileSync(fnm, j);
+    options.allowedStartRules.forEach(function (rnm) {
+        console.log("Generating " + rnm + "...");
+        var rule = ctx.rules.get(rnm);
+        var vtree = nodeToGraph(rule, { n: 0, alreadyProc: {} });
+        var j = tojson(vtree, { n: 0, alreadyProc: {} });
+        var fnm = "../www/pnodes-graph-" + rule.rule + ".json";
+        fs.writeFileSync(fnm, j);
+    });
+    var fnm0 = "../www/pnodes-graph.json";
+    fs.writeFileSync(fnm0, JSON.stringify(options.allowedStartRules));
 }
 var RetekBufferMár = /** @class */ (function () {
     function RetekBufferMár() {
@@ -196,9 +202,11 @@ var RetekBufferMár = /** @class */ (function () {
 }());
 function tojson(obj, processing, ind) {
     if (ind === void 0) { ind = ""; }
-    if (processing.alreadyProc[obj.nodeIdx])
+    if (obj["$jsproc"])
         return undefined;
-    processing.alreadyProc[obj.nodeIdx] = 1;
+    if (ind.length > 50)
+        return undefined;
+    obj["$jsproc"] = 1;
     var chbuf = [];
     obj.children.forEach(function (itm) {
         var ij = tojson(itm, processing, ind + "  ");
@@ -209,6 +217,7 @@ function tojson(obj, processing, ind) {
     buffer.push(ind + '{ "name":"' + obj.name + '", "n":' + (obj.n ? obj.n : 0) + ', "children":[');
     buffer.push(chbuf.join(",\n"));
     buffer.push(ind + "]  }");
+    obj["$jsproc"] = 0;
     return buffer.join("\n");
 }
 function gencode(code) {
@@ -255,9 +264,18 @@ function nodeToGraph(node, processing) {
         case lib_1.PNodeKind.RULE:
             var rule = node.rule;
             if (rule) {
-                var n2 = nodeToGraph(node.children[0], processing);
-                result = { name: rule, label: node.label, children: n2.children, nodeIdx: node.nodeIdx, n: n2.n };
-                processing.n++;
+                if (processing.alreadyProc[rule]) {
+                    result = { name: rule + "oo", label: node.label, children: [], nodeIdx: node.nodeIdx, n: 1 };
+                    processing.n++;
+                }
+                else {
+                    processing.alreadyProc[rule] = 1;
+                    var n2 = nodeToGraph(node.children[0], processing);
+                    result = { name: rule, label: node.label, children: [n2], nodeIdx: node.nodeIdx, n: 1 };
+                    processing.n++;
+                    result.n = processing.n - branchTotal0;
+                    processing.alreadyProc[rule] = 0;
+                }
             }
             else {
                 result = null;
@@ -269,18 +287,10 @@ function nodeToGraph(node, processing) {
             break;
         case lib_1.PNodeKind.RULE_REF:
             var rule = node.rule;
-            if (options.allowedStartRules[rule] || processing.alreadyProc[rule]) {
-                result = { name: rule + "->", label: node.label, children: [], nodeIdx: node.nodeIdx, n: 1 };
-                processing.n++;
-            }
-            else {
-                processing.alreadyProc[rule] = 1;
-                var rule0 = ctx.rules.get(rule);
-                var n2 = nodeToGraph(rule0, processing);
-                result = { name: n2.name + "->", label: node.label, children: n2.children, nodeIdx: node.nodeIdx, n: n2.n };
-                processing.n++;
-                processing.alreadyProc[rule] = 0;
-            }
+            var rule0 = ctx.rules.get(rule);
+            var n2 = nodeToGraph(rule0, processing);
+            result = { name: n2.name + "->", label: node.label, children: n2.children, nodeIdx: node.nodeIdx, n: n2.n };
+            processing.n++;
             break;
         case lib_1.PNodeKind.ZERO_OR_MORE:
             var n2 = nodeToGraph(node.children[0], processing);
@@ -322,13 +332,7 @@ function nodeToGraph(node, processing) {
                 var c = nodeToGraph(ch, processing);
                 if (!c)
                     return; //continue;
-                if (!f) {
-                    c.name = " / " + c.name;
-                    result.children.push({ name: " / " + c.name, children: c.children, label: c.label, n: c.n });
-                }
-                else {
-                    result.children.push(c);
-                }
+                result.children.push({ name: " / " + c.name, children: c.children, nodeIdx: c.nodeIdx, label: c.label, n: c.n });
                 f = 0;
             });
             processing.n++;
