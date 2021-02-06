@@ -131,26 +131,7 @@ class TraversedLeafStateNode extends StateNode {
   }
 
   generateState() {
-    var result = new GrammarParsingLeafState(this);
-    result.index = this.index;
-    result.startingPoint = this.terminal;
-    //result.jumpToRule = g.jumpToRule;
-    //result.jumpToRuleTokenId = g.jumpToRuleTokenId;
-    //result.actionNodeId = g.actionNodeId;
-
-    var transitions = {};
-    this.shiftesAndReduces.forEach(nextTerm => {
-      switch (nextTerm.kind) {
-        case ShiftReduceKind.SHIFT:
-          var s = nextTerm as Shift;
-          if (!transitions[s.item.node.value]) {
-            //nextTerm.
-            transitions[s.item.node.value] = s.item.stateGen;
-          }
-          break;
-        }
-    })
-    result.transitions = transitions;
+    var result: GrammarParsingLeafState = new GrammarParsingLeafState(this, this.terminal.node);
     return result;
   }
 }
@@ -355,7 +336,7 @@ export class ParseTableGenerator {
   }
 
   generateParseTable() {
-    var start = this.startingStateGen.generateState();
+    var start = this.startingStateNode.generateState();
     var all = this.allLeafStateNodes.map(s => s.generateState());
     var result = new ParseTable(this.rule, this.maxTokenId, start, all);
     return result;
@@ -416,22 +397,59 @@ export class GrammarParsingLeafState {
   readonly index: number;
 
   readonly startingPoint: PTerminalRef;
+  private startState: StateNode;
 
   // tokenId -> traversion state
-  readonly transitions: NumMapLike<GrammarParsingLeafState>;
+  private _transitions: NumMapLike<GrammarParsingLeafState>;
+  readonly epsilonReduceActions: PNode[];
+  readonly reduceActions: PNode[];
 
   readonly jumpToRule: PRule;
   readonly jumpToRuleTokenId: number;
   readonly actionNodeId: number;
 
-  constructor(g: StateNode) {
+  constructor(startState: StateNode, startingPoint: PTerminalRef) {
+    this.index = startState.index;
+    this.startState = startState;
+    this.startingPoint = startingPoint;
+    //result.jumpToRule = g.jumpToRule;
+    //result.jumpToRuleTokenId = g.jumpToRuleTokenId;
+    //result.actionNodeId = g.actionNodeId;
+  }
+
+  get transitions() : NumMapLike<GrammarParsingLeafState> {
+    if (!this._transitions) {
+      this._transitions = {};
+      this.startState.shiftesAndReduces.forEach(nextTerm => {
+        switch (nextTerm.kind) {
+          case ShiftReduceKind.SHIFT:
+            var s = nextTerm as Shift;
+            if (!this._transitions[s.item.node.value]) {
+              //nextTerm.
+              this._transitions[s.item.node.value] = s.item.stateNode.generateState();
+            }
+            break;
+          case ShiftReduceKind.REDUCE:
+            var r = nextTerm as Reduce;
+            if (r.isEpsilonReduce)
+              this.epsilonReduceActions.push(r.item.node);
+            else
+              this.reduceActions.push(r.item.node);
+            break;
+          case ShiftReduceKind.SHIFT_RECURSIVE:
+    
+          }
+      });
+      
+    }
+    return this._transitions;
   }
 
   ser(maxTknId: number): number[] {
     var toTknIds: number[] = [];
     toTknIds[maxTknId] = 0;
     toTknIds.fill(0, 0, maxTknId);
-    var es = Object.entries(this.transitions);
+    var es = Object.entries(g.transitions);
     var len = es.length;
     es.forEach(([key, trans]) => {
       var tokenId = Number(key);
@@ -1169,14 +1187,14 @@ class TerminalRefTraverser extends EmptyTraverser {
 
   traverserStep: TraversionControl;
 
-  stateGen: TraversedLeafStateNode;
+  stateNode: TraversedLeafStateNode;
 
 
   constructor(parser: ParseTableGenerator, parent: RuleElementTraverser, node: PTerminalRef) {
     super(parser, parent, node);
     parser.allTerminalReferences.push(this);
-    this.stateGen = new TraversedLeafStateNode(this);
-    parser.allLeafStateNodes.push(this.stateGen);
+    this.stateNode = new TraversedLeafStateNode(this);
+    parser.allLeafStateNodes.push(this.stateNode);
     if (this.node && this.node.value > parser.maxTokenId) parser.maxTokenId = this.node.value;
   }
 
