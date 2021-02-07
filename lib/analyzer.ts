@@ -89,7 +89,7 @@ abstract class StateNode {
   abstract get traverser(): RuleElementTraverser;
 
   toString() {
-    return "SH#" + this.index + "->" + this.traverser + (this.isRule ? "<rule>" : "") + ("->" + this.shiftesAndReduces.length);
+    return "SH#" + this.index + "->" + this.traverser + (this.isRule ? "<rule>" : "") + ("->" + this.shiftesAndReduces.length+"s/r");
   }
 
 }
@@ -146,7 +146,7 @@ abstract class LeafStateNode extends StateNode {
   generateTransitions(parser: ParseTableGenerator, previous: StateNode, rootTraversion: LinearTraversion) {
 
     var ts = this.ref.traverserStep;
-    if (!ts || ts.parent !== rootTraversion) throw new Error("bad traversion params " + this);
+    if (!ts || ts.parent !== rootTraversion) throw new Error("bad traversion params " + this+"  traverserStep:"+ts);
 
     rootTraversion.traverse(this, previous, TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN,
       [TraversionPurpose.FIND_NEXT_TOKENS], ts.toPosition);
@@ -604,7 +604,7 @@ class LinearTraversion {
   readonly purpose: TraversionPurpose;
   readonly purposeThen: TraversionPurpose[];
   private position: number;
-  private positionOk: boolean;
+  private positionBeforeStep: number;
   private stopped: boolean;
 
   get length() {
@@ -686,7 +686,7 @@ class LinearTraversion {
       this.stopped = true;
     }
     for (this.position = startPosition; !this.stopped;) {
-      this.positionOk = false;
+      this.positionBeforeStep = this.position;
       var item = this.traversionControls[this.position];
 
       if (item) {
@@ -780,21 +780,16 @@ class LinearTraversion {
         if (step.kind !== TraversionItemKind.CHILD_SEPARATOR) {
           throw new Error("Unknown here:" + step + " in " + this);
         }
-        this.positionOk = true;
         this.position = step.toPosition;
         break;
       case TraversionItemActionKind.RESET_POSITION:
-        this.positionOk = true;
         this.position = step.fromPosition;
         break;
       case TraversionItemActionKind.STEP_PURPOSE:
         (this as any).purpose = this.purposeThen.shift();
         break;
       case TraversionItemActionKind.CONTINUE:
-        if (!this.positionOk) {
-          this.positionOk = true;
-          this.position++;
-        }
+        this.position = this.positionBeforeStep + 1;
         break;
       case TraversionItemActionKind.STOP:
         this.stopped = true;
@@ -1243,6 +1238,10 @@ class RuleRefTraverser extends RefTraverser implements RecursiveRuleDef {
             this.collectedFromIndex = cache.intoState.shiftesAndReduces.length;
 
             break;
+          case TraversionItemKind.NODE_START:
+          case TraversionItemKind.NODE_END:
+            break;
+
           default:
             throw new Error("Bad item : " + step);
         }
