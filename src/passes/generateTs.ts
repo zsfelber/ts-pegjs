@@ -579,7 +579,7 @@ function pushc(cache: any, item: any): any {
     });
 
     parseTbl.push("");
-    parseTbl.push("const peg$PrsTbls = {" + options.allowedStartRules.map(r => ruleMap[r] + ": peg$decodePrsTbl(peg$PrsTbl" + r+")").join(", ") + "};");
+    parseTbl.push("const peg$PrsTbls = {" + options.allowedStartRules.map(r => ruleMap[r] + ": peg$decodePrsTbl(peg$PrsTbl" + r + ")").join(", ") + "};");
 
     if (Analysis.ERRORS) {
       console.error("Errors. Not generating (but for debugging only).");
@@ -621,16 +621,19 @@ function pushc(cache: any, item: any): any {
       'function peg$otherExpectation(description: string): IOtherExpectation {',
       '  return { type: "other", description: description };',
       '}',
-      "var HTOD = {",
+      "const HTOD = {",
       "  '0': 0,'1': 1,'2': 2,'3': 3,'4': 4,",
       "  '5': 5,'6': 6,'7': 7,'8': 8,'9': 9,",
       "  'A': 10,'B': 11,'C': 12,'D': 13,'E': 14,'F': 15,",
       "}",
       '',
+      'const GNidx = ' + (grammar.nodeIdx + 1) + ";",
+      '',
       'function peg$decodeRule(s: string): PRule {',
       '  var code: number[] = [];',
       '  for (var i=0; i<s.length; i+=2) code[i] = HTOD[s.charAt(i)]<<4 + HTOD[s.charAt(i+1)];',
-      '  var node = PNode.deseralize(code);',
+      '  SerDeser.cnt = GNidx;',
+      '  var node = PNode.deserialize(code);',
       '  var rule = node as PRule;',
       '  return rule;',
       '}',
@@ -667,7 +670,7 @@ function pushc(cache: any, item: any): any {
 
     tables.push(
       ['const peg$functions = [',
-        "    "+grammar.actions.map(action => {
+        "    " + grammar.actions.map(action => {
           var name = "";
           if (action.ownerRule.symbol) {
             name = action.ownerRule.symbol;
@@ -678,11 +681,11 @@ function pushc(cache: any, item: any): any {
         "];"
       ].join('\n'));
 
-    SerDeser.cnt = 0;
+    SerDeser.cnt = grammar.nodeIdx + 1;
     // peg$rules
     tables.push(
       ['const peg$rules = [',
-        "    "+grammar.rules.map(rule =>
+        "    " + grammar.rules.map(rule =>
           'peg$decodeRule("' +
           CodeTblToHex(rule.ser()).join('') +
           '")'
@@ -692,7 +695,7 @@ function pushc(cache: any, item: any): any {
     var ri = 0;
     tables.push(
       ['const peg$rulesPackrat = [',
-        "    "+grammar.rules.map(rule =>
+        "    " + grammar.rules.map(rule =>
           'new EntryPointInterpreter(peg$rules[' + (ri++) + '])'
         ).join(", "),
         "];"

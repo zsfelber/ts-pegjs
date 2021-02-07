@@ -497,16 +497,19 @@ function generateTS(ast) {
             'function peg$otherExpectation(description: string): IOtherExpectation {',
             '  return { type: "other", description: description };',
             '}',
-            "var HTOD = {",
+            "const HTOD = {",
             "  '0': 0,'1': 1,'2': 2,'3': 3,'4': 4,",
             "  '5': 5,'6': 6,'7': 7,'8': 8,'9': 9,",
             "  'A': 10,'B': 11,'C': 12,'D': 13,'E': 14,'F': 15,",
             "}",
             '',
+            'const GNidx = ' + (grammar.nodeIdx + 1) + ";",
+            '',
             'function peg$decodeRule(s: string): PRule {',
             '  var code: number[] = [];',
             '  for (var i=0; i<s.length; i+=2) code[i] = HTOD[s.charAt(i)]<<4 + HTOD[s.charAt(i+1)];',
-            '  var node = PNode.deseralize(code);',
+            '  SerDeser.cnt = GNidx;',
+            '  var node = PNode.deserialize(code);',
             '  var rule = node as PRule;',
             '  return rule;',
             '}',
@@ -545,7 +548,7 @@ function generateTS(ast) {
                 name += "$" + action.index;
                 return "PegjsParser0.prototype." + name;
             }).join(", "), "];"].join('\n'));
-        lib_1.SerDeser.cnt = 0;
+        lib_1.SerDeser.cnt = grammar.nodeIdx + 1;
         // peg$rules
         tables.push(['const peg$rules = [', "    " + grammar.rules.map(function (rule) {
                 return 'peg$decodeRule("' +

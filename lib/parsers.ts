@@ -85,7 +85,7 @@ export abstract class PNode {
     if (parent) parent.children.push(this);
   }
 
-  static deseralize(arr: number[]): PNode {
+  static deserialize(arr: number[]): PNode {
     SerDeser.cnt = 0;
     var res = [null];
     var pos = PNode.desone(arr, res, 0);
@@ -94,14 +94,16 @@ export abstract class PNode {
   }
 
   ser(): number[] {
-    if (this.nodeIdx != (++SerDeser.cnt)) {
+    if (this.nodeIdx !== SerDeser.cnt) {
       console.warn("Invalid nodeIdx : "+this+"  this.nodeIdx:"+this.nodeIdx+" != "+SerDeser.cnt);
       this.nodeIdx = SerDeser.cnt;
     }
+    SerDeser.cnt++;
+
     return [Codes[this.kind]].concat(this.serchildren());
   }
   deser(arr: number[], pos: number): number {
-    this.nodeIdx = ++SerDeser.cnt;
+    this.nodeIdx = SerDeser.cnt++;
     pos = this.deschildren(arr, pos);
     return pos;
   }
@@ -219,9 +221,12 @@ export class PLogicNode extends PNode {
 
   ser(): number[] {
     var result = super.ser().concat([this.action?this.action.index+1:0]);
-    if (this.action && this.action.nodeIdx != (++SerDeser.cnt)) {
-      console.warn("Invalid nodeIdx : "+this+"  .action "+this.action+"  this.action.nodeIdx:"+this.action.nodeIdx+" != "+SerDeser.cnt);
-      this.action.nodeIdx = SerDeser.cnt;
+    if (this.action) {
+      if (this.action.nodeIdx != SerDeser.cnt) {
+        console.warn("Invalid nodeIdx : "+this+"  .action "+this.action+"  this.action.nodeIdx:"+this.action.nodeIdx+" != "+SerDeser.cnt);
+        this.action.nodeIdx = SerDeser.cnt;
+      }
+      SerDeser.cnt++;
     }
     return result;
   }
@@ -232,7 +237,7 @@ export class PLogicNode extends PNode {
       var fun = SerDeser.functionTable[actidx];
       this.action = new PFunction();
       this.action.fun = fun;
-      this.action.nodeIdx = ++SerDeser.cnt;
+      this.action.nodeIdx = SerDeser.cnt++;
     }
     return pos;
   }
