@@ -95,7 +95,8 @@ export abstract class PNode {
 
   ser(): number[] {
     if (this.nodeIdx != (++SerDeser.cnt)) {
-      throw new Error("Invalid nodeIdx : "+this+"  this.nodeIdx:"+this.nodeIdx+" != "+SerDeser.cnt);
+      console.warn("Invalid nodeIdx : "+this+"  this.nodeIdx:"+this.nodeIdx+" != "+SerDeser.cnt);
+      this.nodeIdx = SerDeser.cnt;
     }
     return [Codes[this.kind]].concat(this.serchildren());
   }
@@ -217,7 +218,12 @@ export class PLogicNode extends PNode {
   action?: PFunction;
 
   ser(): number[] {
-    return super.ser().concat([this.action?this.action.index+1:0]);
+    var result = super.ser().concat([this.action?this.action.index+1:0]);
+    if (this.action && this.action.nodeIdx != (++SerDeser.cnt)) {
+      console.warn("Invalid nodeIdx : "+this+"  .action "+this.action+"  this.action.nodeIdx:"+this.action.nodeIdx+" != "+SerDeser.cnt);
+      this.action.nodeIdx = SerDeser.cnt;
+    }
+    return result;
   }
   deser(arr: number[], pos: number): number {
     pos = super.deser(arr, pos);
@@ -226,6 +232,7 @@ export class PLogicNode extends PNode {
       var fun = SerDeser.functionTable[actidx];
       this.action = new PFunction();
       this.action.fun = fun;
+      this.action.nodeIdx = ++SerDeser.cnt;
     }
     return pos;
   }

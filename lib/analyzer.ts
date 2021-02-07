@@ -86,6 +86,8 @@ abstract class StateNode {
   
   abstract get isRule(): boolean;
 
+  abstract get traverser(): RuleElementTraverser;
+
 }
 
 
@@ -100,6 +102,10 @@ class RootStateNode extends StateNode {
 
   get isRule(): boolean {
     return false;
+  }
+
+  get traverser(): RuleElementTraverser {
+    return this.rule;
   }
 
   generateTransitions(parser: ParseTableGenerator, previous: StateNode, rootTraversion: LinearTraversion) {
@@ -123,6 +129,10 @@ abstract class LeafStateNode extends StateNode {
   constructor(ref: RefTraverser) {
     super();
     this.ref = ref;
+  }
+
+  get traverser(): RuleElementTraverser {
+    return this.ref;
   }
 
   generateTransitions(parser: ParseTableGenerator, previous: StateNode, rootTraversion: LinearTraversion) {
@@ -1058,7 +1068,9 @@ class OneOrMoreTraverser extends OrMoreTraverser {
 
 }
 
-class RefTraverser extends SingleTraverser {
+class RefTraverser extends EmptyTraverser {
+
+  child: RuleElementTraverser;
 
   node: PRef;
 
@@ -1088,7 +1100,6 @@ class RuleRefTraverser extends RefTraverser implements RecursiveRuleDef {
     this.parser.allRuleReferences.push(this);
     this.targetRule = Analysis.ruleTable[this.node.ruleIndex];
 
-    this.optionalBranch = this.linkedRuleEntry.optionalBranch;
   }
 
   get isReducable() {
@@ -1102,6 +1113,7 @@ class RuleRefTraverser extends RefTraverser implements RecursiveRuleDef {
       this.linkedRuleEntry = this.parser.getReferencedRule(this.targetRule);
       this.child = this.linkedRuleEntry;
       this.children.push(this.linkedRuleEntry);
+      (this as any).optionalBranch = this.linkedRuleEntry.optionalBranch;
 
       return true;
     }
