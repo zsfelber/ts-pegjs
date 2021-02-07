@@ -88,6 +88,10 @@ abstract class StateNode {
 
   abstract get traverser(): RuleElementTraverser;
 
+  toString() {
+    return "SH#"+this.index+"->"+this.traverser+(this.isRule?"<rule>":"")+("->"+this.shiftesAndReduces.length);
+  }
+
 }
 
 
@@ -120,6 +124,10 @@ class RootStateNode extends StateNode {
     var result: GrammarParsingLeafState = new GrammarParsingLeafState(this, null);
     return result;
   }
+
+  toString() {
+    return "start#"+this.index+"->"+this.traverser+(this.isRule?"<rule>":"")+("->"+this.shiftesAndReduces.length);
+  }
 }
 
 abstract class LeafStateNode extends StateNode {
@@ -138,7 +146,7 @@ abstract class LeafStateNode extends StateNode {
   generateTransitions(parser: ParseTableGenerator, previous: StateNode, rootTraversion: LinearTraversion) {
 
     var ts = this.ref.traverserStep;
-    if (!ts || ts.parent !== rootTraversion) throw new Error();
+    if (!ts || ts.parent !== rootTraversion) throw new Error("bad traversion params "+this);
 
     rootTraversion.traverse(this, previous, TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN,
       [TraversionPurpose.FIND_NEXT_TOKENS], ts.toPosition);
@@ -529,7 +537,7 @@ class TraversionControl {
 
         break;
       default:
-        throw new Error(TraversionItemKind[this.kind]);
+        throw new Error("Bad kind:"+this+":"+TraversionItemKind[this.kind]);
     }
   }
 
@@ -538,6 +546,10 @@ class TraversionControl {
     this.kind = kind;
     this._set_itm(itm);
     this.fromPosition = this.toPosition = parent.length;
+  }
+
+  toString() {
+    return "TrvCtrl."+TraversionItemKind[this.kind]+"/"+this.fromPosition+(this.fromPosition!==this.toPosition?".."+this.toPosition:"")+"/"+this.item;
   }
 }
 
@@ -715,7 +727,7 @@ class LinearTraversion {
         switch (this.purpose) {
           case TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN:
             if (intoState.shiftesAndReduces.length) {
-              throw new Error();
+              throw new Error("Already in next state/"+this+":"+step);
             }
             // REDUCE action (default or user function)
             // node succeeded, previous terminal was in a sub-/main-end state
@@ -763,7 +775,7 @@ class LinearTraversion {
     switch (action) {
       case TraversionItemActionKind.OMIT_SUBTREE:
         if (step.kind !== TraversionItemKind.CHILD_SEPARATOR) {
-          throw new Error();
+          throw new Error("Unknown here:"+step+" in "+this);
         }
         this.positionOk = true;
         this.position = step.toPosition;
@@ -785,6 +797,9 @@ class LinearTraversion {
         this.stopped = true;
         break;
     }
+  }
+  toString() {
+    return "Traversing"+this.rule+"/"+TraversionPurpose[this.purpose]+"/"+this.position;
   }
 }
 
@@ -855,6 +870,11 @@ abstract class RuleElementTraverser {
 
   traversionActions(inTraversion: LinearTraversion, step: TraversionControl, cache: TraversionCache) {
   }
+
+  toString() {
+    return "T~"+this.node+(this.optionalBranch?"<opt>":"");
+  }
+
 }
 
 
@@ -1159,7 +1179,7 @@ class RuleRefTraverser extends RefTraverser implements RecursiveRuleDef {
       case TraversionPurpose.FIND_NEXT_TOKENS:
         switch (step.kind) {
           case TraversionItemKind.RECURSIVE_RULE:
-            if (!r) throw new Error();
+            if (!r) throw new Error("no original one of RECURSIVE_RULE : "+this);
 
             if (r.shiftReducesBeforeRecursion) {
               // NOTE it means subsequent recursions' case theoretically
@@ -1171,7 +1191,7 @@ class RuleRefTraverser extends RefTraverser implements RecursiveRuleDef {
             }
 
             if (this.stateNode) {
-              throw new Error();
+              throw new Error("There's a stateNode already : "+this+" stateNode:"+this.stateNode);
             }
             this.stateNode = new JumpIntoSubroutineLeafStateNode(this);
             this.parser.allLeafStateNodes.push(this.stateNode);
@@ -1210,13 +1230,13 @@ class RuleRefTraverser extends RefTraverser implements RecursiveRuleDef {
 
             break;
           case TraversionItemKind.RULE:
-            if (r) throw new Error();
+            if (r) throw new Error("State error, it should be recursive or non-recursive :"+this+"  original???:"+r);
 
             this.collectedFromIndex = cache.intoState.shiftesAndReduces.length;
 
             break;
           default:
-            throw new Error();
+            throw new Error("Bad item : "+step);
         }
 
         break;
@@ -1266,7 +1286,7 @@ class TerminalRefTraverser extends RefTraverser {
   }
 
   pushPrefixControllerItem(inTraversion: LinearTraversion) {
-    if (this.traverserStep) throw new Error();
+    if (this.traverserStep) throw new Error("There is a traverserStep already : "+this+"  traverserStep:"+this.traverserStep);
     this.traverserStep = new TraversionControl(inTraversion, TraversionItemKind.TERMINAL, this);
     inTraversion.pushControl(this.traverserStep);
   }

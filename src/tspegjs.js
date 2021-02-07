@@ -2,6 +2,7 @@ exports.use = function (config, options) {
     config.passes.generate = [
       require("./passes/parseGrammar"),
       require("./passes/inferRuleTypes"),
+      require("./passes/generateTesterTools"),
       require("./passes/generateTs")
     ];
     if (!options.tspegjs) {
