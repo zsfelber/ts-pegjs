@@ -36,37 +36,11 @@ function generate(ast) {
         }
     });
     findTerminals(ast);
-    var KT = {
-        "grammar": lib_1.PGrammar,
-        "rule": lib_1.PRule,
-        "choice": lib_1.PValueNode,
-        "sequence": lib_1.PValueNode,
-        "optional": lib_1.PValueNode,
-        "one_or_more": lib_1.PValueNode,
-        "zero_or_more": lib_1.PValueNode,
-        "semantic_and": lib_1.PSemanticAnd,
-        "semantic_not": lib_1.PSemanticNot,
-        "simple_and": lib_1.PValueNode,
-        "simple_not": lib_1.PValueNode,
-    };
-    var KK = {
-        "grammar": lib_1.PNodeKind.GRAMMAR,
-        "rule": lib_1.PNodeKind.RULE,
-        "choice": lib_1.PNodeKind.CHOICE,
-        "sequence": lib_1.PNodeKind.SEQUENCE,
-        "optional": lib_1.PNodeKind.OPTIONAL,
-        "one_or_more": lib_1.PNodeKind.ONE_OR_MORE,
-        "zero_or_more": lib_1.PNodeKind.ZERO_OR_MORE,
-        "semantic_and": lib_1.PNodeKind.SEMANTIC_AND,
-        "semantic_not": lib_1.PNodeKind.SEMANTIC_NOT,
-        "simple_and": lib_1.PNodeKind.PREDICATE_AND,
-        "simple_not": lib_1.PNodeKind.PREDICATE_NOT,
-    };
     ctx = new Context();
     function parseGrammarAst(parent, node) {
         var child;
         switch (node.type) {
-            case "grammar":
+            case lib_1.PNodeKind.GRAMMAR:
                 ctx.grammar = node.grammar = ctx.pushNode(lib_1.PGrammar);
                 ctx.grammar.actions = [];
                 ctx.grammar.ruleActions = [];
@@ -75,7 +49,7 @@ function generate(ast) {
                     parseGrammarAst(node, rule);
                 });
                 return ctx.popNode();
-            case "rule":
+            case lib_1.PNodeKind.RULE:
                 // terminal/nonterminal 
                 if (/^Ł/.exec(node.name)) {
                     var t = ctx.pushNode(lib_1.PTerminal);
@@ -98,13 +72,13 @@ function generate(ast) {
                 child = parseGrammarAst(node, node.expression);
                 ctx.generateAction(child, child, lib_1.PActionKind.RULE, node);
                 break;
-            case "choice":
+            case lib_1.PNodeKind.CHOICE:
                 var choice = ctx.pushNode(lib_1.PValueNode, lib_1.PNodeKind.CHOICE);
                 node.alternatives.forEach(function (elem) {
                     parseGrammarAst(node, elem);
                 });
                 return ctx.popNode();
-            case "sequence":
+            case lib_1.PNodeKind.SEQUENCE:
                 var sequence = ctx.pushNode(lib_1.PValueNode, lib_1.PNodeKind.SEQUENCE);
                 node.elements.forEach(function (elem) {
                     parseGrammarAst(node, elem);
@@ -121,22 +95,22 @@ function generate(ast) {
                 v.label = node.label;
                 child = v;
                 break;
-            case "optional":
-            case "zero_or_more":
-            case "one_or_more":
-            case "simple_and":
-            case "simple_not":
-                ctx.pushNode(KT[node.type], KK[node.type]);
+            case lib_1.PNodeKind.OPTIONAL:
+            case lib_1.PNodeKind.ZERO_OR_MORE:
+            case lib_1.PNodeKind.ONE_OR_MORE:
+            case lib_1.PNodeKind.PREDICATE_AND:
+            case lib_1.PNodeKind.PREDICATE_NOT:
+                ctx.pushNode(lib_1.PConss[node.type], node.type);
                 parseGrammarAst(node, node.expression);
                 return ctx.popNode();
-            case "semantic_and":
-            case "semantic_not":
+            case lib_1.PNodeKind.SEMANTIC_AND:
+            case lib_1.PNodeKind.SEMANTIC_NOT:
                 var current = ctx.current;
-                child = ctx.pushNode(KT[node.type], KK[node.type]);
+                child = ctx.pushNode(lib_1.PConss[node.type], node.type);
                 // this generates the function arguments from preceeding nodes, as expected 
                 var action = ctx.generateAction(child, current, lib_1.PActionKind.PREDICATE, node);
                 return ctx.popNode();
-            case "rule_ref":
+            case lib_1.PNodeKind.RULE_REF:
                 // terminal rule
                 if (/^Ł/.exec(node.name)) {
                     var tr = ctx.pushNode(lib_1.PTerminalRef);
@@ -150,7 +124,8 @@ function generate(ast) {
                     ctx.ruleRefs.push(rr);
                 }
                 return ctx.popNode();
-            case "literal":
+            case lib_1.PNodeKind.LITERAL:
+            case lib_1.PNodeKind.TEXT:
                 ctx.pushNode(lib_1.PValueNode, lib_1.PNodeKind.EMPTY);
                 return ctx.popNode();
         }

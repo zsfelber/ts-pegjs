@@ -4,7 +4,7 @@ import {
   PActContainer, PActionKind, PFunction,
   PGrammar, PLogicNode, PNode, PNodeKind, PRule,
   PRuleRef, PSemanticAnd, PSemanticNot, PTerminal,
-  PTerminalRef, PValueNode
+  PTerminalRef, PValueNode, PConss
 } from '../../lib';
 var stringifySafe = require('json-stringify-safe');
 
@@ -45,33 +45,6 @@ function generate(ast, ...args) {
   findTerminals(ast);
 
 
-  var KT = {
-    "grammar": PGrammar,
-    "rule": PRule,
-    "choice": PValueNode,
-    "sequence": PValueNode,
-    "optional": PValueNode,
-    "one_or_more": PValueNode,
-    "zero_or_more": PValueNode,
-    "semantic_and": PSemanticAnd,
-    "semantic_not": PSemanticNot,
-    "simple_and": PValueNode,
-    "simple_not": PValueNode,
-  }
-  var KK = {
-    "grammar": PNodeKind.GRAMMAR,
-    "rule": PNodeKind.RULE,
-    "choice": PNodeKind.CHOICE,
-    "sequence": PNodeKind.SEQUENCE,
-    "optional": PNodeKind.OPTIONAL,
-    "one_or_more": PNodeKind.ONE_OR_MORE,
-    "zero_or_more": PNodeKind.ZERO_OR_MORE,
-    "semantic_and": PNodeKind.SEMANTIC_AND,
-    "semantic_not": PNodeKind.SEMANTIC_NOT,
-    "simple_and": PNodeKind.PREDICATE_AND,
-    "simple_not": PNodeKind.PREDICATE_NOT,
-  }
-
 
   ctx = new Context();
 
@@ -80,7 +53,7 @@ function generate(ast, ...args) {
     var child: PNode;
 
     switch (node.type) {
-      case "grammar":
+      case PNodeKind.GRAMMAR:
         ctx.grammar = node.grammar = ctx.pushNode(PGrammar);
         ctx.grammar.actions = [];
         ctx.grammar.ruleActions = [];
@@ -90,7 +63,7 @@ function generate(ast, ...args) {
         });
         return ctx.popNode();
 
-      case "rule":
+      case PNodeKind.RULE:
         // terminal/nonterminal 
         if (/^Ł/.exec(node.name)) {
           var t = ctx.pushNode(PTerminal);
@@ -115,7 +88,7 @@ function generate(ast, ...args) {
         ctx.generateAction(child, child, PActionKind.RULE, node);
         break;
 
-      case "choice":
+      case PNodeKind.CHOICE:
 
         var choice = ctx.pushNode(PValueNode, PNodeKind.CHOICE);
 
@@ -125,7 +98,7 @@ function generate(ast, ...args) {
 
         return ctx.popNode();
 
-      case "sequence":
+      case PNodeKind.SEQUENCE:
 
         var sequence = ctx.pushNode(PValueNode, PNodeKind.SEQUENCE);
 
@@ -148,25 +121,25 @@ function generate(ast, ...args) {
 
         break;
 
-      case "optional":
-      case "zero_or_more":
-      case "one_or_more":
-      case "simple_and":
-      case "simple_not":
+      case PNodeKind.OPTIONAL:
+      case PNodeKind.ZERO_OR_MORE:
+      case PNodeKind.ONE_OR_MORE:
+      case PNodeKind.PREDICATE_AND:
+      case PNodeKind.PREDICATE_NOT:
 
-        ctx.pushNode(KT[node.type], KK[node.type]);
+        ctx.pushNode(PConss[node.type], node.type);
         parseGrammarAst(node, node.expression);
         return ctx.popNode();
 
-      case "semantic_and":
-      case "semantic_not":
+      case PNodeKind.SEMANTIC_AND:
+      case PNodeKind.SEMANTIC_NOT:
         var current = ctx.current;
-        child = ctx.pushNode(KT[node.type], KK[node.type]);
+        child = ctx.pushNode(PConss[node.type], node.type);
         // this generates the function arguments from preceeding nodes, as expected 
         var action = ctx.generateAction(child, current, PActionKind.PREDICATE, node);
         return ctx.popNode();
 
-      case "rule_ref":
+      case PNodeKind.RULE_REF:
         // terminal rule
         if (/^Ł/.exec(node.name)) {
           var tr = ctx.pushNode(PTerminalRef);
@@ -180,7 +153,8 @@ function generate(ast, ...args) {
         }
         return ctx.popNode();
 
-      case "literal":
+      case PNodeKind.LITERAL:
+      case PNodeKind.TEXT:
         ctx.pushNode(PValueNode, PNodeKind.EMPTY);
         return ctx.popNode();
     }
