@@ -629,7 +629,8 @@ class LinearTraversion {
     var newRecursionStack = {};
     Object.setPrototypeOf(newRecursionStack, recursionCacheStack);
 
-    if (!parent || parent.traversionGeneratorEntered(this, item, newRecursionStack)) {
+    if (item.traversionGeneratorEntered(this, newRecursionStack)) {
+
       this.pushDefaultPrefixControllerItems(item);
       item.pushPrefixControllerItem(this);
 
@@ -658,7 +659,7 @@ class LinearTraversion {
       item.pushPostfixControllerItem(this);
       this.pushDefaultPostfixControllerItems(item);
 
-      if (parent) parent.traversionGeneratorExited(this, item, newRecursionStack);
+      item.traversionGeneratorExited(this, newRecursionStack);
     }
   }
 
@@ -854,10 +855,10 @@ abstract class RuleElementTraverser {
     }
   }
 
-  traversionGeneratorEntered(inTraversion: LinearTraversion, childPending: RuleElementTraverser, recursionCacheStack: StrMapLike<RuleElementTraverser>) {
+  traversionGeneratorEntered(inTraversion: LinearTraversion, recursionCacheStack: StrMapLike<RuleElementTraverser>) {
     return true;
   }
-  traversionGeneratorExited(inTraversion: LinearTraversion, childPending: RuleElementTraverser, recursionCacheStack: StrMapLike<RuleElementTraverser>) {
+  traversionGeneratorExited(inTraversion: LinearTraversion, recursionCacheStack: StrMapLike<RuleElementTraverser>) {
   }
 
   pushPrefixControllerItem(inTraversion: LinearTraversion) {
@@ -1147,7 +1148,7 @@ class RuleRefTraverser extends RefTraverser implements RecursiveRuleDef {
     return dirty;
   }
 
-  traversionGeneratorEntered(inTraversion: LinearTraversion, childPending: RuleElementTraverser, recursionCacheStack: StrMapLike<RuleElementTraverser>) {
+  traversionGeneratorEntered(inTraversion: LinearTraversion, recursionCacheStack: StrMapLike<RuleElementTraverser>) {
 
     this.recursiveRuleOriginal = recursionCacheStack["rule_ref#" + this.targetRule.nodeIdx];
 
