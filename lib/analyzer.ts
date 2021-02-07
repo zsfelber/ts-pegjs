@@ -590,10 +590,15 @@ class TraversionCache {
 interface RecursiveRuleDef {
   itemGeneratedForStarterNode?: boolean;
   linkedRuleEntry: EntryPointTraverser;
+  ownRuleEntry: EntryPointTraverser;
   collectedFromIndex: number;
   collectedToIndex?: number;
   shiftReducesBeforeRecursion: ShiftReduce[];
+  toString:Function
 };
+interface TraversionMakerCache extends StrMapLike<RuleElementTraverser> {
+  indent: string;
+}
 
 class LinearTraversion {
 
@@ -615,18 +620,21 @@ class LinearTraversion {
     this.rule = rule;
     this.traversionControls = [];
 
-    var recursionCacheStack = {};
-    recursionCacheStack["rule_ref#" + rule.node.nodeIdx] = {
+    var recursionCacheStack = { indent: ""};
+    var rule0Def:RecursiveRuleDef = {
       itemGeneratedForStarterNode: true, linkedRuleEntry: rule,
-      collectedFromIndex: 0
-    } as RecursiveRuleDef;
+      ownRuleEntry: rule, collectedFromIndex: 0,
+      shiftReducesBeforeRecursion: [],
+      toString:function() {return "entryruledef:"+rule;}
+    };
+    recursionCacheStack["rule_ref#" + rule.node.nodeIdx] = rule0Def;
 
     this.createRecursively(null, rule, recursionCacheStack);
   }
 
-  private createRecursively(parent: RuleElementTraverser, item: RuleElementTraverser, recursionCacheStack: StrMapLike<RuleElementTraverser>) {
+  private createRecursively(parent: RuleElementTraverser, item: RuleElementTraverser, recursionCacheStack: TraversionMakerCache) {
 
-    var newRecursionStack = {};
+    var newRecursionStack = {indent:recursionCacheStack.indent+"  "};
     Object.setPrototypeOf(newRecursionStack, recursionCacheStack);
 
     if (item.traversionGeneratorEntered(this, newRecursionStack)) {
@@ -855,10 +863,10 @@ abstract class RuleElementTraverser {
     }
   }
 
-  traversionGeneratorEntered(inTraversion: LinearTraversion, recursionCacheStack: StrMapLike<RuleElementTraverser>) {
+  traversionGeneratorEntered(inTraversion: LinearTraversion, recursionCacheStack: TraversionMakerCache) {
     return true;
   }
-  traversionGeneratorExited(inTraversion: LinearTraversion, recursionCacheStack: StrMapLike<RuleElementTraverser>) {
+  traversionGeneratorExited(inTraversion: LinearTraversion, recursionCacheStack: TraversionMakerCache) {
   }
 
   pushPrefixControllerItem(inTraversion: LinearTraversion) {
@@ -1108,7 +1116,7 @@ class RuleRefTraverser extends RefTraverser implements RecursiveRuleDef {
 
   targetRule: PRule;
   linkedRuleEntry: EntryPointTraverser;
-  duplicatedRuleEntry: EntryPointTraverser;
+  ownRuleEntry: EntryPointTraverser;
 
   shiftReducesBeforeRecursion: ShiftReduce[];
   stateNode: JumpIntoSubroutineLeafStateNode;
@@ -1148,13 +1156,15 @@ class RuleRefTraverser extends RefTraverser implements RecursiveRuleDef {
     return dirty;
   }
 
-  traversionGeneratorEntered(inTraversion: LinearTraversion, recursionCacheStack: StrMapLike<RuleElementTraverser>) {
+  traversionGeneratorEntered(inTraversion: LinearTraversion, recursionCacheStack: TraversionMakerCache) {
 
     this.recursiveRuleOriginal = recursionCacheStack["rule_ref#" + this.targetRule.nodeIdx];
 
     if (this.traverserStep) throw new Error("There is a traverserStep already : " + this + "  traverserStep:" + this.traverserStep);
 
     if (this.recursiveRuleOriginal) {
+      console.log("peek rule_ref#" + this.targetRule.nodeIdx + recursionCacheStack.indent+" "+this.recursiveRuleOriginal);
+
       this.traverserStep = new TraversionControl(inTraversion, TraversionItemKind.RECURSIVE_RULE, this);
       inTraversion.pushControl(this.traverserStep);
 
@@ -1162,10 +1172,11 @@ class RuleRefTraverser extends RefTraverser implements RecursiveRuleDef {
     } else {
 
       recursionCacheStack["rule_ref#" + this.targetRule.nodeIdx] = this;
+      console.log("push rule_ref#" + this.targetRule.nodeIdx + recursionCacheStack.indent+" "+this);
 
-      this.duplicatedRuleEntry = new EntryPointTraverser(this.parser, this, this.targetRule);
-      this.child = this.duplicatedRuleEntry;
-      this.children.push(this.duplicatedRuleEntry);
+      this.ownRuleEntry = new EntryPointTraverser(this.parser, this, this.targetRule);
+      this.child = this.ownRuleEntry;
+      this.children.push(this.ownRuleEntry);
 
       this.traverserStep = new TraversionControl(inTraversion, TraversionItemKind.RULE, this);
       inTraversion.pushControl(this.traverserStep);
