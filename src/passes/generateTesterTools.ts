@@ -19,8 +19,9 @@ function generateTT(ast, ...args) {
   ast.rules.forEach(r => { ruleMap[r.name] = ri++; });
 
   Analysis.ruleTable = grammar.rules;
+  Analysis.bigStartRules = options.bigStartRules ? options.bigStartRules : [];
 
-  options.allowedStartRules.forEach(r => {
+  const doit=(r: string)=>{
     ri = ruleMap[r];
     var rule = grammar.children[ri] as PRule;
 
@@ -48,6 +49,12 @@ function generateTT(ast, ...args) {
 
     const fnm = "../www/pnodes-graph-" + rule.rule + ".json";
     fs.writeFileSync(fnm, j);
+  };
+  options.bigStartRules.forEach(r => {
+    doit(r);
+  });
+  options.allowedStartRules.forEach(r => {
+    doit(r);
   });
 
   const fnm0 = "../www/pnodes-graph.json";

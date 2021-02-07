@@ -164,6 +164,17 @@ function generate(ast, ...args) {
 
   parseGrammarAst(null, ast);
 
+  // must be circle-free :
+  var T = (node: PNode)=>{
+    if (node["$$"]) throw new Error("Circle:"+node);
+    node["$$"] = 1;
+    node.children.forEach(child => {
+      T(child);
+    });
+    node["$$"] = 0;
+  }
+  T(ctx.grammar);
+
   var err = 0;
   ctx.ruleRefs.forEach(rr => {
     var target = ctx.rules.get(rr.rule);

@@ -19,7 +19,8 @@ function generateTT(ast) {
     var ri = 0;
     ast.rules.forEach(function (r) { ruleMap[r.name] = ri++; });
     lib_1.Analysis.ruleTable = grammar.rules;
-    options.allowedStartRules.forEach(function (r) {
+    lib_1.Analysis.bigStartRules = options.bigStartRules ? options.bigStartRules : [];
+    var doit = function (r) {
         ri = ruleMap[r];
         var rule = grammar.children[ri];
         console.log("Generate visualizer tree for " + rule.rule);
@@ -43,6 +44,12 @@ function generateTT(ast) {
         var j = tothingyjson(vtree);
         var fnm = "../www/pnodes-graph-" + rule.rule + ".json";
         fs.writeFileSync(fnm, j);
+    };
+    options.bigStartRules.forEach(function (r) {
+        doit(r);
+    });
+    options.allowedStartRules.forEach(function (r) {
+        doit(r);
     });
     var fnm0 = "../www/pnodes-graph.json";
     fs.writeFileSync(fnm0, JSON.stringify(options.allowedStartRules));
