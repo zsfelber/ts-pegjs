@@ -331,9 +331,9 @@ export class ParseTableGenerator {
     // loads all :)
     while (this.allRuleReferences.some(ruleRef => ruleRef.lazyCouldGenerateNew()));
 
-    this.theTraversion = new LinearTraversion(mainEntryPoint);
-
     this.startingStateNode = new RootStateNode(mainEntryPoint);
+
+    this.theTraversion = new LinearTraversion(mainEntryPoint);
 
     this.startingStateNode.generateTransitions(this, null, this.theTraversion);
 
@@ -629,7 +629,7 @@ class LinearTraversion {
     var newRecursionStack = {};
     Object.setPrototypeOf(newRecursionStack, recursionCacheStack);
 
-    if (parent.checkLoopIsFinitePrefix(this, item, newRecursionStack)) {
+    if (!parent || parent.traversionGeneratorEntered(this, item, newRecursionStack)) {
       this.pushDefaultPrefixControllerItems(item);
       item.pushPrefixControllerItem(this);
 
@@ -658,7 +658,7 @@ class LinearTraversion {
       item.pushPostfixControllerItem(this);
       this.pushDefaultPostfixControllerItems(item);
 
-      parent.checkLoopIsFinitePostfix(this, item, newRecursionStack);
+      if (parent) parent.traversionGeneratorExited(this, item, newRecursionStack);
     }
   }
 
@@ -682,19 +682,24 @@ class LinearTraversion {
     t.purposeThen = purposeThen ? purposeThen : [];
     var cache = new TraversionCache(intoState, previous);
 
-    if (this.position >= this.traversionControls.length) {
+    if (startPosition >= this.traversionControls.length) {
       this.stopped = true;
     }
     for (this.position = startPosition; !this.stopped;) {
       this.positionOk = false;
       var item = this.traversionControls[this.position];
 
-      item.item.traversionActions(this, item, cache);
+      if (item) {
 
-      this.defaultActions(item, cache, intoState, previous);
+        item.item.traversionActions(this, item, cache);
 
-      if (this.position >= this.traversionControls.length) {
-        this.stopped = true;
+        this.defaultActions(item, cache, intoState, previous);
+  
+        if (this.position >= this.traversionControls.length) {
+          this.stopped = true;
+        }
+      } else {
+        throw new Error("Missing item at position : "+this);
       }
     }
     return cache;
@@ -854,10 +859,10 @@ abstract class RuleElementTraverser {
     }
   }
 
-  checkLoopIsFinitePrefix(inTraversion: LinearTraversion, childPending: RuleElementTraverser, recursionCacheStack: StrMapLike<RuleElementTraverser>) {
+  traversionGeneratorEntered(inTraversion: LinearTraversion, childPending: RuleElementTraverser, recursionCacheStack: StrMapLike<RuleElementTraverser>) {
     return true;
   }
-  checkLoopIsFinitePostfix(inTraversion: LinearTraversion, childPending: RuleElementTraverser, recursionCacheStack: StrMapLike<RuleElementTraverser>) {
+  traversionGeneratorExited(inTraversion: LinearTraversion, childPending: RuleElementTraverser, recursionCacheStack: StrMapLike<RuleElementTraverser>) {
   }
 
   pushPrefixControllerItem(inTraversion: LinearTraversion) {
@@ -1147,7 +1152,7 @@ class RuleRefTraverser extends RefTraverser implements RecursiveRuleDef {
     return dirty;
   }
 
-  checkLoopIsFinitePrefix(inTraversion: LinearTraversion, childPending: RuleElementTraverser, recursionCacheStack: StrMapLike<RuleElementTraverser>) {
+  traversionGeneratorEntered(inTraversion: LinearTraversion, childPending: RuleElementTraverser, recursionCacheStack: StrMapLike<RuleElementTraverser>) {
 
     this.recursiveRuleOriginal = recursionCacheStack["rule_ref#" + this.targetRule.nodeIdx];
 
