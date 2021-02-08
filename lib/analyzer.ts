@@ -83,9 +83,13 @@ abstract class StateNode {
 
   index: number;
 
+  // of state transitions starting from here
   readonly shiftsAndReduces: ShiftReduce[] = [];
 
-  abstract generateTransitions(parser: ParseTableGenerator, previous: StateNode, rootTraversion: LinearTraversion);
+  // of state transitions arriving to here
+  readonly regularReduces: Reduce[] = [];
+
+  abstract generateTransitions(parser: ParseTableGenerator, rootTraversion: LinearTraversion);
 
 
   abstract generateState(): GrammarParsingLeafState;
@@ -119,10 +123,10 @@ class RootStateNode extends StateNode {
     return this.rule;
   }
 
-  generateTransitions(parser: ParseTableGenerator, previous: StateNode, rootTraversion: LinearTraversion) {
+  generateTransitions(parser: ParseTableGenerator, rootTraversion: LinearTraversion) {
     if (parser.cntStates !== 1) throw new Error("?? staring state not the first : " + parser.cntStates);
 
-    rootTraversion.traverse(this, previous, TraversionPurpose.FIND_NEXT_TOKENS);
+    rootTraversion.traverse(this, TraversionPurpose.FIND_NEXT_TOKENS);
     this.index = 1;
     parser.cntStates = 2;
   }
@@ -150,12 +154,12 @@ abstract class LeafStateNode extends StateNode {
     return this.ref;
   }
 
-  generateTransitions(parser: ParseTableGenerator, previous: StateNode, rootTraversion: LinearTraversion) {
+  generateTransitions(parser: ParseTableGenerator, rootTraversion: LinearTraversion) {
 
     var ts = this.ref.traverserStep;
     if (!ts || ts.parent !== rootTraversion) throw new Error("bad traversion params " + this + "  traverserStep:" + ts);
 
-    rootTraversion.traverse(this, previous, TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN,
+    rootTraversion.traverse(this, TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN,
       [TraversionPurpose.FIND_NEXT_TOKENS], ts.toPosition);
 
     this.index = parser.cntStates;
@@ -371,7 +375,7 @@ export class ParseTableGenerator {
 
     //console.log("Generating starting transitions...")
     
-    this.startingStateNode.generateTransitions(this, null, this.theTraversion);
+    this.startingStateNode.generateTransitions(this, this.theTraversion);
 
 
     // This simple loop generates all possible state transitions at once:
@@ -384,7 +388,7 @@ export class ParseTableGenerator {
     
 
     this.allLeafStateNodes.forEach(state => {
-      state.generateTransitions(this, state, this.theTraversion);
+      state.generateTransitions(this, this.theTraversion);
     });
 
     //var result = new ParseTable(rule, step0, Factory.allTerminals, Factory.maxTokenId);
@@ -475,6 +479,21 @@ export class GrammarParsingLeafState {
   get transitions(): NumMapLike<GrammarParsingLeafState> {
     if (!this._transitions) {
       this._transitions = {};
+      this.startState.regularReduces.forEach(nextTerm => {
+        switch (nextTerm.kind) {
+          case ShiftReduceKind.REDUCE:
+          case ShiftReduceKind.REDUCE_RECURSIVE:
+            var r = nextTerm as Reduce;
+            if (r.isEpsilonReduce)
+              throw new Error();
+            else
+              this.reduceActions.push(r.item.node);
+            break;
+          default:
+            throw new Error("111  "+nextTerm);
+        }
+
+      });
       this.startState.shiftsAndReduces.forEach(nextTerm => {
         switch (nextTerm.kind) {
           case ShiftReduceKind.SHIFT:
@@ -491,7 +510,7 @@ export class GrammarParsingLeafState {
             if (r.isEpsilonReduce)
               this.epsilonReduceActions.push(r.item.node);
             else
-              this.reduceActions.push(r.item.node);
+              throw new Error("222  "+nextTerm);
             break;
         }
       });
@@ -603,11 +622,9 @@ class TraversionCache {
   readonly isNegative = false;
 
   readonly intoState: StateNode;
-  readonly previous: StateNode;
 
-  constructor(intoState: StateNode, previous: StateNode) {
+  constructor(intoState: StateNode) {
     this.intoState = intoState;
-    this.previous = previous;
   }
 
   private nodeLocals: any[] = [];
@@ -756,11 +773,11 @@ class LinearTraversion {
     this.traversionControls.push(item);
   }
 
-  traverse(intoState: StateNode, previous: StateNode, initialPurpose: TraversionPurpose, purposeThen?: TraversionPurpose[], startPosition = 0): TraversionCache {
+  traverse(intoState: StateNode, initialPurpose: TraversionPurpose, purposeThen?: TraversionPurpose[], startPosition = 0): TraversionCache {
     var t = this as any;
     t.purpose = initialPurpose;
     t.purposeThen = purposeThen ? purposeThen : [];
-    var cache = new TraversionCache(intoState, previous);
+    var cache = new TraversionCache(intoState);
 
     if (startPosition >= this.traversionControls.length) {
       this.stopped = true;
@@ -773,7 +790,7 @@ class LinearTraversion {
 
         item.item.traversionActions(this, item, cache);
 
-        this.defaultActions(item, cache, intoState, previous);
+        this.defaultActions(item, cache, intoState);
 
         if (this.position >= this.traversionControls.length) {
           this.stopped = true;
@@ -785,7 +802,7 @@ class LinearTraversion {
     return cache;
   }
 
-  defaultActions(step: TraversionControl, cache: TraversionCache, intoState: StateNode, previous: StateNode) {
+  defaultActions(step: TraversionControl, cache: TraversionCache, intoState: StateNode) {
     switch (step.kind) {
       case TraversionItemKind.CHILD_SEPARATOR:
         switch (this.purpose) {
@@ -829,7 +846,7 @@ class LinearTraversion {
             // NOTE still generating this one for the previous state !
             //
             if (step.item.isReducable) {
-              previous.shiftsAndReduces.push({ kind: ShiftReduceKind.REDUCE, item: step.item, isEpsilonReduce: false });
+              intoState.regularReduces.push({ kind: ShiftReduceKind.REDUCE, item: step.item, isEpsilonReduce: false });
             }
 
             break;

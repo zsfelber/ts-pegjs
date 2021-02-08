@@ -37,14 +37,16 @@ function generateTT(ast, ...args) {
       var main2 = g.startingStateNode.traverser;
       Object.assign(deps, g.startRuleDependencies);
 
-      var items = g.allLeafStateNodes.map(itm => itm.traverser);
+      var items = g.allLeafStateNodes.map(itm => {
+        var tnode = itm.traverser;
+        tnode["$leaf$"] = 1;
+        return tnode;
+      });
       var i = 0;
       do {
         var parents = [];
         items.forEach(tnode => {
-          if (tnode.node.kind===PNodeKind.TERMINAL_REF) {
-            generateVisualizerTreeUpwards(tnode, parents);
-          }
+          generateVisualizerTreeUpwards(tnode, parents);
         });
         //console.log(i++ + "." + parents.length);
         items = parents;
@@ -56,6 +58,8 @@ function generateTT(ast, ...args) {
 
       var vtree = main["$$$"];
       if (!vtree) throw new Error("Could not generate visual tree up to : " + main);
+
+      countVisualizerTree(vtree);
       var j = tothingyjson(vtree);
 
       const fnm = "../www/pnodes-graph-" + rule.rule + ".json";
@@ -90,6 +94,8 @@ function generateTT(ast, ...args) {
     });
   }
 
+  allstarts.sort();
+
   const fnm0 = "../www/pnodes-graph.json";
   fs.writeFileSync(fnm0, JSON.stringify(allstarts));
 }
@@ -107,8 +113,17 @@ function generateVisualizerTreeUpwards(tnode: RuleElementTraverser, parents: Rul
     tnode.parent["$$$"] = p$ = { name: tnode.parent.node.toString(), children: [], n: 1 };
     parents.push(tnode.parent);
   }
+  if (tnode.parent["$leaf$"]) {
+    throw new Error("Bad leaf with children : "+tnode.parent);
+  }
   p$.children.push(n$);
-  p$.n += n$.n;
+}
+
+function countVisualizerTree($node: any) {
+  $node.children.forEach($child=>{
+    $node.n += countVisualizerTree($child);
+  });
+  return $node.n;
 }
 
 
