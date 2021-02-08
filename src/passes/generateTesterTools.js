@@ -32,11 +32,12 @@ function generateTT(ast) {
             var g = lib_1.ParseTableGenerator.createForRule(rule);
             var main2 = g.startingStateNode.traverser;
             Object.assign(deps, g.startRuleDependencies);
-            var items = g.allLeafStateNodes.map(function (itm) {
+            var leaves = g.allLeafStateNodes.map(function (itm) {
                 var tnode = itm.traverser;
                 tnode["$leaf$"] = 1;
                 return tnode;
             });
+            var items = leaves;
             var i = 0;
             do {
                 var parents = [];
@@ -45,6 +46,7 @@ function generateTT(ast) {
                 });
                 //console.log(i++ + "." + parents.length);
                 items = parents;
+                i++;
             } while (items.length);
             var main = Object.values(g.entryPoints)[0];
             var main2 = g.startingStateNode.traverser;
@@ -54,6 +56,8 @@ function generateTT(ast) {
             if (!vtree)
                 throw new Error("Could not generate visual tree up to : " + main);
             countVisualizerTree(vtree);
+            vtree.numleaves = leaves.length;
+            vtree.numlevels = i;
             var j = tothingyjson(vtree);
             var fnm = "../www/pnodes-graph-" + rule.rule + ".json";
             fs.writeFileSync(fnm, j);
@@ -94,7 +98,7 @@ function generateTT(ast) {
 function generateVisualizerTreeUpwards(tnode, parents) {
     var p$, n$;
     if (!(n$ = tnode["$$$"])) {
-        tnode["$$$"] = n$ = { name: tnode.node.toString(), children: [], n: 1 };
+        tnode["$$$"] = n$ = { name: tnode.shortLabel(), children: [], n: 1, kind: tnode.node.kind };
     }
     if (!tnode.parent) {
         return;
@@ -104,7 +108,7 @@ function generateVisualizerTreeUpwards(tnode, parents) {
         p = p.parent;
     }
     if (!(p$ = p["$$$"])) {
-        p["$$$"] = p$ = { name: p.node.toString(), children: [], n: 1 };
+        p["$$$"] = p$ = { name: p.shortLabel(), children: [], n: 1, kind: p.node.kind };
         parents.push(p);
     }
     if (p["$leaf$"]) {
@@ -132,7 +136,7 @@ function tothingyjson(obj, ind) {
             chbuf.push(ij);
     });
     var buffer = [];
-    buffer.push(ind + '{ "name":"' + obj.name + '", "n":' + (obj.n ? obj.n : 0) + ', "children":[');
+    buffer.push(ind + '{ "name":"' + (obj.name ? obj.name : "") + '", "kind":"' + obj.kind + '", "n":' + (obj.n ? obj.n : 0) + (obj.numleaves ? ', "numleaves":' + obj.numleaves : "") + (obj.numlevels ? ', "numlevels":' + obj.numlevels : "") + ', "children":[');
     buffer.push(chbuf.join(",\n"));
     buffer.push(ind + "]  }");
     obj["$jsproc"] = 0;

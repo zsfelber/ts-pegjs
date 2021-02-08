@@ -102,7 +102,6 @@ abstract class StateNode {
   toString() {
     return "SH#" + this.index + "->" + this.traverser + (this.isRule ? "<rule>" : "") + ("->" + this.shiftsAndReduces.length + "s/r");
   }
-
 }
 
 
@@ -973,6 +972,10 @@ export abstract class RuleElementTraverser {
   toString() {
     return "T~" + this.node + (this.optionalBranch ? "<opt>" : "");
   }
+  
+  shortLabel() {
+    return this.node.label;
+  }
 
 }
 
@@ -1171,6 +1174,10 @@ class OrMoreTraverser extends SingleCollectionTraverser {
 
 class ZeroOrMoreTraverser extends OrMoreTraverser {
 
+  
+  shortLabel() {
+    return (this.node.label?this.node.label+":":"")+"*";
+  }
 
 }
 
@@ -1183,6 +1190,10 @@ class OneOrMoreTraverser extends OrMoreTraverser {
   constructor(parser: ParseTableGenerator, parent: RuleElementTraverser, node: PNode) {
     super(parser, parent, node);
     this.optionalBranch = this.child.optionalBranch;
+  }
+
+  shortLabel() {
+    return (this.node.label?this.node.label+":":"")+"+";
   }
 
 }
@@ -1291,6 +1302,7 @@ class RuleRefTraverser extends RefTraverser implements RecursiveRuleDef {
 
       return true;
     }
+
   }
 
   traversionActions(inTraversion: LinearTraversion, step: TraversionControl, cache: TraversionCache) {
@@ -1390,6 +1402,11 @@ class RuleRefTraverser extends RefTraverser implements RecursiveRuleDef {
     return super.toString()+" "+this.collectedFromIndex + ((this.collectedToIndex !== this.collectedFromIndex) ? ".." + this.collectedToIndex : "")+
     + (this.shiftReducesOfFirstState ? "=" + this.shiftReducesOfFirstState.length : "");
   }
+
+  shortLabel() {
+    return (this.node.label?this.node.label+":":"")+"#"+this.node.rule;
+  }
+
 }
 
 
@@ -1443,6 +1460,11 @@ class TerminalRefTraverser extends RefTraverser {
       default:
     }
   }
+
+  shortLabel() {
+    return (this.node.label?this.node.label+":":"")+this.node.terminal;
+  }
+
 }
 
 
@@ -1543,6 +1565,11 @@ export class EntryPointTraverser extends RuleTraverser {
         break;
     }
   }
+
+  shortLabel() {
+    return (this.node.label?this.node.label+":":"")+this.node.rule;
+  }
+
 }
 
 abstract class PredicateTraverser extends SingleTraverser {

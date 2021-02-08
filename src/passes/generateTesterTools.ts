@@ -37,11 +37,12 @@ function generateTT(ast, ...args) {
       var main2 = g.startingStateNode.traverser;
       Object.assign(deps, g.startRuleDependencies);
 
-      var items = g.allLeafStateNodes.map(itm => {
+      var leaves = g.allLeafStateNodes.map(itm => {
         var tnode = itm.traverser;
         tnode["$leaf$"] = 1;
         return tnode;
       });
+      var items = leaves;
       var i = 0;
       do {
         var parents = [];
@@ -50,6 +51,7 @@ function generateTT(ast, ...args) {
         });
         //console.log(i++ + "." + parents.length);
         items = parents;
+        i++;
       } while (items.length);
 
       var main = Object.values(g.entryPoints)[0];
@@ -60,6 +62,8 @@ function generateTT(ast, ...args) {
       if (!vtree) throw new Error("Could not generate visual tree up to : " + main);
 
       countVisualizerTree(vtree);
+      vtree.numleaves = leaves.length;
+      vtree.numlevels = i;
       var j = tothingyjson(vtree);
 
       const fnm = "../www/pnodes-graph-" + rule.rule + ".json";
@@ -104,7 +108,7 @@ function generateTT(ast, ...args) {
 function generateVisualizerTreeUpwards(tnode: RuleElementTraverser, parents: RuleElementTraverser[]) {
   var p$, n$;
   if (!(n$ = tnode["$$$"])) {
-    tnode["$$$"] = n$ = { name: tnode.node.toString(), children: [], n: 1 };
+    tnode["$$$"] = n$ = { name: tnode.shortLabel(), children: [], n: 1, kind:tnode.node.kind };
   }
   if (!tnode.parent) {
     return;
@@ -114,7 +118,7 @@ function generateVisualizerTreeUpwards(tnode: RuleElementTraverser, parents: Rul
     p = p.parent;
   }
   if (!(p$ = p["$$$"])) {
-    p["$$$"] = p$ = { name: p.node.toString(), children: [], n: 1 };
+    p["$$$"] = p$ = { name: p.shortLabel(), children: [], n: 1, kind:p.node.kind };
     parents.push(p);
   }
   if (p["$leaf$"]) {
@@ -144,7 +148,7 @@ function tothingyjson(obj: any, ind = "") {
   });
 
   var buffer = [];
-  buffer.push(ind + '{ "name":"' + obj.name + '", "n":' + (obj.n ? obj.n : 0) + ', "children":[');
+  buffer.push(ind + '{ "name":"' + (obj.name?obj.name:"") + '", "kind":"' + obj.kind + '", "n":' + (obj.n ? obj.n : 0) + (obj.numleaves ? ', "numleaves":'+obj.numleaves : "") + (obj.numlevels ? ', "numlevels":'+obj.numlevels : "") + ', "children":[');
   buffer.push(chbuf.join(",\n"));
   buffer.push(ind + "]  }");
 
