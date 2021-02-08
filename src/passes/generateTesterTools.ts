@@ -109,12 +109,16 @@ function generateVisualizerTreeUpwards(tnode: RuleElementTraverser, parents: Rul
   if (!tnode.parent) {
     return;
   }
-  if (!(p$ = tnode.parent["$$$"])) {
-    tnode.parent["$$$"] = p$ = { name: tnode.parent.node.toString(), children: [], n: 1 };
-    parents.push(tnode.parent);
+  var p = tnode.parent;
+  if (p.node.kind === PNodeKind.RULE && p.parent) {
+    p = p.parent;
   }
-  if (tnode.parent["$leaf$"]) {
-    throw new Error("Bad leaf with children : "+tnode.parent);
+  if (!(p$ = p["$$$"])) {
+    p["$$$"] = p$ = { name: p.node.toString(), children: [], n: 1 };
+    parents.push(p);
+  }
+  if (p["$leaf$"]) {
+    throw new Error("Bad leaf with children : "+p);
   }
   p$.children.push(n$);
 }
