@@ -20,17 +20,18 @@ function generateTT(ast) {
     ast.rules.forEach(function (r) { ruleMap[r.name] = ri++; });
     lib_1.Analysis.ruleTable = grammar.rules;
     lib_1.Analysis.bigStartRules = options.bigStartRules ? options.bigStartRules : [];
+    var deps = {};
     var doit = function (r) {
         ri = ruleMap[r];
         var rule = grammar.children[ri];
         console.log("Generate visualizer tree for " + rule.rule);
         var g = lib_1.ParseTableGenerator.createForRule(rule);
+        Object.assign(deps, g.startRuleDependencies);
         var i = 0;
         do {
             var parents = [];
             g.allLeafStateNodes.forEach(function (itm) {
-                var node = itm.traverser.node;
-                generateVisualizerTreeUpwards(node, parents);
+                generateVisualizerTreeUpwards(itm.traverser, parents);
             });
             console.log(i++ + "." + parents.length);
         } while (parents.length);
@@ -40,31 +41,45 @@ function generateTT(ast) {
             throw new Error();
         var vtree = main["$$$"];
         if (!vtree)
-            throw new Error();
+            throw new Error("Could not generate visual tree up to : " + main);
         var j = tothingyjson(vtree);
         var fnm = "../www/pnodes-graph-" + rule.rule + ".json";
         fs.writeFileSync(fnm, j);
     };
-    options.bigStartRules.forEach(function (r) {
-        doit(r);
-    });
-    options.allowedStartRules.forEach(function (r) {
-        doit(r);
-    });
+    if (options.bigStartRules) {
+        console.log("bigStartRules:" + options.bigStartRules.join(", "));
+        options.bigStartRules.forEach(function (r) {
+            doit(r);
+        });
+    }
+    if (options.allowedStartRules) {
+        console.log("allowedStartRules:" + options.allowedStartRules.join(", "));
+        options.allowedStartRules.forEach(function (r) {
+            delete deps[r];
+            doit(r);
+        });
+    }
+    var depks = Object.keys(deps);
+    if (depks.length) {
+        console.log("Remaining dependencies:" + depks.join(", "));
+        depks.forEach(function (r) {
+            doit(r);
+        });
+    }
     var fnm0 = "../www/pnodes-graph.json";
     fs.writeFileSync(fnm0, JSON.stringify(options.allowedStartRules));
 }
-function generateVisualizerTreeUpwards(node, parents) {
-    if (!node.parent) {
+function generateVisualizerTreeUpwards(tnode, parents) {
+    var p$, n$;
+    if (!(n$ = tnode["$$$"])) {
+        tnode["$$$"] = n$ = { name: tnode.node.toString(), children: [], n: 1 };
+    }
+    if (!tnode.parent) {
         return;
     }
-    var p$, n$;
-    if (!(p$ = node.parent["$$$"])) {
-        node.parent["$$$"] = p$ = { name: node.parent.toString(), children: [], n: 1 };
-        parents.push(node.parent);
-    }
-    if (!(n$ = node["$$$"])) {
-        node["$$$"] = n$ = { name: node.toString(), children: [], n: 1 };
+    if (!(p$ = tnode.parent["$$$"])) {
+        tnode.parent["$$$"] = p$ = { name: tnode.parent.node.toString(), children: [], n: 1 };
+        parents.push(tnode.parent);
     }
     p$.children.push(n$);
     p$.n += n$.n;

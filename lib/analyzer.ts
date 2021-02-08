@@ -1,10 +1,10 @@
 import { PNodeKind } from '.';
 import { PRule, PRuleRef, PTerminalRef, PValueNode, SerDeser, PNode, PRef } from './parsers';
 
-interface StrMapLike<V> {
+export interface StrMapLike<V> {
   [index: number]: V;
 }
-interface NumMapLike<V> {
+export interface NumMapLike<V> {
   [index: number]: V;
 }
 
@@ -882,7 +882,7 @@ class LinearTraversion {
 }
 
 
-abstract class RuleElementTraverser {
+export abstract class RuleElementTraverser {
 
   readonly nodeTravId: number;
   readonly constructionLevel: number;
