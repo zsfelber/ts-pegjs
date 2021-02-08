@@ -1,6 +1,6 @@
 import * as fs from "fs";
 import { Analysis, ParseTableGenerator } from "../../lib";
-import { PGrammar, PRule, PNode, PRuleRef } from '../../lib/parsers';
+import { PGrammar, PRule, PNode, PRuleRef, PNodeKind } from '../../lib/parsers';
 import { RuleElementTraverser, StrMapLike } from '../../lib/analyzer';
 
 
@@ -22,78 +22,88 @@ function generateTT(ast, ...args) {
   Analysis.ruleTable = grammar.rules;
   Analysis.bigStartRules = options.bigStartRules ? options.bigStartRules : [];
 
-  var deps:StrMapLike<PRuleRef> = {};
+  var deps: StrMapLike<PRuleRef> = {};
+  var created: StrMapLike<number> = {};
 
-  const doit=(r: string)=>{
-    ri = ruleMap[r];
-    var rule = grammar.children[ri] as PRule;
+  const doit = (r: string) => {
+    if (!created[r]) {
+      created[r] = 1;
+      ri = ruleMap[r];
+      var rule = grammar.children[ri] as PRule;
 
-    console.log("Generate visualizer tree for " + rule.rule);
+      console.log("Generate visualizer tree for " + rule.rule);
 
-    var g = ParseTableGenerator.createForRule(rule);
-    Object.assign(deps, g.startRuleDependencies);
+      var g = ParseTableGenerator.createForRule(rule);
+      var main2 = g.startingStateNode.traverser;
+      Object.assign(deps, g.startRuleDependencies);
 
-    var items = g.allLeafStateNodes.map(itm => itm.traverser);
-    var i = 0;
-    do {
-      var parents = [];
-      items.forEach(tnode => {
-        generateVisualizerTreeUpwards(tnode, parents);
-      });
-      console.log(i++ + "." + parents.length);
-      items = parents;
-    } while (items.length);
+      var items = g.allLeafStateNodes.map(itm => itm.traverser);
+      var i = 0;
+      do {
+        var parents = [];
+        items.forEach(tnode => {
+          if (tnode.node.kind===PNodeKind.TERMINAL_REF) {
+            generateVisualizerTreeUpwards(tnode, parents);
+          }
+        });
+        //console.log(i++ + "." + parents.length);
+        items = parents;
+      } while (items.length);
 
-    var main = Object.values(g.entryPoints)[0];
-    var main2 = g.startingStateNode.traverser;
-    if (main !== main2) throw new Error();
+      var main = Object.values(g.entryPoints)[0];
+      var main2 = g.startingStateNode.traverser;
+      if (main !== main2) throw new Error();
 
-    var vtree = main["$$$"];
-    if (!vtree) throw new Error("Could not generate visual tree up to : "+main);
-    var j = tothingyjson(vtree);
+      var vtree = main["$$$"];
+      if (!vtree) throw new Error("Could not generate visual tree up to : " + main);
+      var j = tothingyjson(vtree);
 
-    const fnm = "../www/pnodes-graph-" + rule.rule + ".json";
-    fs.writeFileSync(fnm, j);
+      const fnm = "../www/pnodes-graph-" + rule.rule + ".json";
+      fs.writeFileSync(fnm, j);
+      return true;
+    } else {
+      return false;
+    }
   };
   var allstarts = [];
   if (options.bigStartRules) {
-    console.log("bigStartRules:"+options.bigStartRules.join(", "));
+    console.log("bigStartRules:" + options.bigStartRules.join(", "));
     options.bigStartRules.forEach(r => {
-      doit(r);
-      allstarts.push(r);
+      if (doit(r))
+        allstarts.push(r);
     });
   }
   if (options.allowedStartRules) {
-    console.log("allowedStartRules:"+options.allowedStartRules.join(", "));
+    console.log("allowedStartRules:" + options.allowedStartRules.join(", "));
     options.allowedStartRules.forEach(r => {
       delete deps[r];
-      doit(r);
-      allstarts.push(r);
+      if (doit(r))
+        allstarts.push(r);
     });
   }
   var depks = Object.keys(deps);
   if (depks.length) {
-    console.log("Remaining dependencies:"+depks.join(", "));
+    console.log("Remaining dependencies:" + depks.join(", "));
     depks.forEach(r => {
-      doit(r);
-      allstarts.push(r);
+      if (doit(r))
+        allstarts.push(r);
     });
   }
 
   const fnm0 = "../www/pnodes-graph.json";
   fs.writeFileSync(fnm0, JSON.stringify(allstarts));
-
 }
+
 
 function generateVisualizerTreeUpwards(tnode: RuleElementTraverser, parents: RuleElementTraverser[]) {
   var p$, n$;
-  if (!(n$=tnode["$$$"])) {
+  if (!(n$ = tnode["$$$"])) {
     tnode["$$$"] = n$ = { name: tnode.node.toString(), children: [], n: 1 };
   }
   if (!tnode.parent) {
     return;
   }
-  if (!(p$=tnode.parent["$$$"])) {
+  if (!(p$ = tnode.parent["$$$"])) {
     tnode.parent["$$$"] = p$ = { name: tnode.parent.node.toString(), children: [], n: 1 };
     parents.push(tnode.parent);
   }

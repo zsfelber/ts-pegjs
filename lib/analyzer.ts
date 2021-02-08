@@ -354,7 +354,7 @@ export class ParseTableGenerator {
 
   private constructor(rule: PRule) {
 
-    console.log("Read rules tree...")
+    //console.log("Read rules tree...")
 
     this.rule = rule;
     var mainEntryPoint = new EntryPointTraverser(this, null, rule);
@@ -365,11 +365,11 @@ export class ParseTableGenerator {
 
     this.startingStateNode = new RootStateNode(mainEntryPoint);
 
-    console.log("Generating traversion...")
+    //console.log("Generating traversion...")
     
     this.theTraversion = new LinearTraversion(this, mainEntryPoint);
 
-    console.log("Generating starting transitions...")
+    //console.log("Generating starting transitions...")
     
     this.startingStateNode.generateTransitions(this, null, this.theTraversion);
 
@@ -380,7 +380,7 @@ export class ParseTableGenerator {
     // each state handles the jumped-through REDUCE actions as well
     // so simply these always must be made sequentially
 
-    console.log("Generating states...")
+    //console.log("Generating states...")
     
 
     this.allLeafStateNodes.forEach(state => {
@@ -1240,15 +1240,17 @@ class RuleRefTraverser extends RefTraverser implements RecursiveRuleDef {
 
     if (this.traverserStep) throw new Error("There is a traverserStep already : " + this + "  traverserStep:" + this.traverserStep);
 
-    var big = Analysis.bigStartRules.indexOf(this.targetRule.rule) !== -1;
-    if (big) {
-      var parseTable0: ParseTableGenerator = Factory.parseTables[this.targetRule.rule];
-      if (!parseTable0) throw new Error("Bigs first : " + this.targetRule.rule + "  " + this);
-      var bigDef = new InsertedRecursiveRuleDef({
-        bigRuleLink: true, linkedRuleEntry: this.linkedRuleEntry,
-        shiftReducesOfFirstState: parseTable0.startingStateNode.shiftsAndReduces
-      });
-      this.recursiveRuleOriginal = bigDef;
+    if (!this.recursiveRuleOriginal) {
+      var big = Analysis.bigStartRules.indexOf(this.targetRule.rule) !== -1;
+      if (big) {
+        var parseTable0: ParseTableGenerator = Factory.parseTables[this.targetRule.rule];
+        if (!parseTable0) throw new Error("Bigs first : " + this.targetRule.rule + "  " + this);
+        var bigDef = new InsertedRecursiveRuleDef({
+          bigRuleLink: true, linkedRuleEntry: this.linkedRuleEntry,
+          shiftReducesOfFirstState: parseTable0.startingStateNode.shiftsAndReduces
+        });
+        this.recursiveRuleOriginal = bigDef;
+      }
     }
 
     if (this.recursiveRuleOriginal) {
@@ -1261,7 +1263,7 @@ class RuleRefTraverser extends RefTraverser implements RecursiveRuleDef {
     } else {
 
       recursionCacheStack["rule_ref#" + this.targetRule.nodeIdx] = this;
-      console.log("rule#" + this.targetRule.nodeIdx +"->"+ recursionCacheStack.indent+" "+this);
+      //console.log("rule#" + this.targetRule.nodeIdx +"->"+ recursionCacheStack.indent+" "+this);
 
       this.ownRuleEntry = new ReferencedRuleTraverser(this.parser, this, this.targetRule);
       this.child = this.ownRuleEntry;
@@ -1368,7 +1370,7 @@ class RuleRefTraverser extends RefTraverser implements RecursiveRuleDef {
   }
 
   toString() {
-    return super.toString()+" "+this.collectedFromIndex + (this.collectedToIndex !== this.collectedFromIndex ? ".." + this.collectedToIndex : "")+
+    return super.toString()+" "+this.collectedFromIndex + ((this.collectedToIndex !== this.collectedFromIndex) ? ".." + this.collectedToIndex : "")+
     + (this.shiftReducesOfFirstState ? "=" + this.shiftReducesOfFirstState.length : "");
   }
 }
@@ -1582,7 +1584,8 @@ abstract class SemanticTraverser extends EmptyTraverser {
   checkConstructFailed() {
     var dirty = super.checkConstructFailed();
     if (!this.node.action || !this.node.action.fun) {
-      console.error("No parser.node.action or .action.fun   " + this.node);
+      // TODO frequently..
+      //console.error("No parser.node.action or .action.fun   " + this.node);
       dirty = 1;
     }
     return dirty;

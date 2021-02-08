@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 var fs = require("fs");
 var lib_1 = require("../../lib");
+var parsers_1 = require("../../lib/parsers");
 // Generates parser JavaScript code.
 function generateTT(ast) {
     var args = [];
@@ -21,55 +22,70 @@ function generateTT(ast) {
     lib_1.Analysis.ruleTable = grammar.rules;
     lib_1.Analysis.bigStartRules = options.bigStartRules ? options.bigStartRules : [];
     var deps = {};
+    var created = {};
     var doit = function (r) {
-        ri = ruleMap[r];
-        var rule = grammar.children[ri];
-        console.log("Generate visualizer tree for " + rule.rule);
-        var g = lib_1.ParseTableGenerator.createForRule(rule);
-        Object.assign(deps, g.startRuleDependencies);
-        var items = g.allLeafStateNodes.map(function (itm) { return itm.traverser; });
-        var i = 0;
-        do {
-            var parents = [];
-            items.forEach(function (tnode) {
-                generateVisualizerTreeUpwards(tnode, parents);
-            });
-            console.log(i++ + "." + parents.length);
-            items = parents;
-        } while (items.length);
-        var main = Object.values(g.entryPoints)[0];
-        var main2 = g.startingStateNode.traverser;
-        if (main !== main2)
-            throw new Error();
-        var vtree = main["$$$"];
-        if (!vtree)
-            throw new Error("Could not generate visual tree up to : " + main);
-        var j = tothingyjson(vtree);
-        var fnm = "../www/pnodes-graph-" + rule.rule + ".json";
-        fs.writeFileSync(fnm, j);
+        if (!created[r]) {
+            created[r] = 1;
+            ri = ruleMap[r];
+            var rule = grammar.children[ri];
+            console.log("Generate visualizer tree for " + rule.rule);
+            var g = lib_1.ParseTableGenerator.createForRule(rule);
+            var main2 = g.startingStateNode.traverser;
+            Object.assign(deps, g.startRuleDependencies);
+            var items = g.allLeafStateNodes.map(function (itm) { return itm.traverser; });
+            var i = 0;
+            do {
+                var parents = [];
+                items.forEach(function (tnode) {
+                    if (tnode.node.kind === parsers_1.PNodeKind.TERMINAL_REF) {
+                        generateVisualizerTreeUpwards(tnode, parents);
+                    }
+                });
+                //console.log(i++ + "." + parents.length);
+                items = parents;
+            } while (items.length);
+            var main = Object.values(g.entryPoints)[0];
+            var main2 = g.startingStateNode.traverser;
+            if (main !== main2)
+                throw new Error();
+            var vtree = main["$$$"];
+            if (!vtree)
+                throw new Error("Could not generate visual tree up to : " + main);
+            var j = tothingyjson(vtree);
+            var fnm = "../www/pnodes-graph-" + rule.rule + ".json";
+            fs.writeFileSync(fnm, j);
+            return true;
+        }
+        else {
+            return false;
+        }
     };
+    var allstarts = [];
     if (options.bigStartRules) {
         console.log("bigStartRules:" + options.bigStartRules.join(", "));
         options.bigStartRules.forEach(function (r) {
-            doit(r);
+            if (doit(r))
+                allstarts.push(r);
         });
     }
     if (options.allowedStartRules) {
         console.log("allowedStartRules:" + options.allowedStartRules.join(", "));
         options.allowedStartRules.forEach(function (r) {
             delete deps[r];
-            doit(r);
+            if (doit(r))
+                allstarts.push(r);
         });
     }
     var depks = Object.keys(deps);
     if (depks.length) {
         console.log("Remaining dependencies:" + depks.join(", "));
         depks.forEach(function (r) {
-            doit(r);
+            if (doit(r))
+                allstarts.push(r);
         });
     }
     var fnm0 = "../www/pnodes-graph.json";
-    fs.writeFileSync(fnm0, JSON.stringify(options.allowedStartRules));
+    fs.writeFileSync(fnm0, JSON.stringify(allstarts));
 }
 function generateVisualizerTreeUpwards(tnode, parents) {
     var p$, n$;
