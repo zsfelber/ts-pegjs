@@ -33,14 +33,16 @@ function generateTT(ast, ...args) {
     var g = ParseTableGenerator.createForRule(rule);
     Object.assign(deps, g.startRuleDependencies);
 
+    var items = g.allLeafStateNodes.map(itm => itm.traverser);
     var i = 0;
     do {
       var parents = [];
-      g.allLeafStateNodes.forEach(itm => {
-        generateVisualizerTreeUpwards(itm.traverser, parents);
+      items.forEach(tnode => {
+        generateVisualizerTreeUpwards(tnode, parents);
       });
       console.log(i++ + "." + parents.length);
-    } while (parents.length);
+      items = parents;
+    } while (items.length);
 
     var main = Object.values(g.entryPoints)[0];
     var main2 = g.startingStateNode.traverser;
@@ -53,10 +55,12 @@ function generateTT(ast, ...args) {
     const fnm = "../www/pnodes-graph-" + rule.rule + ".json";
     fs.writeFileSync(fnm, j);
   };
+  var allstarts = [];
   if (options.bigStartRules) {
     console.log("bigStartRules:"+options.bigStartRules.join(", "));
     options.bigStartRules.forEach(r => {
       doit(r);
+      allstarts.push(r);
     });
   }
   if (options.allowedStartRules) {
@@ -64,6 +68,7 @@ function generateTT(ast, ...args) {
     options.allowedStartRules.forEach(r => {
       delete deps[r];
       doit(r);
+      allstarts.push(r);
     });
   }
   var depks = Object.keys(deps);
@@ -71,11 +76,12 @@ function generateTT(ast, ...args) {
     console.log("Remaining dependencies:"+depks.join(", "));
     depks.forEach(r => {
       doit(r);
+      allstarts.push(r);
     });
   }
 
   const fnm0 = "../www/pnodes-graph.json";
-  fs.writeFileSync(fnm0, JSON.stringify(options.allowedStartRules));
+  fs.writeFileSync(fnm0, JSON.stringify(allstarts));
 
 }
 

@@ -27,14 +27,16 @@ function generateTT(ast) {
         console.log("Generate visualizer tree for " + rule.rule);
         var g = lib_1.ParseTableGenerator.createForRule(rule);
         Object.assign(deps, g.startRuleDependencies);
+        var items = g.allLeafStateNodes.map(function (itm) { return itm.traverser; });
         var i = 0;
         do {
             var parents = [];
-            g.allLeafStateNodes.forEach(function (itm) {
-                generateVisualizerTreeUpwards(itm.traverser, parents);
+            items.forEach(function (tnode) {
+                generateVisualizerTreeUpwards(tnode, parents);
             });
             console.log(i++ + "." + parents.length);
-        } while (parents.length);
+            items = parents;
+        } while (items.length);
         var main = Object.values(g.entryPoints)[0];
         var main2 = g.startingStateNode.traverser;
         if (main !== main2)
