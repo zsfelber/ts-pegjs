@@ -58,13 +58,16 @@ function generateVisualizerTreeUpwards(node, parents) {
     if (!node.parent) {
         return;
     }
-    if (!node.parent["$$$"]) {
-        node.parent["$$$"] = { name: node.parent.toString(), children: [], n: 1 };
+    var p$, n$;
+    if (!(p$ = node.parent["$$$"])) {
+        node.parent["$$$"] = p$ = { name: node.parent.toString(), children: [], n: 1 };
         parents.push(node.parent);
     }
-    var $node = { name: node.toString(), children: [], n: 1 };
-    node.parent["$$$"].children.push($node);
-    node.parent["$$$"].n += $node.n;
+    if (!(n$ = node["$$$"])) {
+        node["$$$"] = n$ = { name: node.toString(), children: [], n: 1 };
+    }
+    p$.children.push(n$);
+    p$.n += n$.n;
 }
 function tothingyjson(obj, ind) {
     if (ind === void 0) { ind = ""; }
