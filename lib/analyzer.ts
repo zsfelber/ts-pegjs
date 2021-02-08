@@ -53,7 +53,13 @@ namespace Factory {
       case PNodeKind.TERMINAL_REF:
         return new TerminalRefTraverser(parser, parent, node as PTerminalRef);
       case PNodeKind.RULE:
-        return new EntryPointTraverser(parser, parent, node as PRule);
+        if (!parent) {
+          return new EntryPointTraverser(parser, null, node as PRule);
+        } else if (parent instanceof RuleRefTraverser) {
+          return new EntryPointTraverser(parser, parent, node as PRule);
+        } else {
+          throw new Error("bad parent:"+parent);
+        }
 
     }
   }
@@ -359,7 +365,7 @@ export class ParseTableGenerator {
 
     console.log("GENERATE TRAVERSION")
     console.log("--------------------------------------------------------------")
-    this.theTraversion = new LinearTraversion(mainEntryPoint);
+    this.theTraversion = new LinearTraversion(this, mainEntryPoint);
 
     console.log("GENERATE STARTING TRANSITIONS")
     console.log("--------------------------------------------------------------")
@@ -620,22 +626,47 @@ class TraversionCache {
 }
 
 interface RecursiveRuleDef {
-  itemGeneratedForStarterNode?: boolean;
+  entryNode?: boolean;
   bigRuleLink?: boolean;
+  ruleRef?: boolean;
   linkedRuleEntry: EntryPointTraverser;
-  ownRuleEntry: EntryPointTraverser;
-  collectedFromIndex: number;
+  ownRuleEntry?: EntryPointTraverser;
+  collectedFromIndex?: number;
   collectedToIndex?: number;
   shiftReducesBeforeRecursion?: ShiftReduce[];
   shiftReducesOfFirstState?: ShiftReduce[];
   toString: Function
 };
+
+class InsertedRecursiveRuleDef implements RecursiveRuleDef {
+  entryNode: boolean;
+  bigRuleLink: boolean;
+  linkedRuleEntry: EntryPointTraverser;
+  ownRuleEntry: EntryPointTraverser;
+  collectedFromIndex: number;
+  collectedToIndex: number;
+  shiftReducesBeforeRecursion: ShiftReduce[];
+  shiftReducesOfFirstState: ShiftReduce[];
+
+  constructor(params: RecursiveRuleDef) {
+    this.collectedFromIndex = 0;
+    Object.assign(this, params);
+  }
+  toString() {
+    return "ruledef " + (this.entryNode ? "entry " : "") + (this.bigRuleLink ? "big " : "") + this.linkedRuleEntry.node.rule +
+      " " + this.collectedFromIndex + (this.collectedToIndex !== this.collectedFromIndex ? ".." + this.collectedToIndex : "") + (this.shiftReducesOfFirstState ? "=" + this.shiftReducesOfFirstState.length : "")
+      ;
+  }
+};
+
+
 interface TraversionMakerCache extends StrMapLike<RuleElementTraverser> {
   indent: string;
 }
 
 class LinearTraversion {
 
+  readonly parser: ParseTableGenerator;
   readonly rule: EntryPointTraverser;
 
   readonly traversionControls: TraversionControl[];
@@ -650,17 +681,12 @@ class LinearTraversion {
     return this.traversionControls.length;
   }
 
-  constructor(rule: EntryPointTraverser) {
+  constructor(parser: ParseTableGenerator, rule: EntryPointTraverser) {
+    this.parser = parser;
     this.rule = rule;
     this.traversionControls = [];
 
     var recursionCacheStack = { indent: "" };
-    var rule0Def: RecursiveRuleDef = {
-      itemGeneratedForStarterNode: true, linkedRuleEntry: rule,
-      ownRuleEntry: rule, collectedFromIndex: 0,
-      toString: function () { return "entryruledef:" + rule; }
-    };
-    recursionCacheStack["rule_ref#" + rule.node.nodeIdx] = rule0Def;
 
     this.createRecursively(rule, recursionCacheStack);
   }
@@ -669,6 +695,14 @@ class LinearTraversion {
 
     var newRecursionStack = { indent: recursionCacheStack.indent + "  " };
     Object.setPrototypeOf(newRecursionStack, recursionCacheStack);
+
+    // only which located beneath start rule and copied EntryPointTraversers ,
+    // are traversable,
+    // the rest which created for linked rules, and/or in parser.getReferencedRule, is not
+    if (!item.top.parent && item.top!==this.parser.startingStateNode.rule) {
+      throw new Error("This how : "+item+"  in:"+this);
+    }
+
 
     if (item.traversionGeneratorEnter(this, newRecursionStack)) {
 
@@ -852,14 +886,15 @@ abstract class RuleElementTraverser {
   readonly nodeTravId: number;
   readonly constructionLevel: number;
   readonly parser: ParseTableGenerator;
+
   readonly parent: RuleElementTraverser;
   readonly node: PNode;
   readonly children: RuleElementTraverser[] = [];
   readonly optionalBranch: boolean;
 
   constructor(parser: ParseTableGenerator, parent: RuleElementTraverser, node: PNode) {
-    this.parent = parent;
     this.parser = parser;
+    this.parent = parent;
     this.nodeTravId = parser.nodeTravIds++;
     this.node = node;
     this.constructionLevel = parent ? parent.constructionLevel + 1 : 0;
@@ -876,6 +911,9 @@ abstract class RuleElementTraverser {
 
   get isReducable() {
     return false;
+  }
+  get top(): EntryPointTraverser {
+    return this.parent.top;
   }
 
   checkConstructFailed(): any {
@@ -1155,7 +1193,10 @@ class RuleRefTraverser extends RefTraverser implements RecursiveRuleDef {
   ownRuleEntry: EntryPointTraverser;
 
   shiftReducesBeforeRecursion: ShiftReduce[];
+  shiftReducesOfFirstState: ShiftReduce[];
   stateNode: JumpIntoSubroutineLeafStateNode;
+
+  readonly ruleRef = true;
 
   readonly optionalBranch: boolean;
 
@@ -1201,13 +1242,11 @@ class RuleRefTraverser extends RefTraverser implements RecursiveRuleDef {
     var big = Analysis.bigStartRules.indexOf(this.targetRule.rule) !== -1;
     if (big) {
       var parseTable0: ParseTableGenerator = Factory.parseTables[this.targetRule.rule];
-      if (!parseTable0) throw new Error("Bigs first : "+this.targetRule.rule+"  "+this);
-      var bigDef: RecursiveRuleDef = {
+      if (!parseTable0) throw new Error("Bigs first : " + this.targetRule.rule + "  " + this);
+      var bigDef = new InsertedRecursiveRuleDef({
         bigRuleLink: true, linkedRuleEntry: this.linkedRuleEntry,
-        ownRuleEntry: null, collectedFromIndex: 0,
-        shiftReducesOfFirstState: parseTable0.startingStateNode.shiftsAndReduces,
-        toString: function () { return "bigruledef:" + this.targetRule.rule; }
-      };
+        shiftReducesOfFirstState: parseTable0.startingStateNode.shiftsAndReduces
+      });
       this.recursiveRuleOriginal = bigDef;
     }
 
@@ -1221,7 +1260,7 @@ class RuleRefTraverser extends RefTraverser implements RecursiveRuleDef {
     } else {
 
       recursionCacheStack["rule_ref#" + this.targetRule.nodeIdx] = this;
-      //console.log("push rule_ref#" + this.targetRule.nodeIdx + recursionCacheStack.indent+" "+this);
+      console.log("rule#" + this.targetRule.nodeIdx +"->"+ recursionCacheStack.indent+" "+this);
 
       this.ownRuleEntry = new EntryPointTraverser(this.parser, this, this.targetRule);
       this.child = this.ownRuleEntry;
@@ -1247,7 +1286,7 @@ class RuleRefTraverser extends RefTraverser implements RecursiveRuleDef {
 
             if (r.shiftReducesOfFirstState) {
               // big rule table
-              if (!r.bigRuleLink) console.log("!big "+r);
+              if (r.ruleRef) console.log("ruleRef again! " + r);
             } else if (r.shiftReducesBeforeRecursion) {
               // NOTE it means subsequent recursions' case theoretically
               // ...
@@ -1326,6 +1365,11 @@ class RuleRefTraverser extends RefTraverser implements RecursiveRuleDef {
       return null;
     }
   }
+
+  toString() {
+    return super.toString()+" "+this.collectedFromIndex + (this.collectedToIndex !== this.collectedFromIndex ? ".." + this.collectedToIndex : "")+
+    + (this.shiftReducesOfFirstState ? "=" + this.shiftReducesOfFirstState.length : "");
+  }
 }
 
 
@@ -1339,8 +1383,7 @@ class TerminalRefTraverser extends RefTraverser {
   constructor(parser: ParseTableGenerator, parent: RuleElementTraverser, node: PTerminalRef) {
     super(parser, parent, node);
     parser.allTerminalReferences.push(this);
-    this.stateNode = new TraversedLeafStateNode(this);
-    parser.allLeafStateNodes.push(this.stateNode);
+
     if (this.node && this.node.value > parser.maxTokenId) parser.maxTokenId = this.node.value;
   }
 
@@ -1358,6 +1401,9 @@ class TerminalRefTraverser extends RefTraverser {
   }
 
   pushPrefixControllerItem(inTraversion: LinearTraversion) {
+    this.stateNode = new TraversedLeafStateNode(this);
+    this.parser.allLeafStateNodes.push(this.stateNode);
+
     if (this.traverserStep) throw new Error("There is a traverserStep already : " + this + "  traverserStep:" + this.traverserStep);
     this.traverserStep = new TraversionControl(inTraversion, TraversionItemKind.TERMINAL, this);
     inTraversion.pushControl(this.traverserStep);
@@ -1389,15 +1435,23 @@ export class EntryPointTraverser extends SingleTraverser {
   index: number;
 
   readonly optionalBranch: boolean;
+  ruleEntryDef: InsertedRecursiveRuleDef;
 
-  constructor(parser: ParseTableGenerator, parent: RuleElementTraverser, node: PRule) {
+  readonly parent: RuleRefTraverser;
+
+
+  constructor(parser: ParseTableGenerator, parent: RuleRefTraverser, node: PRule) {
     super(parser, parent, node);
+
     this.index = node.index;
     this.optionalBranch = this.child.optionalBranch;
   }
 
   get isReducable() {
     return true;
+  }
+  get top(): EntryPointTraverser {
+    return this;
   }
 
   findRuleNodeParent(rule: string, incl = false) {
@@ -1410,6 +1464,45 @@ export class EntryPointTraverser extends SingleTraverser {
     }
   }
 
+  traversionGeneratorEnter(inTraversion: LinearTraversion, recursionCacheStack: TraversionMakerCache) {
+    var ruleOriginal = recursionCacheStack["rule_ref#" + this.node.nodeIdx];
+
+    if (!ruleOriginal) {
+      var ruleEntryDef = new InsertedRecursiveRuleDef({
+        entryNode: true,
+        linkedRuleEntry: this, ownRuleEntry: this
+      });
+      recursionCacheStack["rule_ref#" + this.node.nodeIdx] = ruleEntryDef;
+  
+    }
+    return true;
+  }
+
+
+  traversionActions(inTraversion: LinearTraversion, step: TraversionControl, cache: TraversionCache) {
+
+    const r = this.ruleEntryDef;
+
+    switch (inTraversion.purpose) {
+
+      case TraversionPurpose.FIND_NEXT_TOKENS:
+        switch (step.kind) {
+          case TraversionItemKind.NODE_START:
+            if (r) {
+              r.collectedFromIndex = cache.intoState.shiftsAndReduces.length;
+            }
+            break;
+          case TraversionItemKind.NODE_END:
+          case TraversionItemKind.CHILD_SEPARATOR:
+            break;
+
+          default:
+            throw new Error("Bad item : " + step);
+        }
+
+        break;
+    }
+  }
 }
 
 abstract class PredicateTraverser extends SingleTraverser {
