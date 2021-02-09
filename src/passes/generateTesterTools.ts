@@ -83,52 +83,35 @@ function generateVisualizerTreeUpwards(tnode: RuleElementTraverser, parents: Rul
   if (!tnode.parent) {
     return;
   }
-  var p = tnode.parent, plab = "", pkind, inshortenedrule = 0;
+  var p = tnode.parent, plab = "", pkind;
   if (p) {
     plab = p.shortLabel;
-    pkind = p.node.kind;
   }
-  fin: while (p.parent) {
+  shortenTree: while (p.parent) {
     switch (p.parent.node.kind) {
       case PNodeKind.ONE_OR_MORE:
-        if (inshortenedrule) throw new Error();
-        plab = p.parent.shortLabel.substring(0, p.parent.shortLabel.length - 1) +
-          plab + "+";
-        pkind = p.parent.node.kind;
-        p = p.parent;
-        break;
       case PNodeKind.ZERO_OR_MORE:
-        if (inshortenedrule) throw new Error();
-        plab = p.parent.shortLabel.substring(0, p.parent.shortLabel.length - 1) +
-          plab + "*";
-        pkind = p.parent.node.kind;
-        p = p.parent;
-        break;
       case PNodeKind.OPTIONAL:
-        if (inshortenedrule) throw new Error();
-        plab = p.parent.shortLabel.substring(0, p.parent.shortLabel.length - 1) +
-          plab + "?";
-        pkind = p.parent.node.kind;
+        plab = plab + p.parent.shortLabel;
+        if (!pkind) pkind = p.node.kind;
         p = p.parent;
         break;
       case PNodeKind.RULE_REF:
         plab = p.parent.shortLabel;
+        if (!pkind) pkind = p.node.kind;
         p = p.parent;
-        if (inshortenedrule) break fin;
         break;
       case PNodeKind.RULE:
-        if (inshortenedrule) throw new Error();
         if (!plab) {
           plab = p.parent.shortLabel;
+          if (!pkind) pkind = p.node.kind;
           p = p.parent;
-          inshortenedrule = 1;
         } else {
-          break fin;
+          break shortenTree;
         }
         break;
       default:
-        if (inshortenedrule) throw new Error();
-        break fin;
+        break shortenTree;
     }
   }
   if (!(p$ = p["$$$"])) {
