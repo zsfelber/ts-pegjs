@@ -1325,11 +1325,16 @@ class RuleRefTraverser extends RefTraverser {
       }
     }
 
+    if (this.traverserStep) throw new Error("There is a traverserStep already : " + this + "  traverserStep:" + this.traverserStep);
+
     if (this.isDeferred) {
       //console.log("peek rule_ref#" + this.targetRule.nodeIdx + recursionCacheStack.indent+" "+this.recursiveRuleOriginal);
 
       this.traverserStep = new TraversionControl(inTraversion, TraversionItemKind.DEFERRED_RULE, this);
       inTraversion.pushControl(this.traverserStep);
+
+      this.stateNode = new JumpIntoSubroutineLeafStateNode(this);
+      this.parser.allLeafStateNodes.push(this.stateNode);
 
       return false;
     } else {
@@ -1348,38 +1353,6 @@ class RuleRefTraverser extends RefTraverser {
     }
 
   }
-
-  traversionActions(inTraversion: LinearTraversion, step: TraversionControl, cache: TraversionCache) {
-
-    switch (inTraversion.purpose) {
-
-      case TraversionPurpose.FIND_NEXT_TOKENS:
-        switch (step.kind) {
-          case TraversionItemKind.DEFERRED_RULE:
-            if (!this.isDeferred) throw new Error("State error, it should be deferred or non-deferred :" + this);
-  
-            this.stateNode = new JumpIntoSubroutineLeafStateNode(this);
-            this.parser.allLeafStateNodes.push(this.stateNode);
-
-            break;
-          case TraversionItemKind.RULE:
-
-            if (this.isDeferred) throw new Error("State error, it should be deferred or non-deferred :" + this);
-
-            break;
-          case TraversionItemKind.NODE_START:
-          case TraversionItemKind.NODE_END:
-          case TraversionItemKind.CHILD_SEPARATOR:
-            break;
-
-          default:
-            throw new Error("Bad item : " + step);
-        }
-
-        break;
-    }
-  }
-
 
 
   findRuleNodeParent(rule: string, incl = false) {
@@ -1427,10 +1400,11 @@ class TerminalRefTraverser extends RefTraverser {
   }
 
   pushPrefixControllerItem(inTraversion: LinearTraversion) {
+    if (this.traverserStep) throw new Error("There is a traverserStep already : " + this + "  traverserStep:" + this.traverserStep);
+
     this.stateNode = new TraversedLeafStateNode(this);
     this.parser.allLeafStateNodes.push(this.stateNode);
 
-    if (this.traverserStep) throw new Error("There is a traverserStep already : " + this + "  traverserStep:" + this.traverserStep);
     this.traverserStep = new TraversionControl(inTraversion, TraversionItemKind.TERMINAL, this);
     inTraversion.pushControl(this.traverserStep);
   }
