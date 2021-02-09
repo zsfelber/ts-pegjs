@@ -20,7 +20,7 @@ function generateTT(ast, ...args) {
   ast.rules.forEach(r => { ruleMap[r.name] = ri++; });
 
   Analysis.ruleTable = grammar.rules;
-  Analysis.bigStartRules = options.bigStartRules ? options.bigStartRules : [];
+  Analysis.deferredRules = options.deferredRules ? options.deferredRules : [];
 
   const doit = (r: string) => {
     ri = ruleMap[r];

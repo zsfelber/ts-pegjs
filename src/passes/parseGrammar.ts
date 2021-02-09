@@ -197,7 +197,6 @@ function generate(ast, ...args) {
   });
 
   var allstarts = [];
-  var deps: StrMapLike<PRuleRef> = {};
   var created: StrMapLike<number> = {};
 
   var ruleMap = {};
@@ -207,7 +206,7 @@ function generate(ast, ...args) {
   var grammar: PGrammar = ctx.grammar;
 
   Analysis.ruleTable = grammar.rules;
-  Analysis.bigStartRules = options.bigStartRules ? options.bigStartRules : [];
+  Analysis.deferredRules = options.deferredRules ? options.deferredRules : [];
 
   const doit = (r: string) => {
     if (!created[r]) {
@@ -216,34 +215,24 @@ function generate(ast, ...args) {
       var rule = grammar.children[ri] as PRule;
 
       var g = ParseTableGenerator.createForRule(rule);
-      Object.assign(deps, g.startRuleDependencies);
       return true;
     }
   };
 
-  if (options.bigStartRules) {
-    console.log("bigStartRules:" + options.bigStartRules.join(", "));
-    options.bigStartRules.forEach(r => {
+  if (options.deferredRules) {
+    console.log("deferredRules:" + options.deferredRules.join(", "));
+    options.deferredRules.forEach(r => {
       if (doit(r)) allstarts.push(r);
     });
   }
   if (options.allowedStartRules) {
     console.log("allowedStartRules:" + options.allowedStartRules.join(", "));
     options.allowedStartRules.forEach(r => {
-      delete deps[r];
-      if (doit(r)) allstarts.push(r);
-    });
-  }
-  var depks = Object.keys(deps);
-  if (depks.length) {
-    console.log("Remaining dependencies:" + depks.join(", "));
-    depks.forEach(r => {
       if (doit(r)) allstarts.push(r);
     });
   }
 
   allstarts.sort();
-  ast.dependencies = depks;
   allstarts.splice(allstarts.indexOf(options.allowedStartRules[0]),1);
   allstarts.unshift(options.allowedStartRules[0]);
   ast.allstarts = allstarts;
