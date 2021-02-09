@@ -16,6 +16,7 @@ import { EntryPointTraverser, ParseTable, ParseTableGenerator } from '../../lib/
 import {
   Analysis
 } from "../../lib";
+import { Console } from 'console';
 
 // Generates parser JavaScript code.
 function generateTS(ast, ...args) {
@@ -41,6 +42,8 @@ function generateTS(ast, ...args) {
   }
 
   var grammar: PGrammar = ast.grammar;
+
+  console.log("Generate parser...");
 
   function generateRuleHeader(ruleNameCode, ruleIndexCode) {
     let parts = [];

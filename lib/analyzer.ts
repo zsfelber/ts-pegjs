@@ -470,7 +470,9 @@ export class GrammarParsingLeafState {
     this.index = startState.index;
     this.startState = startState;
     this.startingPoint = startingPoint;
-    //result.jumpToRule = g.jumpToRule;
+    this.epsilonReduceActions = [];
+    this.reduceActions = [];
+      //result.jumpToRule = g.jumpToRule;
     //result.jumpToRuleTokenId = g.jumpToRuleTokenId;
     //result.actionNodeId = g.actionNodeId;
   }
