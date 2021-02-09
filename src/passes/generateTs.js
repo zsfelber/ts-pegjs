@@ -20,6 +20,8 @@ function generateTS(ast) {
     var options = args[args.length - 1];
     //options.returnTypes = {};
     var param0 = options.param0 ? options.param0 + ', ' : '';
+    var allstarts;
+    allstarts = ast.allstarts;
     // These only indent non-empty lines to avoid trailing whitespace.
     function indent2(code) {
         return code.replace(/^(.+)$/gm, '  $1');
@@ -130,7 +132,7 @@ function generateTS(ast) {
     function generateBaseClass() {
         var parts = [];
         var baseTokenType = options.baseTokenType ? options.baseTokenType : "IToken";
-        var r0 = options.allowedStartRules.length === 1 ? options.allowedStartRules[0] : '';
+        var r0 = allstarts.length === 1 ? allstarts[0] : '';
         var startType = ast.inferredTypes[r0];
         startType = startType ? ': ' + startType : '';
         parts.push([
@@ -270,7 +272,7 @@ function generateTS(ast) {
     function generatePackrat() {
         var parts = [];
         var baseTokenType = options.baseTokenType ? options.baseTokenType : "IToken";
-        var r0 = options.allowedStartRules.length === 1 ? options.allowedStartRules[0] : '';
+        var r0 = allstarts.length === 1 ? allstarts[0] : '';
         var startType = ast.inferredTypes[r0];
         startType = startType ? ': ' + startType : '';
         parts.push([
@@ -367,7 +369,7 @@ function generateTS(ast) {
     function generateToplevel() {
         var parts = [];
         // interfaces removed from here , it is better to import
-        var r0 = options.allowedStartRules.length === 1 ? options.allowedStartRules[0] : '';
+        var r0 = allstarts.length === 1 ? allstarts[0] : '';
         var startType = ast.inferredTypes[r0];
         startType = startType ? ': ' + startType : '';
         parts.push([
@@ -412,7 +414,7 @@ function generateTS(ast) {
                 : options.tspegjs.customHeader.toString();
         }
         var startRules = ['export const StartRules = new Map<RuleId,string>();']
-            .concat(options.allowedStartRules.map(function (r) { return 'StartRules.set(RuleId.' + r + ', "' + r + '");'; }))
+            .concat(allstarts.map(function (r) { return 'StartRules.set(RuleId.' + r + ', "' + r + '");'; }))
             .join('\n');
         res = res.concat([
             "import { IFilePosition, IFileRange, IAnyExpectation, IEndExpectation, IOtherExpectation, Expectation, SyntaxError, ITraceEvent, DefaultTracer, ICached, PegjsParseStream, PackratRunner, PRule, IFailure, PegjsParseErrorInfo, mergeFailures, mergeLocalFailures, IToken, ITokenExpectation, PNode, EntryPointInterpreter, SerDeser, peg$FAILED, ParseTable, Packrat } from 'ts-pegjs/lib';",
@@ -440,7 +442,7 @@ function generateTS(ast) {
         ast.rules.forEach(function (r) { ruleMap[r.name] = ri++; });
         var parseTbl = [];
         lib_2.Analysis.ruleTable = grammar.rules;
-        options.allowedStartRules.forEach(function (r) {
+        var doit = function (r) {
             ri = ruleMap[r];
             var rule = grammar.children[ri];
             if (rule.rule !== r) {
@@ -457,9 +459,12 @@ function generateTS(ast) {
             //   }
             //   chi++;
             // });
+        };
+        allstarts.forEach(function (r) {
+            doit(r);
         });
         parseTbl.push("");
-        parseTbl.push("const peg$PrsTbls = {" + options.allowedStartRules.map(function (r) { return ruleMap[r] + ": peg$decodePrsTbl(peg$PrsTbl" + r + ")"; }).join(", ") + "};");
+        parseTbl.push("const peg$PrsTbls = {" + allstarts.map(function (r) { return ruleMap[r] + ": peg$decodePrsTbl(peg$PrsTbl" + r + ")"; }).join(", ") + "};");
         if (lib_2.Analysis.ERRORS) {
             console.error("Errors. Not generating (but for debugging only).");
         }

@@ -22,20 +22,13 @@ function generateTT(ast, ...args) {
   Analysis.ruleTable = grammar.rules;
   Analysis.bigStartRules = options.bigStartRules ? options.bigStartRules : [];
 
-  var deps: StrMapLike<PRuleRef> = {};
-  var created: StrMapLike<number> = {};
-
   const doit = (r: string) => {
-    if (!created[r]) {
-      created[r] = 1;
       ri = ruleMap[r];
       var rule = grammar.children[ri] as PRule;
 
       console.log("Generate visualizer tree for " + rule.rule);
 
       var g = ParseTableGenerator.createForRule(rule);
-      var main2 = g.startingStateNode.traverser;
-      Object.assign(deps, g.startRuleDependencies);
 
       var leaves = g.allLeafStateNodes.map(itm => {
         var tnode = itm.traverser;
@@ -69,36 +62,13 @@ function generateTT(ast, ...args) {
       const fnm = "../www/pnodes-graph-" + rule.rule + ".json";
       fs.writeFileSync(fnm, j);
       return true;
-    } else {
-      return false;
-    }
   };
-  var allstarts = [];
-  if (options.bigStartRules) {
-    console.log("bigStartRules:" + options.bigStartRules.join(", "));
-    options.bigStartRules.forEach(r => {
-      if (doit(r))
-        allstarts.push(r);
-    });
-  }
-  if (options.allowedStartRules) {
-    console.log("allowedStartRules:" + options.allowedStartRules.join(", "));
-    options.allowedStartRules.forEach(r => {
-      delete deps[r];
-      if (doit(r))
-        allstarts.push(r);
-    });
-  }
-  var depks = Object.keys(deps);
-  if (depks.length) {
-    console.log("Remaining dependencies:" + depks.join(", "));
-    depks.forEach(r => {
-      if (doit(r))
-        allstarts.push(r);
-    });
-  }
 
-  allstarts.sort();
+  var allstarts = ast.allstarts;
+
+  allstarts.forEach(r => {
+    doit(r);
+  });
 
   const fnm0 = "../www/pnodes-graph.json";
   fs.writeFileSync(fnm0, JSON.stringify(allstarts));
@@ -108,27 +78,72 @@ function generateTT(ast, ...args) {
 function generateVisualizerTreeUpwards(tnode: RuleElementTraverser, parents: RuleElementTraverser[]) {
   var p$, n$;
   if (!(n$ = tnode["$$$"])) {
-    tnode["$$$"] = n$ = { name: tnode.shortLabel(), children: [], n: 1, kind:tnode.node.kind };
+    tnode["$$$"] = n$ = { name: tnode.shortLabel, children: [], n: 1, kind: tnode.node.kind };
   }
   if (!tnode.parent) {
     return;
   }
-  var p = tnode.parent;
-  if (p.node.kind === PNodeKind.RULE && p.parent) {
-    p = p.parent;
+  var p = tnode.parent, plab = "", pkind, inshortenedrule = 0;
+  if (p) {
+    plab = p.shortLabel;
+    pkind = p.node.kind;
+  }
+  fin: while (p.parent) {
+    switch (p.parent.node.kind) {
+      case PNodeKind.ONE_OR_MORE:
+        if (inshortenedrule) throw new Error();
+        plab = p.parent.shortLabel.substring(0, p.parent.shortLabel.length - 1) +
+          plab + "+";
+        pkind = p.parent.node.kind;
+        p = p.parent;
+        break;
+      case PNodeKind.ZERO_OR_MORE:
+        if (inshortenedrule) throw new Error();
+        plab = p.parent.shortLabel.substring(0, p.parent.shortLabel.length - 1) +
+          plab + "*";
+        pkind = p.parent.node.kind;
+        p = p.parent;
+        break;
+      case PNodeKind.OPTIONAL:
+        if (inshortenedrule) throw new Error();
+        plab = p.parent.shortLabel.substring(0, p.parent.shortLabel.length - 1) +
+          plab + "?";
+        pkind = p.parent.node.kind;
+        p = p.parent;
+        break;
+      case PNodeKind.RULE_REF:
+        plab = p.parent.shortLabel;
+        p = p.parent;
+        if (inshortenedrule) break fin;
+        break;
+      case PNodeKind.RULE:
+        if (inshortenedrule) throw new Error();
+        if (!plab) {
+          plab = p.parent.shortLabel;
+          p = p.parent;
+          inshortenedrule = 1;
+        } else {
+          break fin;
+        }
+        break;
+      default:
+        if (inshortenedrule) throw new Error();
+        break fin;
+    }
   }
   if (!(p$ = p["$$$"])) {
-    p["$$$"] = p$ = { name: p.shortLabel(), children: [], n: 1, kind:p.node.kind };
+    if (!pkind) pkind = p.node.kind;
+    p["$$$"] = p$ = { name: plab, kind: pkind, children: [], n: 1 };
     parents.push(p);
   }
   if (p["$leaf$"]) {
-    throw new Error("Bad leaf with children : "+p);
+    throw new Error("Bad leaf with children : " + p);
   }
   p$.children.push(n$);
 }
 
 function countVisualizerTree($node: any) {
-  $node.children.forEach($child=>{
+  $node.children.forEach($child => {
     $node.n += countVisualizerTree($child);
   });
   return $node.n;
@@ -148,7 +163,7 @@ function tothingyjson(obj: any, ind = "") {
   });
 
   var buffer = [];
-  buffer.push(ind + '{ "name":"' + (obj.name?obj.name:"") + '", "kind":"' + obj.kind + '", "n":' + (obj.n ? obj.n : 0) + (obj.numleaves ? ', "numleaves":'+obj.numleaves : "") + (obj.numlevels ? ', "numlevels":'+obj.numlevels : "") + ', "children":[');
+  buffer.push(ind + '{ "name":"' + (obj.name ? obj.name : "") + '", "kind":"' + obj.kind + '", "n":' + (obj.n ? obj.n : 0) + (obj.numleaves ? ', "numleaves":' + obj.numleaves : "") + (obj.numlevels ? ', "numlevels":' + obj.numlevels : "") + ', "children":[');
   buffer.push(chbuf.join(",\n"));
   buffer.push(ind + "]  }");
 

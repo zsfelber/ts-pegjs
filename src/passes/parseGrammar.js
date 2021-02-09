@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 var compiler_1 = require("pegjs/lib/compiler");
+var analyzer_1 = require("../../lib/analyzer");
 var lib_1 = require("../../lib");
 var stringifySafe = require('json-stringify-safe');
 var options;
@@ -164,6 +165,53 @@ function generate(ast) {
             err = 1;
         }
     });
+    var allstarts = [];
+    var deps = {};
+    var created = {};
+    var ruleMap = {};
+    var ri = 0;
+    ast.rules.forEach(function (r) { ruleMap[r.name] = ri++; });
+    var grammar = ctx.grammar;
+    analyzer_1.Analysis.ruleTable = grammar.rules;
+    analyzer_1.Analysis.bigStartRules = options.bigStartRules ? options.bigStartRules : [];
+    var doit = function (r) {
+        if (!created[r]) {
+            created[r] = 1;
+            ri = ruleMap[r];
+            var rule = grammar.children[ri];
+            var g = analyzer_1.ParseTableGenerator.createForRule(rule);
+            Object.assign(deps, g.startRuleDependencies);
+            return true;
+        }
+    };
+    if (options.bigStartRules) {
+        console.log("bigStartRules:" + options.bigStartRules.join(", "));
+        options.bigStartRules.forEach(function (r) {
+            if (doit(r))
+                allstarts.push(r);
+        });
+    }
+    if (options.allowedStartRules) {
+        console.log("allowedStartRules:" + options.allowedStartRules.join(", "));
+        options.allowedStartRules.forEach(function (r) {
+            delete deps[r];
+            if (doit(r))
+                allstarts.push(r);
+        });
+    }
+    var depks = Object.keys(deps);
+    if (depks.length) {
+        console.log("Remaining dependencies:" + depks.join(", "));
+        depks.forEach(function (r) {
+            if (doit(r))
+                allstarts.push(r);
+        });
+    }
+    allstarts.sort();
+    ast.dependencies = depks;
+    allstarts.splice(allstarts.indexOf(options.allowedStartRules[0]), 1);
+    allstarts.unshift(options.allowedStartRules[0]);
+    ast.allstarts = allstarts;
     if (err) {
         throw new Error("Grammar parsing error(s).");
     }

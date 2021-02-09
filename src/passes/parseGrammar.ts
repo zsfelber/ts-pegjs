@@ -1,10 +1,11 @@
 import * as fs from "fs";
 import { visitor } from "pegjs/lib/compiler";
+import { Analysis, ParseTableGenerator } from '../../lib/analyzer';
 import {
   PActContainer, PActionKind, PFunction,
   PGrammar, PLogicNode, PNode, PNodeKind, PRule,
   PRuleRef, PSemanticAnd, PSemanticNot, PTerminal,
-  PTerminalRef, PValueNode, PConss
+  PTerminalRef, PValueNode, PConss, StrMapLike
 } from '../../lib';
 var stringifySafe = require('json-stringify-safe');
 
@@ -194,6 +195,59 @@ function generate(ast, ...args) {
       err = 1;
     }
   });
+
+  var allstarts = [];
+  var deps: StrMapLike<PRuleRef> = {};
+  var created: StrMapLike<number> = {};
+
+  var ruleMap = {};
+  var ri = 0;
+  ast.rules.forEach(r => { ruleMap[r.name] = ri++; });
+
+  var grammar: PGrammar = ctx.grammar;
+
+  Analysis.ruleTable = grammar.rules;
+  Analysis.bigStartRules = options.bigStartRules ? options.bigStartRules : [];
+
+  const doit = (r: string) => {
+    if (!created[r]) {
+      created[r] = 1;
+      ri = ruleMap[r];
+      var rule = grammar.children[ri] as PRule;
+
+      var g = ParseTableGenerator.createForRule(rule);
+      Object.assign(deps, g.startRuleDependencies);
+      return true;
+    }
+  };
+
+  if (options.bigStartRules) {
+    console.log("bigStartRules:" + options.bigStartRules.join(", "));
+    options.bigStartRules.forEach(r => {
+      if (doit(r)) allstarts.push(r);
+    });
+  }
+  if (options.allowedStartRules) {
+    console.log("allowedStartRules:" + options.allowedStartRules.join(", "));
+    options.allowedStartRules.forEach(r => {
+      delete deps[r];
+      if (doit(r)) allstarts.push(r);
+    });
+  }
+  var depks = Object.keys(deps);
+  if (depks.length) {
+    console.log("Remaining dependencies:" + depks.join(", "));
+    depks.forEach(r => {
+      if (doit(r)) allstarts.push(r);
+    });
+  }
+
+  allstarts.sort();
+  ast.dependencies = depks;
+  allstarts.splice(allstarts.indexOf(options.allowedStartRules[0]),1);
+  allstarts.unshift(options.allowedStartRules[0]);
+  ast.allstarts = allstarts;
+
 
   if (err) {
     throw new Error("Grammar parsing error(s).");

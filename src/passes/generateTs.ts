@@ -25,6 +25,9 @@ function generateTS(ast, ...args) {
   //options.returnTypes = {};
   const param0 = options.param0 ? options.param0 + ', ' : '';
 
+  var allstarts: string[];
+  allstarts = ast.allstarts;
+
   // These only indent non-empty lines to avoid trailing whitespace.
   function indent2(code) {
     return code.replace(/^(.+)$/gm, '  $1');
@@ -161,7 +164,7 @@ function generateTS(ast, ...args) {
   function generateBaseClass() {
     var parts = [];
     const baseTokenType = options.baseTokenType ? options.baseTokenType : "IToken";
-    var r0 = options.allowedStartRules.length === 1 ? options.allowedStartRules[0] : '';
+    var r0 = allstarts.length === 1 ? allstarts[0] : '';
     var startType = ast.inferredTypes[r0];
     startType = startType ? ': ' + startType : '';
 
@@ -323,7 +326,7 @@ function generateTS(ast, ...args) {
   function generatePackrat() {
     var parts = [];
     const baseTokenType = options.baseTokenType ? options.baseTokenType : "IToken";
-    var r0 = options.allowedStartRules.length === 1 ? options.allowedStartRules[0] : '';
+    var r0 = allstarts.length === 1 ? allstarts[0] : '';
     var startType = ast.inferredTypes[r0];
     startType = startType ? ': ' + startType : '';
 
@@ -448,7 +451,7 @@ function generateTS(ast, ...args) {
 
     // interfaces removed from here , it is better to import
 
-    var r0 = options.allowedStartRules.length === 1 ? options.allowedStartRules[0] : '';
+    var r0 = allstarts.length === 1 ? allstarts[0] : '';
     var startType = ast.inferredTypes[r0];
     startType = startType ? ': ' + startType : '';
 
@@ -520,7 +523,7 @@ function pushc(cache: any, item: any): any {
 
     var startRules = ['export const StartRules = new Map<RuleId,string>();']
       .concat(
-        options.allowedStartRules.map(
+        allstarts.map(
           (r) => 'StartRules.set(RuleId.' + r + ', "' + r + '");'
         )
       )
@@ -558,7 +561,7 @@ function pushc(cache: any, item: any): any {
 
     Analysis.ruleTable = grammar.rules;
 
-    options.allowedStartRules.forEach(r => {
+    const doit = (r) => {
       ri = ruleMap[r];
       var rule = grammar.children[ri] as PRule;
       if (rule.rule !== r) {
@@ -576,10 +579,14 @@ function pushc(cache: any, item: any): any {
       //   }
       //   chi++;
       // });
+    };
+
+    allstarts.forEach(r => {
+      doit(r);
     });
 
     parseTbl.push("");
-    parseTbl.push("const peg$PrsTbls = {" + options.allowedStartRules.map(r => ruleMap[r] + ": peg$decodePrsTbl(peg$PrsTbl" + r + ")").join(", ") + "};");
+    parseTbl.push("const peg$PrsTbls = {" + allstarts.map(r => ruleMap[r] + ": peg$decodePrsTbl(peg$PrsTbl" + r + ")").join(", ") + "};");
 
     if (Analysis.ERRORS) {
       console.error("Errors. Not generating (but for debugging only).");

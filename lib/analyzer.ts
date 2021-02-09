@@ -973,8 +973,8 @@ export abstract class RuleElementTraverser {
     return "T~" + this.node + (this.optionalBranch ? "<opt>" : "");
   }
   
-  shortLabel() {
-    return this.node.label;
+  get shortLabel() {
+    return "";
   }
 
 }
@@ -1133,6 +1133,9 @@ class OptionalTraverser extends SingleTraverser {
     return true;
   }
 
+  get shortLabel() {
+    return "?";
+  }
 }
 
 class OrMoreTraverser extends SingleCollectionTraverser {
@@ -1175,8 +1178,8 @@ class OrMoreTraverser extends SingleCollectionTraverser {
 class ZeroOrMoreTraverser extends OrMoreTraverser {
 
   
-  shortLabel() {
-    return (this.node.label?this.node.label+":":"")+"*";
+  get shortLabel() {
+    return "*";
   }
 
 }
@@ -1192,8 +1195,8 @@ class OneOrMoreTraverser extends OrMoreTraverser {
     this.optionalBranch = this.child.optionalBranch;
   }
 
-  shortLabel() {
-    return (this.node.label?this.node.label+":":"")+"+";
+  get shortLabel() {
+    return "+";
   }
 
 }
@@ -1403,8 +1406,8 @@ class RuleRefTraverser extends RefTraverser implements RecursiveRuleDef {
     + (this.shiftReducesOfFirstState ? "=" + this.shiftReducesOfFirstState.length : "");
   }
 
-  shortLabel() {
-    return (this.node.label?this.node.label+":":"")+"#"+this.node.rule;
+  get shortLabel() {
+    return this.node.rule+(this.stateNode?"#"+this.stateNode.index:"");
   }
 
 }
@@ -1461,8 +1464,8 @@ class TerminalRefTraverser extends RefTraverser {
     }
   }
 
-  shortLabel() {
-    return (this.node.label?this.node.label+":":"")+this.node.terminal;
+  get shortLabel() {
+    return this.node.terminal+"#"+this.stateNode.index;
   }
 
 }
@@ -1566,8 +1569,8 @@ export class EntryPointTraverser extends RuleTraverser {
     }
   }
 
-  shortLabel() {
-    return (this.node.label?this.node.label+":":"")+this.node.rule;
+  get shortLabel() {
+    return this.node.rule;
   }
 
 }

@@ -21,94 +21,116 @@ function generateTT(ast) {
     ast.rules.forEach(function (r) { ruleMap[r.name] = ri++; });
     lib_1.Analysis.ruleTable = grammar.rules;
     lib_1.Analysis.bigStartRules = options.bigStartRules ? options.bigStartRules : [];
-    var deps = {};
-    var created = {};
     var doit = function (r) {
-        if (!created[r]) {
-            created[r] = 1;
-            ri = ruleMap[r];
-            var rule = grammar.children[ri];
-            console.log("Generate visualizer tree for " + rule.rule);
-            var g = lib_1.ParseTableGenerator.createForRule(rule);
-            var main2 = g.startingStateNode.traverser;
-            Object.assign(deps, g.startRuleDependencies);
-            var leaves = g.allLeafStateNodes.map(function (itm) {
-                var tnode = itm.traverser;
-                tnode["$leaf$"] = 1;
-                return tnode;
+        ri = ruleMap[r];
+        var rule = grammar.children[ri];
+        console.log("Generate visualizer tree for " + rule.rule);
+        var g = lib_1.ParseTableGenerator.createForRule(rule);
+        var leaves = g.allLeafStateNodes.map(function (itm) {
+            var tnode = itm.traverser;
+            tnode["$leaf$"] = 1;
+            return tnode;
+        });
+        var items = leaves;
+        var i = 0;
+        do {
+            var parents = [];
+            items.forEach(function (tnode) {
+                generateVisualizerTreeUpwards(tnode, parents);
             });
-            var items = leaves;
-            var i = 0;
-            do {
-                var parents = [];
-                items.forEach(function (tnode) {
-                    generateVisualizerTreeUpwards(tnode, parents);
-                });
-                //console.log(i++ + "." + parents.length);
-                items = parents;
-                i++;
-            } while (items.length);
-            var main = Object.values(g.entryPoints)[0];
-            var main2 = g.startingStateNode.traverser;
-            if (main !== main2)
-                throw new Error();
-            var vtree = main["$$$"];
-            if (!vtree)
-                throw new Error("Could not generate visual tree up to : " + main);
-            countVisualizerTree(vtree);
-            vtree.numleaves = leaves.length;
-            vtree.numlevels = i;
-            var j = tothingyjson(vtree);
-            var fnm = "../www/pnodes-graph-" + rule.rule + ".json";
-            fs.writeFileSync(fnm, j);
-            return true;
-        }
-        else {
-            return false;
-        }
+            //console.log(i++ + "." + parents.length);
+            items = parents;
+            i++;
+        } while (items.length);
+        var main = Object.values(g.entryPoints)[0];
+        var main2 = g.startingStateNode.traverser;
+        if (main !== main2)
+            throw new Error();
+        var vtree = main["$$$"];
+        if (!vtree)
+            throw new Error("Could not generate visual tree up to : " + main);
+        countVisualizerTree(vtree);
+        vtree.numleaves = leaves.length;
+        vtree.numlevels = i;
+        var j = tothingyjson(vtree);
+        var fnm = "../www/pnodes-graph-" + rule.rule + ".json";
+        fs.writeFileSync(fnm, j);
+        return true;
     };
-    var allstarts = [];
-    if (options.bigStartRules) {
-        console.log("bigStartRules:" + options.bigStartRules.join(", "));
-        options.bigStartRules.forEach(function (r) {
-            if (doit(r))
-                allstarts.push(r);
-        });
-    }
-    if (options.allowedStartRules) {
-        console.log("allowedStartRules:" + options.allowedStartRules.join(", "));
-        options.allowedStartRules.forEach(function (r) {
-            delete deps[r];
-            if (doit(r))
-                allstarts.push(r);
-        });
-    }
-    var depks = Object.keys(deps);
-    if (depks.length) {
-        console.log("Remaining dependencies:" + depks.join(", "));
-        depks.forEach(function (r) {
-            if (doit(r))
-                allstarts.push(r);
-        });
-    }
-    allstarts.sort();
+    var allstarts = ast.allstarts;
+    allstarts.forEach(function (r) {
+        doit(r);
+    });
     var fnm0 = "../www/pnodes-graph.json";
     fs.writeFileSync(fnm0, JSON.stringify(allstarts));
 }
 function generateVisualizerTreeUpwards(tnode, parents) {
     var p$, n$;
     if (!(n$ = tnode["$$$"])) {
-        tnode["$$$"] = n$ = { name: tnode.shortLabel(), children: [], n: 1, kind: tnode.node.kind };
+        tnode["$$$"] = n$ = { name: tnode.shortLabel, children: [], n: 1, kind: tnode.node.kind };
     }
     if (!tnode.parent) {
         return;
     }
-    var p = tnode.parent;
-    if (p.node.kind === parsers_1.PNodeKind.RULE && p.parent) {
-        p = p.parent;
+    var p = tnode.parent, plab = "", pkind, inshortenedrule = 0;
+    if (p) {
+        plab = p.shortLabel;
+        pkind = p.node.kind;
+    }
+    fin: while (p.parent) {
+        switch (p.parent.node.kind) {
+            case parsers_1.PNodeKind.ONE_OR_MORE:
+                if (inshortenedrule)
+                    throw new Error();
+                plab = p.parent.shortLabel.substring(0, p.parent.shortLabel.length - 1) +
+                    plab + "+";
+                pkind = p.parent.node.kind;
+                p = p.parent;
+                break;
+            case parsers_1.PNodeKind.ZERO_OR_MORE:
+                if (inshortenedrule)
+                    throw new Error();
+                plab = p.parent.shortLabel.substring(0, p.parent.shortLabel.length - 1) +
+                    plab + "*";
+                pkind = p.parent.node.kind;
+                p = p.parent;
+                break;
+            case parsers_1.PNodeKind.OPTIONAL:
+                if (inshortenedrule)
+                    throw new Error();
+                plab = p.parent.shortLabel.substring(0, p.parent.shortLabel.length - 1) +
+                    plab + "?";
+                pkind = p.parent.node.kind;
+                p = p.parent;
+                break;
+            case parsers_1.PNodeKind.RULE_REF:
+                plab = p.parent.shortLabel;
+                p = p.parent;
+                if (inshortenedrule)
+                    break fin;
+                break;
+            case parsers_1.PNodeKind.RULE:
+                if (inshortenedrule)
+                    throw new Error();
+                if (!plab) {
+                    plab = p.parent.shortLabel;
+                    p = p.parent;
+                    inshortenedrule = 1;
+                }
+                else {
+                    break fin;
+                }
+                break;
+            default:
+                if (inshortenedrule)
+                    throw new Error();
+                break fin;
+        }
     }
     if (!(p$ = p["$$$"])) {
-        p["$$$"] = p$ = { name: p.shortLabel(), children: [], n: 1, kind: p.node.kind };
+        if (!pkind)
+            pkind = p.node.kind;
+        p["$$$"] = p$ = { name: plab, kind: pkind, children: [], n: 1 };
         parents.push(p);
     }
     if (p["$leaf$"]) {
