@@ -69,7 +69,7 @@ function generateTT(ast, ...args) {
     vtree.numlevels = i;
     var j = tothingyjson(vtree);
 
-    const fnm = "../www/pnodes-graph-" + rule.rule + ".json";
+    const fnm = "../www/ast/pnodes-graph-" + rule.rule + ".json";
     fs.writeFileSync(fnm, j);
     return true;
   };
@@ -80,7 +80,7 @@ function generateTT(ast, ...args) {
     doit(r);
   });
 
-  const fnm0 = "../www/pnodes-graph.json";
+  const fnm0 = "../www/ast/pnodes-graph.json";
   fs.writeFileSync(fnm0, JSON.stringify(allstarts));
 }
 

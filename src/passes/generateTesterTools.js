@@ -61,7 +61,7 @@ function generateTT(ast) {
         vtree.numleaves = leaves.length;
         vtree.numlevels = i;
         var j = tothingyjson(vtree);
-        var fnm = "../www/pnodes-graph-" + rule.rule + ".json";
+        var fnm = "../www/ast/pnodes-graph-" + rule.rule + ".json";
         fs.writeFileSync(fnm, j);
         return true;
     };
@@ -69,7 +69,7 @@ function generateTT(ast) {
     allstarts.forEach(function (r) {
         doit(r);
     });
-    var fnm0 = "../www/pnodes-graph.json";
+    var fnm0 = "../www/ast/pnodes-graph.json";
     fs.writeFileSync(fnm0, JSON.stringify(allstarts));
 }
 function shortenTreeUpwards(tnode, parents) {
