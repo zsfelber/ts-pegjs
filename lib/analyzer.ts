@@ -1570,7 +1570,7 @@ export class EntryPointTraverser extends RuleTraverser {
   }
 
   get shortLabel() {
-    return this.node.rule;
+    return this.node.rule+(this.ruleEntryDef?"#1":"");
   }
 
 }
