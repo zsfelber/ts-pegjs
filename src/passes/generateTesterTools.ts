@@ -30,11 +30,20 @@ function generateTT(ast, ...args) {
 
       var g = ParseTableGenerator.createForRule(rule);
 
+      var expectedStateId = 2;
       var leaves = g.allLeafStateNodes.map(itm => {
+        if (itm.index !== expectedStateId) {
+          throw new Error("Expected stateId:"+expectedStateId+" missed for leaf :"+itm);
+        }
         var tnode = itm.traverser;
         tnode["$leaf$"] = 1;
+        expectedStateId++;
         return tnode;
       });
+
+      // Checked ordered, it is ok:
+      //console.log("Leaf states : " + leaves.map(itm=>itm.shortLabel));
+
       var items = leaves;
       var i = 0;
       do {

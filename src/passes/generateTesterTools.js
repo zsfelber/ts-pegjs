@@ -26,11 +26,18 @@ function generateTT(ast) {
         var rule = grammar.children[ri];
         console.log("Generate visualizer tree for " + rule.rule);
         var g = lib_1.ParseTableGenerator.createForRule(rule);
+        var expectedStateId = 2;
         var leaves = g.allLeafStateNodes.map(function (itm) {
+            if (itm.index !== expectedStateId) {
+                throw new Error("Expected stateId:" + expectedStateId + " missed for leaf :" + itm);
+            }
             var tnode = itm.traverser;
             tnode["$leaf$"] = 1;
+            expectedStateId++;
             return tnode;
         });
+        // Checked ordered, it is ok:
+        //console.log("Leaf states : " + leaves.map(itm=>itm.shortLabel));
         var items = leaves;
         var i = 0;
         do {
