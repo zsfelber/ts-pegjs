@@ -87,7 +87,7 @@ function generateTT(ast, ...args) {
 function generateVisualizerTreeUpwards(tnode: RuleElementTraverser, parents: RuleElementTraverser[]) {
   var p$, n$;
   if (!(n$ = tnode["$$$"])) {
-    tnode["$$$"] = n$ = { name: tnode.shortLabel, children: [], n: 1, kind: tnode.node.kind };
+    tnode["$$$"] = n$ = { name: tnode.shortLabel, n: 1, kind: tnode.node.kind };
   }
   if (!tnode.parent) {
     return;
