@@ -33,6 +33,7 @@ function generateTS(ast) {
         return code.replace(/^(.+)$/gm, '            $1');
     }
     var grammar = ast.grammar;
+    console.log("Generate parser...");
     function generateRuleHeader(ruleNameCode, ruleIndexCode) {
         var parts = [];
         parts.push('');

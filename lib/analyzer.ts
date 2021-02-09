@@ -440,6 +440,10 @@ export class ParseTable {
   ser(): number[] {
     var serStates: number[] = [];
     var maxIdx = 0;
+
+    var ind = this.startingState.ser(this.maxTokenId, serStates);
+    if (ind > maxIdx) maxIdx = maxIdx;
+
     this.allStates.forEach(s => {
       var ind = s.ser(this.maxTokenId, serStates);
       if (ind > maxIdx) maxIdx = maxIdx;
@@ -472,9 +476,6 @@ export class GrammarParsingLeafState {
     this.startingPoint = startingPoint;
     this.epsilonReduceActions = [];
     this.reduceActions = [];
-      //result.jumpToRule = g.jumpToRule;
-    //result.jumpToRuleTokenId = g.jumpToRuleTokenId;
-    //result.actionNodeId = g.actionNodeId;
   }
 
   get transitions(): NumMapLike<GrammarParsingLeafState> {
@@ -544,10 +545,15 @@ export class GrammarParsingLeafState {
     });
 
     buf.push(this.isRule ? 1 : 0);
-    buf.push(this.startingPoint.nodeIdx);
-    if (this.startingPoint.nodeIdx > maxIdx) maxIdx = this.startingPoint.nodeIdx;
+    if (this.startingPoint) {
+      buf.push(this.startingPoint.nodeIdx);
+      if (this.startingPoint.nodeIdx > maxIdx) maxIdx = this.startingPoint.nodeIdx;
+    } else {
+      buf.push(0);
+    }
     buf.push(reduce.length);
     buf.push(ereduce.length);
+
     buf.push.apply(buf, toTknIds);
     buf.push.apply(buf, reduce);
     buf.push.apply(buf, ereduce);
