@@ -458,7 +458,7 @@ function generateTS(ast) {
             doit(r);
         });
         parseTbl.push("");
-        parseTbl.push("const peg$PrsTbls = {" + allstarts.map(function (r) { return ruleMap[r] + ": peg$decodePrsTbl(peg$PrsTbl" + r + ")"; }).join(", ") + "};");
+        parseTbl.push("const peg$PrsTbls = {" + allstarts.map(function (r) { return ruleMap[r] + ": peg$decodePrsTbl(" + ruleMap[r] + ", peg$PrsTbl" + r + ")"; }).join(", ") + "};");
         if (lib_2.Analysis.ERRORS) {
             console.error("Errors. Not generating (but for debugging only).");
         }
@@ -544,9 +544,10 @@ function generateTS(ast) {
             '  return rule;',
             '}',
             '',
-            'function peg$decodePrsTbl(s: string) {',
+            'function peg$decodePrsTbl(ri: RuleId, s: string) {',
+            '  var rule = peg$rules[ri];',
             '  var code = peg$decode(s);',
-            '  var parseTable = ParseTable.deserialize(code);',
+            '  var parseTable = ParseTable.deserialize(rule, code);',
             '  return parseTable;',
             '}',
             '',

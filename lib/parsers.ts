@@ -75,6 +75,7 @@ export namespace SerDeser {
 
   export var ruleTable: PRule[];
 
+  export var nodeTable: PNode[];
 }
 
 export abstract class PNode {
@@ -111,6 +112,7 @@ export abstract class PNode {
   deser(arr: number[], pos: number): number {
     this.nodeIdx = SerDeser.cnt++;
     pos = this.deschildren(arr, pos);
+    SerDeser.nodeTable[this.nodeIdx] = this;
     return pos;
   }
 

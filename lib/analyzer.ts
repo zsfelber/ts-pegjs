@@ -15,6 +15,17 @@ export namespace Analysis {
   export var ruleTable: PRule[];
 
   export var bigStartRules = [];
+
+  export var leafStates:GrammarParsingLeafState[] = [];
+
+  export function leafState(index: number) {
+    var ls = leafStates[index];
+    if (!ls) {
+      leafStates[index] = ls = new GrammarParsingLeafState();
+      ls.index = index;
+    }
+    return ls;
+  }
 }
 
 export const FAIL_STATE = 0;
@@ -419,9 +430,9 @@ export class ParseTableGenerator {
 
 export class ParseTable {
 
-  readonly maxTokenId: number;
+  maxTokenId: number;
   readonly rule: PRule;
-  readonly startingState: GrammarParsingLeafState;
+  startingState: GrammarParsingLeafState;
   // Map  Leaf parser nodeTravId -> 
   readonly allStates: GrammarParsingLeafState[];
 
@@ -432,9 +443,11 @@ export class ParseTable {
     this.allStates = allStates
   }
 
-  static deserialize(code: number[]) {
-    //SerDeser.ruleTable
-
+  static deserialize(rule: PRule, buf: number[]) {
+    var result = new ParseTable(0, rule, null, []);
+    var pos = result.deser(buf);
+    if (pos !== buf.length) throw new Error("ptable:"+rule+" pos:"+pos+" !== "+buf.length);
+    return result;
   }
 
   ser(): number[] {
@@ -450,28 +463,53 @@ export class ParseTable {
     });
     if (this.allStates.length > maxIdx) maxIdx = this.allStates.length;
 
-    var result = [this.allStates.length, this.maxTokenId, maxIdx].concat(serStates);
+    var result = [this.rule.nodeIdx, this.allStates.length, this.maxTokenId, maxIdx].concat(serStates);
     return result;
+  }
+  
+  deser(buf: number[]): number {
+    var maxIdx = 0;
+    var [ridx, stlen, mxtki, maxIdx] = buf;
+    if (ridx !== this.rule.nodeIdx) {
+      throw new Error("Data error , invalid rule : "+this.rule+"/"+this.rule.nodeIdx+" vs  ridx:"+ridx);
+    }
+
+    this.maxTokenId = mxtki;
+    var pos = 4;
+    var st0 = Analysis.leafState(1);
+    pos = st0.deser(mxtki, 1, buf, pos);
+    this.startingState = st0;
+
+    stlen++;
+    for (var i=2; i<=stlen; i++) {
+      var st = Analysis.leafState(i);
+      pos = st.deser(mxtki, i, buf, pos);
+      this.allStates.push(st);
+    }
+
+    return pos;
   }
 
 }
 
 export class GrammarParsingLeafState {
 
-  readonly isRule: boolean;
-  readonly index: number;
+  isRule: boolean;
+  index: number;
 
-  readonly startingPoint: PRef;
+  startingPoint: PRef;
   private startState: StateNode;
 
   // tokenId -> traversion state
   private _transitions: NumMapLike<GrammarParsingLeafState>;
-  readonly epsilonReduceActions: PNode[];
   readonly reduceActions: PNode[];
+  readonly epsilonReduceActions: PNode[];
 
-  constructor(startState: StateNode, startingPoint: PRef) {
-    this.isRule = startState.isRule;
-    this.index = startState.index;
+  constructor(startState?: StateNode, startingPoint?: PRef) {
+    if (startState) {
+      this.isRule = startState.isRule;
+      this.index = startState.index;
+    }
     this.startState = startState;
     this.startingPoint = startingPoint;
     this.epsilonReduceActions = [];
@@ -559,6 +597,29 @@ export class GrammarParsingLeafState {
     buf.push.apply(buf, ereduce);
 
     return maxIdx;
+  }
+
+  
+  deser(maxTknId: number, index:number, buf: number[], pos: number): number {
+    var [isrl, sndx, rlen, erlen] = buf;
+    this.isRule = isrl===1;
+    this.index = index;
+    this.startingPoint = sndx ? SerDeser.nodeTable[sndx] as PRef : null;
+
+    for (var i = 0; i<maxTknId; i++, pos++) {
+      var si = buf[pos];
+      var state = si ? Analysis.leafState(si) : null;
+      this.transitions[i] = state;
+    }
+    for (var i = 0; i<rlen; i++, pos++) {
+      var node = SerDeser.nodeTable[buf[pos]];
+      this.reduceActions.push(node);
+    }
+    for (var i = 0; i<erlen; i++, pos++) {
+      var node = SerDeser.nodeTable[buf[pos]];
+      this.epsilonReduceActions.push(node);
+    }
+    return pos;
   }
 
 }
