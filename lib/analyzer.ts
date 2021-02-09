@@ -67,7 +67,7 @@ namespace Factory {
         if (!parent) {
           return new EntryPointTraverser(parser, null, node as PRule);
         } else if (parent instanceof RuleRefTraverser) {
-          return new ReferencedRuleTraverser(parser, parent, node as PRule);
+          return new CopiedRuleTraverser(parser, parent, node as PRule);
         } else {
           throw new Error("bad parent:"+parent);
         }
@@ -716,7 +716,7 @@ interface RecursiveRuleDef {
   bigRuleLink?: boolean;
   ruleRef?: boolean;
   linkedRuleEntry: EntryPointTraverser;
-  ownRuleEntry?: ReferencedRuleTraverser;
+  ownRuleEntry?: CopiedRuleTraverser;
   collectedFromIndex?: number;
   collectedToIndex?: number;
   shiftReducesBeforeRecursion?: ShiftReduce[];
@@ -728,7 +728,7 @@ class InsertedRecursiveRuleDef implements RecursiveRuleDef {
   entryNode: boolean;
   bigRuleLink: boolean;
   linkedRuleEntry: EntryPointTraverser;
-  ownRuleEntry: ReferencedRuleTraverser;
+  ownRuleEntry: CopiedRuleTraverser;
   collectedFromIndex: number;
   collectedToIndex: number;
   shiftReducesBeforeRecursion: ShiftReduce[];
@@ -962,7 +962,7 @@ class LinearTraversion {
     }
   }
   toString() {
-    return "Traversing" + this.rule + "/" + TraversionPurpose[this.purpose] + "/" + this.position;
+    return "Traversing 0:"+this.parser.rule+"/" + this.rule + "->/" + TraversionPurpose[this.purpose] + "/" + this.position;
   }
 }
 
@@ -1291,7 +1291,7 @@ class RuleRefTraverser extends RefTraverser implements RecursiveRuleDef {
 
   targetRule: PRule;
   linkedRuleEntry: EntryPointTraverser;
-  ownRuleEntry: ReferencedRuleTraverser;
+  ownRuleEntry: CopiedRuleTraverser;
 
   shiftReducesBeforeRecursion: ShiftReduce[];
   shiftReducesOfFirstState: ShiftReduce[];
@@ -1344,7 +1344,12 @@ class RuleRefTraverser extends RefTraverser implements RecursiveRuleDef {
       var big = Analysis.bigStartRules.indexOf(this.targetRule.rule) !== -1;
       if (big) {
         var parseTable0: ParseTableGenerator = Factory.parseTables[this.targetRule.rule];
-        if (!parseTable0) throw new Error("Bigs first : " + this.targetRule.rule + "  " + this);
+
+        //
+        // TODO !!! auto-defer !!!
+        //
+
+        if (!parseTable0) throw new Error("Bigs first : " + this+" in "+inTraversion);
         var bigDef = new InsertedRecursiveRuleDef({
           bigRuleLink: true, linkedRuleEntry: this.linkedRuleEntry,
           shiftReducesOfFirstState: parseTable0.startingStateNode.shiftsAndReduces
@@ -1365,7 +1370,7 @@ class RuleRefTraverser extends RefTraverser implements RecursiveRuleDef {
       recursionCacheStack["rule_ref#" + this.targetRule.nodeIdx] = this;
       //console.log("rule#" + this.targetRule.nodeIdx +"->"+ recursionCacheStack.indent+" "+this);
 
-      this.ownRuleEntry = new ReferencedRuleTraverser(this.parser, this, this.targetRule);
+      this.ownRuleEntry = new CopiedRuleTraverser(this.parser, this, this.targetRule);
       this.child = this.ownRuleEntry;
       this.children.push(this.ownRuleEntry);
 
@@ -1574,7 +1579,7 @@ export class RuleTraverser extends SingleTraverser {
 
 }
 
-export class ReferencedRuleTraverser extends RuleTraverser {
+export class CopiedRuleTraverser extends RuleTraverser {
   
   _ReferencedRuleTraverser;
 
