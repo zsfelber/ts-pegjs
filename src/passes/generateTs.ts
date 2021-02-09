@@ -596,11 +596,11 @@ function pushc(cache: any, item: any): any {
   }
   function verySimplePackMany0(raw: string) {
     var result = "";
-    var R = /(?!(x...|X....))0{10,}/g;
+    var R = /(x...|X....)?(0{10,})/g;
     var li = 0;
     for (var ra: RegExpExecArray; ra = R.exec(raw);) {
       result += raw.substring(li, ra.index);
-      result += "{" + ra[0].length.toString(16).toUpperCase() + "}";
+      result += (ra[1]?ra[1]:"")+ "{" + ra[2].length.toString(16).toUpperCase() + "}";
       li = R.lastIndex;
     }
     return result;
