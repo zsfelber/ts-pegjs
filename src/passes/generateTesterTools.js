@@ -20,7 +20,7 @@ function generateTT(ast) {
     var ri = 0;
     ast.rules.forEach(function (r) { ruleMap[r.name] = ri++; });
     lib_1.Analysis.ruleTable = grammar.rules;
-    lib_1.Analysis.bigStartRules = options.bigStartRules ? options.bigStartRules : [];
+    lib_1.Analysis.deferredRules = options.deferredRules ? options.deferredRules : [];
     var doit = function (r) {
         ri = ruleMap[r];
         var rule = grammar.children[ri];

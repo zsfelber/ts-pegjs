@@ -166,27 +166,25 @@ function generate(ast) {
         }
     });
     var allstarts = [];
-    var deps = {};
     var created = {};
     var ruleMap = {};
     var ri = 0;
     ast.rules.forEach(function (r) { ruleMap[r.name] = ri++; });
     var grammar = ctx.grammar;
     analyzer_1.Analysis.ruleTable = grammar.rules;
-    analyzer_1.Analysis.bigStartRules = options.bigStartRules ? options.bigStartRules : [];
+    analyzer_1.Analysis.deferredRules = options.deferredRules ? options.deferredRules : [];
     var doit = function (r) {
         if (!created[r]) {
             created[r] = 1;
             ri = ruleMap[r];
             var rule = grammar.children[ri];
             var g = analyzer_1.ParseTableGenerator.createForRule(rule);
-            Object.assign(deps, g.startRuleDependencies);
             return true;
         }
     };
-    if (options.bigStartRules) {
-        console.log("bigStartRules:" + options.bigStartRules.join(", "));
-        options.bigStartRules.forEach(function (r) {
+    if (options.deferredRules) {
+        console.log("deferredRules:" + options.deferredRules.join(", "));
+        options.deferredRules.forEach(function (r) {
             if (doit(r))
                 allstarts.push(r);
         });
@@ -194,21 +192,11 @@ function generate(ast) {
     if (options.allowedStartRules) {
         console.log("allowedStartRules:" + options.allowedStartRules.join(", "));
         options.allowedStartRules.forEach(function (r) {
-            delete deps[r];
-            if (doit(r))
-                allstarts.push(r);
-        });
-    }
-    var depks = Object.keys(deps);
-    if (depks.length) {
-        console.log("Remaining dependencies:" + depks.join(", "));
-        depks.forEach(function (r) {
             if (doit(r))
                 allstarts.push(r);
         });
     }
     allstarts.sort();
-    ast.dependencies = depks;
     allstarts.splice(allstarts.indexOf(options.allowedStartRules[0]), 1);
     allstarts.unshift(options.allowedStartRules[0]);
     ast.allstarts = allstarts;

@@ -927,7 +927,7 @@ class LinearTraversion {
     }
   }
   toString() {
-    return "Traversing 0:"+this.parser.rule+"/" + this.rule + "->/" + TraversionPurpose[this.purpose] + "/" + this.position;
+    return "Traversing "+this.rule + "/" + (this.position===undefined?"gen.time/"+this.traversionControls.length:TraversionPurpose[this.purpose] + "/" + this.position);
   }
 }
 
@@ -1304,6 +1304,7 @@ class RuleRefTraverser extends RefTraverser {
 
     if (recursiveRule) {
 
+      console.log("Auto defer recursive rule : "+this+" in "+inTraversion);
       //
       // NOTE  auto-defer mode here
       //       when a rule is infinitely included !!!
@@ -1316,6 +1317,7 @@ class RuleRefTraverser extends RefTraverser {
       var deferred = Analysis.deferredRules.indexOf(this.targetRule.rule) !== -1;
 
       if (deferred) {
+        //console.log("Deferred node : "+this+" in "+inTraversion);
         //
         // NOTE  manually declared defer mode 
         //
