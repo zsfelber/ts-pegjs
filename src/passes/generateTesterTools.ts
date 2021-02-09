@@ -163,7 +163,7 @@ function tothingyjson(obj: any, ind = "") {
 
   obj["$jsproc"] = 1;
 
-  var row = [ind,
+  var row = [
      '{ "name":"'+(obj.name ? obj.name : "")+'"', 
      '"kind":"'+obj.kind+'"', 
      '"n":'+(obj.n ? obj.n : 0)
@@ -183,11 +183,11 @@ function tothingyjson(obj: any, ind = "") {
       if (ij) chbuf.push(ij);
     });
 
-    buffer.push(row.join(", "));
+    buffer.push(ind + row.join(", "));
     buffer.push(chbuf.join(",\n"));
     buffer.push(ind + "]  }");
   } else {
-    buffer.push(row.join(", ")+' }');
+    buffer.push(ind + row.join(", ")+' }');
   }
 
 

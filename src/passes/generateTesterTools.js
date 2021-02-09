@@ -152,7 +152,7 @@ function tothingyjson(obj, ind) {
     if (ind.length > 150)
         throw new Error("Too recursive... (75 deep)");
     obj["$jsproc"] = 1;
-    var row = [ind,
+    var row = [
         '{ "name":"' + (obj.name ? obj.name : "") + '"',
         '"kind":"' + obj.kind + '"',
         '"n":' + (obj.n ? obj.n : 0)
@@ -171,12 +171,12 @@ function tothingyjson(obj, ind) {
                 if (ij)
                     chbuf.push(ij);
             });
-        buffer.push(row.join(", "));
+        buffer.push(ind + row.join(", "));
         buffer.push(chbuf.join(",\n"));
         buffer.push(ind + "]  }");
     }
     else {
-        buffer.push(row.join(", ") + ' }');
+        buffer.push(ind + row.join(", ") + ' }');
     }
     obj["$jsproc"] = 0;
     return buffer.join("\n");
