@@ -218,6 +218,10 @@ function generateTS(ast, ...args) {
         '  token() {',
         '    return this.input.tokenAt(this.input.currPos);',
         '  }',
+        '  parse(): IFailure {',
+        '',
+        '  }',
+        '',
         '',
         '  next() {',
         '    const input = this.input;',
@@ -450,7 +454,7 @@ function generateTS(ast, ...args) {
   }
 
   function generateJumpTableRunner() {
-    
+
     var parts = [];
     const baseTokenType = options.baseTokenType ? options.baseTokenType : "IToken";
     var r0 = allstarts.length === 1 ? allstarts[0] : '';
@@ -625,7 +629,7 @@ function pushc(cache: any, item: any): any {
     });
 
     parseTbl.push("");
-    parseTbl.push("const peg$PrsTbls = {" + allstarts.map(r => ruleMap[r] + ": peg$decodePrsTbl("+ruleMap[r]+", peg$PrsTbl" + r + ")").join(", ") + "};");
+    parseTbl.push("const peg$PrsTbls = {" + allstarts.map(r => ruleMap[r] + ": peg$decodePrsTbl(" + ruleMap[r] + ", peg$PrsTbl" + r + ")").join(", ") + "};");
 
     if (Analysis.ERRORS) {
       console.error("Errors. Not generating (but for debugging only).");
@@ -643,7 +647,7 @@ function pushc(cache: any, item: any): any {
     var li = 0;
     for (var ra: RegExpExecArray; ra = R.exec(raw);) {
       result += raw.substring(li, ra.index);
-      result += (ra[1]?ra[1]:"")+ "{" + ra[2].length.toString(16).toUpperCase() + "}";
+      result += (ra[1] ? ra[1] : "") + "{" + ra[2].length.toString(16).toUpperCase() + "}";
       li = R.lastIndex;
     }
     return result;
