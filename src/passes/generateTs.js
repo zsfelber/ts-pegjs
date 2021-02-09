@@ -452,13 +452,6 @@ function generateTS(ast) {
             var g = analyzer_1.ParseTableGenerator.createForRule(rule);
             var parseTable = g.generateParseTable();
             parseTbl.push("const peg$PrsTbl" + r + ' = "' + encodePrsTbl(parseTable) + '";');
-            // var chi = 0;
-            // parseTable.dependencies.forEach(parseTable=>{
-            //   if (!ast.rules[parseTable.rule.rule]) {
-            //     result.push("const Tbl"+parseTable.rule.rule+' /*generated dependency*/ = "'+CodeTblToHex(parseTable.ser()).join('')+'";');
-            //   }
-            //   chi++;
-            // });
         };
         allstarts.forEach(function (r) {
             doit(r);

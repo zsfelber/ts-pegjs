@@ -572,13 +572,6 @@ function pushc(cache: any, item: any): any {
       var parseTable = g.generateParseTable();
 
       parseTbl.push("const peg$PrsTbl" + r + ' = "' + encodePrsTbl(parseTable) + '";');
-      // var chi = 0;
-      // parseTable.dependencies.forEach(parseTable=>{
-      //   if (!ast.rules[parseTable.rule.rule]) {
-      //     result.push("const Tbl"+parseTable.rule.rule+' /*generated dependency*/ = "'+CodeTblToHex(parseTable.ser()).join('')+'";');
-      //   }
-      //   chi++;
-      // });
     };
 
     allstarts.forEach(r => {
