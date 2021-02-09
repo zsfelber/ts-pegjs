@@ -23,55 +23,55 @@ function generateTT(ast, ...args) {
   Analysis.bigStartRules = options.bigStartRules ? options.bigStartRules : [];
 
   const doit = (r: string) => {
-      ri = ruleMap[r];
-      var rule = grammar.children[ri] as PRule;
+    ri = ruleMap[r];
+    var rule = grammar.children[ri] as PRule;
 
-      console.log("Generate visualizer tree for " + rule.rule);
+    console.log("Generate visualizer tree for " + rule.rule);
 
-      var g = ParseTableGenerator.createForRule(rule);
+    var g = ParseTableGenerator.createForRule(rule);
 
-      var main = Object.values(g.entryPoints)[0];
-      var main2 = g.startingStateNode.traverser;
-      if (main !== main2) throw new Error();
+    var main = Object.values(g.entryPoints)[0];
+    var main2 = g.startingStateNode.traverser;
+    if (main !== main2) throw new Error();
 
-      var expectedStateId = 2;
-      var leaves = g.allLeafStateNodes.map(itm => {
-        if (itm.index !== expectedStateId) {
-          throw new Error("Expected stateId:"+expectedStateId+" missed for leaf :"+itm);
-        }
-        var tnode = itm.traverser;
-        tnode["$leaf$"] = 1;
-        expectedStateId++;
-        return tnode;
+    var expectedStateId = 2;
+    var leaves = g.allLeafStateNodes.map(itm => {
+      if (itm.index !== expectedStateId) {
+        throw new Error("Expected stateId:" + expectedStateId + " missed for leaf :" + itm);
+      }
+      var tnode = itm.traverser;
+      tnode["$leaf$"] = 1;
+      expectedStateId++;
+      return tnode;
+    });
+
+    // Checked ordered, it is ok:
+    //console.log("Leaf states : " + leaves.map(itm=>itm.shortLabel));
+
+    var items = leaves;
+    var i = 0;
+    do {
+      var parents = [];
+      items.forEach(tnode => {
+        shortenTreeUpwards(tnode, parents);
       });
+      //console.log(i++ + "." + parents.length);
+      items = parents;
+      i++;
+    } while (items.length);
 
-      // Checked ordered, it is ok:
-      //console.log("Leaf states : " + leaves.map(itm=>itm.shortLabel));
+    var vtree = main["$$$"];
+    if (!vtree) throw new Error("Could not generate visual tree up to : " + main);
+    finishVisualTreeInOriginalOrder(main);
 
-      var items = leaves;
-      var i = 0;
-      do {
-        var parents = [];
-        items.forEach(tnode => {
-          shortenTreeUpwards(tnode, parents);
-        });
-        //console.log(i++ + "." + parents.length);
-        items = parents;
-        i++;
-      } while (items.length);
+    countVisualizerTree(vtree);
+    vtree.numleaves = leaves.length;
+    vtree.numlevels = i;
+    var j = tothingyjson(vtree);
 
-      var vtree = main["$$$"];
-      if (!vtree) throw new Error("Could not generate visual tree up to : " + main);
-      resetVisualTreeOrderToOriginal(vtree);
-
-      countVisualizerTree(vtree);
-      vtree.numleaves = leaves.length;
-      vtree.numlevels = i;
-      var j = tothingyjson(vtree);
-
-      const fnm = "../www/pnodes-graph-" + rule.rule + ".json";
-      fs.writeFileSync(fnm, j);
-      return true;
+    const fnm = "../www/pnodes-graph-" + rule.rule + ".json";
+    fs.writeFileSync(fnm, j);
+    return true;
   };
 
   var allstarts = ast.allstarts;
@@ -88,7 +88,7 @@ function generateTT(ast, ...args) {
 function shortenTreeUpwards(tnode: RuleElementTraverser, parents: RuleElementTraverser[]) {
   var p$, n$;
   if (!(n$ = tnode["$$$"])) {
-    tnode["$$$"] = n$ = { name: tnode.shortLabel, n: 1, kind: tnode.node.kind, node:tnode };
+    tnode["$$$"] = n$ = { name: tnode.shortLabel, n: 1, kind: tnode.node.kind };
   }
   if (!tnode.parent) {
     return;
@@ -105,17 +105,20 @@ function shortenTreeUpwards(tnode: RuleElementTraverser, parents: RuleElementTra
         plab = plab + p.parent.shortLabel;
         if (!pkind) pkind = p.node.kind;
         p = p.parent;
+        p["$$$collapsed"] = 1;
         break;
       case PNodeKind.RULE_REF:
         plab = p.parent.shortLabel;
         if (!pkind) pkind = p.node.kind;
         p = p.parent;
+        p["$$$collapsed"] = 1;
         break;
       case PNodeKind.RULE:
         if (!plab) {
           plab = p.parent.shortLabel;
           if (!pkind) pkind = p.node.kind;
           p = p.parent;
+          p["$$$collapsed"] = 1;
         } else {
           break shortenTree;
         }
@@ -126,25 +129,38 @@ function shortenTreeUpwards(tnode: RuleElementTraverser, parents: RuleElementTra
   }
   if (!(p$ = p["$$$"])) {
     if (!pkind) pkind = p.node.kind;
-    p["$$$"] = p$ = { name: plab, kind: pkind, children: [], n: 1, node:p };
+    p["$$$"] = p$ = { name: plab, kind: pkind, n: 1 };
     parents.push(p);
   }
   if (p["$leaf$"]) {
     throw new Error("Bad leaf with children : " + p);
   }
-  p$.children.push(n$);
 }
 
-function resetVisualTreeOrderToOriginal($node) {
-  if ($node && $node.children) {
-    $node.children.sort(($a,$b)=>{
-      resetVisualTreeOrderToOriginal($a);
-      resetVisualTreeOrderToOriginal($b);
-      var i = $node.node.children.indexOf($a.node);
-      var j = $node.node.children.indexOf($b.node);
-      return i-j;
+function finishVisualTreeInOriginalOrder(node: RuleElementTraverser, $node?) {
+  if (!$node) $node = node["$$$"];
+  if (node["$$$collapsed"]) {
+    if (!node.children || node.children.length !== 1) throw new Error("Bad tree node here:" + node);
+    finishVisualTreeInOriginalOrder(node.children[0], $node);
+  } else if (node.children.length) {
+    $node.children = [];
+    node.children.forEach((child) => {
+      switch (child.node.kind) {
+        case PNodeKind.SEMANTIC_AND:
+        case PNodeKind.SEMANTIC_NOT:
+        case PNodeKind.PREDICATE_AND:
+        case PNodeKind.PREDICATE_NOT:
+        case PNodeKind.EMPTY:
+          // omit
+          break;
+        default:
+          var $child = finishVisualTreeInOriginalOrder(child);
+          $node.children.push($child);
+          break;
+      }
     });
-  } 
+  }
+
   return $node;
 }
 
@@ -164,9 +180,9 @@ function tothingyjson(obj: any, ind = "") {
   obj["$jsproc"] = 1;
 
   var row = [
-     '{ "name":"'+(obj.name ? obj.name : "")+'"', 
-     '"kind":"'+obj.kind+'"', 
-     '"n":'+(obj.n ? obj.n : 0)
+    '{ "name":"' + (obj.name ? obj.name : "") + '"',
+    '"kind":"' + obj.kind + '"',
+    '"n":' + (obj.n ? obj.n : 0)
   ];
   if (obj.numleaves) row.push('"numleaves":' + obj.numleaves);
   if (obj.numlevels) row.push('"numlevels":' + obj.numlevels);
@@ -174,7 +190,7 @@ function tothingyjson(obj: any, ind = "") {
 
   var buffer = [];
   if (obj.children) {
-  
+
     row.push('"children":[');
 
     var chbuf = [];
@@ -187,7 +203,7 @@ function tothingyjson(obj: any, ind = "") {
     buffer.push(chbuf.join(",\n"));
     buffer.push(ind + "]  }");
   } else {
-    buffer.push(ind + row.join(", ")+' }');
+    buffer.push(ind + row.join(", ") + ' }');
   }
 
 

@@ -56,7 +56,7 @@ function generateTT(ast) {
         var vtree = main["$$$"];
         if (!vtree)
             throw new Error("Could not generate visual tree up to : " + main);
-        resetVisualTreeOrderToOriginal(vtree);
+        finishVisualTreeInOriginalOrder(main);
         countVisualizerTree(vtree);
         vtree.numleaves = leaves.length;
         vtree.numlevels = i;
@@ -75,7 +75,7 @@ function generateTT(ast) {
 function shortenTreeUpwards(tnode, parents) {
     var p$, n$;
     if (!(n$ = tnode["$$$"])) {
-        tnode["$$$"] = n$ = { name: tnode.shortLabel, n: 1, kind: tnode.node.kind, node: tnode };
+        tnode["$$$"] = n$ = { name: tnode.shortLabel, n: 1, kind: tnode.node.kind };
     }
     if (!tnode.parent) {
         return;
@@ -93,12 +93,14 @@ function shortenTreeUpwards(tnode, parents) {
                 if (!pkind)
                     pkind = p.node.kind;
                 p = p.parent;
+                p["$$$collapsed"] = 1;
                 break;
             case parsers_1.PNodeKind.RULE_REF:
                 plab = p.parent.shortLabel;
                 if (!pkind)
                     pkind = p.node.kind;
                 p = p.parent;
+                p["$$$collapsed"] = 1;
                 break;
             case parsers_1.PNodeKind.RULE:
                 if (!plab) {
@@ -106,6 +108,7 @@ function shortenTreeUpwards(tnode, parents) {
                     if (!pkind)
                         pkind = p.node.kind;
                     p = p.parent;
+                    p["$$$collapsed"] = 1;
                 }
                 else {
                     break shortenTree;
@@ -118,22 +121,37 @@ function shortenTreeUpwards(tnode, parents) {
     if (!(p$ = p["$$$"])) {
         if (!pkind)
             pkind = p.node.kind;
-        p["$$$"] = p$ = { name: plab, kind: pkind, children: [], n: 1, node: p };
+        p["$$$"] = p$ = { name: plab, kind: pkind, n: 1 };
         parents.push(p);
     }
     if (p["$leaf$"]) {
         throw new Error("Bad leaf with children : " + p);
     }
-    p$.children.push(n$);
 }
-function resetVisualTreeOrderToOriginal($node) {
-    if ($node && $node.children) {
-        $node.children.sort(function ($a, $b) {
-            resetVisualTreeOrderToOriginal($a);
-            resetVisualTreeOrderToOriginal($b);
-            var i = $node.node.children.indexOf($a.node);
-            var j = $node.node.children.indexOf($b.node);
-            return i - j;
+function finishVisualTreeInOriginalOrder(node, $node) {
+    if (!$node)
+        $node = node["$$$"];
+    if (node["$$$collapsed"]) {
+        if (!node.children || node.children.length !== 1)
+            throw new Error("Bad tree node here:" + node);
+        finishVisualTreeInOriginalOrder(node.children[0], $node);
+    }
+    else if (node.children.length) {
+        $node.children = [];
+        node.children.forEach(function (child) {
+            switch (child.node.kind) {
+                case parsers_1.PNodeKind.SEMANTIC_AND:
+                case parsers_1.PNodeKind.SEMANTIC_NOT:
+                case parsers_1.PNodeKind.PREDICATE_AND:
+                case parsers_1.PNodeKind.PREDICATE_NOT:
+                case parsers_1.PNodeKind.EMPTY:
+                    // omit
+                    break;
+                default:
+                    var $child = finishVisualTreeInOriginalOrder(child);
+                    $node.children.push($child);
+                    break;
+            }
         });
     }
     return $node;
