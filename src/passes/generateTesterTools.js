@@ -75,7 +75,7 @@ function generateTT(ast) {
 function shortenTreeUpwards(tnode, parents) {
     var p$, n$;
     if (!(n$ = tnode["$$$"])) {
-        tnode["$$$"] = n$ = { name: tnode.shortLabel, n: 1, kind: tnode.node.kind };
+        tnode["$$$"] = n$ = { name: tnode.shortLabel, n: 1, kind: tnode.node.kind, leftNode: tnode, rightNode: tnode };
     }
     if (!tnode.parent) {
         return;
@@ -84,6 +84,7 @@ function shortenTreeUpwards(tnode, parents) {
     if (p) {
         plab = p.shortLabel;
     }
+    var p0 = p;
     shortenTree: while (p.parent) {
         switch (p.parent.node.kind) {
             case parsers_1.PNodeKind.ONE_OR_MORE:
@@ -121,7 +122,7 @@ function shortenTreeUpwards(tnode, parents) {
     if (!(p$ = p["$$$"])) {
         if (!pkind)
             pkind = p.node.kind;
-        p["$$$"] = p$ = { name: plab, kind: pkind, n: 1 };
+        p["$$$"] = p$ = { name: plab, kind: pkind, n: 1, leftNode: p, rightNode: p0 };
         parents.push(p);
     }
     if (p["$leaf$"]) {
@@ -173,7 +174,8 @@ function tothingyjson(obj, ind) {
     var row = [
         '{ "name":"' + (obj.name ? obj.name : "") + '"',
         '"kind":"' + obj.kind + '"',
-        '"n":' + (obj.n ? obj.n : 0)
+        '"n":' + (obj.n ? obj.n : 0),
+        '"nodeIdx":' + obj.rightNode.node.nodeIdx
     ];
     if (obj.numleaves)
         row.push('"numleaves":' + obj.numleaves);
