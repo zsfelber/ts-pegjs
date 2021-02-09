@@ -442,11 +442,11 @@ export class ParseTable {
     var maxIdx = 0;
 
     var ind = this.startingState.ser(this.maxTokenId, serStates);
-    if (ind > maxIdx) maxIdx = maxIdx;
+    if (ind > maxIdx) maxIdx = ind;
 
     this.allStates.forEach(s => {
       var ind = s.ser(this.maxTokenId, serStates);
-      if (ind > maxIdx) maxIdx = maxIdx;
+      if (ind > maxIdx) maxIdx = ind;
     });
     if (this.allStates.length > maxIdx) maxIdx = this.allStates.length;
 
