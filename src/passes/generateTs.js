@@ -153,15 +153,21 @@ function generateTS(ast) {
             '  get result' + startType + '() { return this.peg$result; }',
             ''
         ].join('\n'));
+        if (options.tspegjs.customFields) {
+            parts.push(indent2(options.tspegjs.customFields.join('\n')));
+        }
         parts.push([
             '',
             '  constructor(' + param0 + 'input: I, options?: IParseOptions) {',
             '    this.input = input;',
             '    this.options = options !== undefined ? options : {};',
             '',
-            '  }'
         ].join('\n'));
+        if (options.tspegjs.customInit) {
+            parts.push(indent4(options.tspegjs.customInit.join('\n')));
+        }
         parts.push([
+            '  }',
             '',
             '  token() {',
             '    return this.input.tokenAt(this.input.currPos);',
@@ -270,7 +276,7 @@ function generateTS(ast) {
         parts.push(['}', ''].join('\n'));
         return parts.join('\n');
     }
-    function generatePackrat() {
+    function generatePackratRunner() {
         var parts = [];
         var baseTokenType = options.baseTokenType ? options.baseTokenType : "IToken";
         var r0 = allstarts.length === 1 ? allstarts[0] : '';
@@ -279,7 +285,7 @@ function generateTS(ast) {
         parts.push([
             '',
             '',
-            'export class PegjsPackratParser<T extends ' + baseTokenType + ', I extends PegjsParseStream<T>> extends PackratRunner {',
+            'export class PegjsPackratRunner<T extends ' + baseTokenType + ', I extends PegjsParseStream<T>> extends PackratRunner {',
             '',
             '  options: IParseOptions;',
             '  input: I;',
@@ -293,9 +299,6 @@ function generateTS(ast) {
             '  get result' + startType + '() { return this.peg$result; }',
             ''
         ].join('\n'));
-        if (options.tspegjs.customFields) {
-            parts.push(indent2(options.tspegjs.customFields.join('\n')));
-        }
         parts.push(['  readonly peg$resultsCache: {[id: number]: ICached};', ''].join('\n'));
         parts.push([
             '',
@@ -308,9 +311,6 @@ function generateTS(ast) {
             '      this.peg$resultsCache = this.options.customCache;',
             ''
         ].join('\n'));
-        if (options.tspegjs.customInit) {
-            parts.push(indent4(options.tspegjs.customInit.join('\n')));
-        }
         parts.push([
             '    this.init();',
             '  }',
@@ -367,6 +367,37 @@ function generateTS(ast) {
         parts.push(['}', ''].join('\n'));
         return parts.join('\n');
     }
+    function generateJumpTableRunner() {
+        var parts = [];
+        var baseTokenType = options.baseTokenType ? options.baseTokenType : "IToken";
+        var r0 = allstarts.length === 1 ? allstarts[0] : '';
+        var startType = ast.inferredTypes[r0];
+        startType = startType ? ': ' + startType : '';
+        parts.push([
+            '',
+            '',
+            'export class PegjsJumpTableRunner<T extends ' + baseTokenType + ', I extends PegjsParseStream<T>> extends JumpTableRunner {',
+            '',
+            '  options: IParseOptions;',
+            '  input: I;',
+            '',
+            '  currentRule: RuleId;',
+            '',
+            '  get result' + startType + '() { return this.peg$result; }',
+            ''
+        ].join('\n'));
+        parts.push(['  readonly peg$resultsCache: {[id: number]: ICached};', ''].join('\n'));
+        parts.push([
+            '',
+            '  constructor(' + param0 + 'input: I, options?: IParseOptions) {',
+            '    super();',
+            '    this.input = input;',
+            '    this.options = options !== undefined ? options : {};',
+            '  }',
+            '}'
+        ].join('\n'));
+        return parts.join('\n');
+    }
     function generateToplevel() {
         var parts = [];
         // interfaces removed from here , it is better to import
@@ -391,7 +422,9 @@ function generateTS(ast) {
         parts.push('');
         parts.push(generateBaseClass());
         parts.push('');
-        parts.push(generatePackrat());
+        parts.push(generatePackratRunner());
+        parts.push('');
+        parts.push(generateJumpTableRunner());
         return parts.join('\n');
     }
     function generateGeneratedByComment() {
