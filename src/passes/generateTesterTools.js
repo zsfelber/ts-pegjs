@@ -26,6 +26,10 @@ function generateTT(ast) {
         var rule = grammar.children[ri];
         console.log("Generate visualizer tree for " + rule.rule);
         var g = lib_1.ParseTableGenerator.createForRule(rule);
+        var main = Object.values(g.entryPoints)[0];
+        var main2 = g.startingStateNode.traverser;
+        if (main !== main2)
+            throw new Error();
         var expectedStateId = 2;
         var leaves = g.allLeafStateNodes.map(function (itm) {
             if (itm.index !== expectedStateId) {
@@ -43,19 +47,16 @@ function generateTT(ast) {
         do {
             var parents = [];
             items.forEach(function (tnode) {
-                generateVisualizerTreeUpwards(tnode, parents);
+                shortenTreeUpwards(tnode, parents);
             });
             //console.log(i++ + "." + parents.length);
             items = parents;
             i++;
         } while (items.length);
-        var main = Object.values(g.entryPoints)[0];
-        var main2 = g.startingStateNode.traverser;
-        if (main !== main2)
-            throw new Error();
         var vtree = main["$$$"];
         if (!vtree)
             throw new Error("Could not generate visual tree up to : " + main);
+        resetVisualTreeOrderToOriginal(vtree);
         countVisualizerTree(vtree);
         vtree.numleaves = leaves.length;
         vtree.numlevels = i;
@@ -71,10 +72,10 @@ function generateTT(ast) {
     var fnm0 = "../www/pnodes-graph.json";
     fs.writeFileSync(fnm0, JSON.stringify(allstarts));
 }
-function generateVisualizerTreeUpwards(tnode, parents) {
+function shortenTreeUpwards(tnode, parents) {
     var p$, n$;
     if (!(n$ = tnode["$$$"])) {
-        tnode["$$$"] = n$ = { name: tnode.shortLabel, children: [], n: 1, kind: tnode.node.kind };
+        tnode["$$$"] = n$ = { name: tnode.shortLabel, n: 1, kind: tnode.node.kind, node: tnode };
     }
     if (!tnode.parent) {
         return;
@@ -117,7 +118,7 @@ function generateVisualizerTreeUpwards(tnode, parents) {
     if (!(p$ = p["$$$"])) {
         if (!pkind)
             pkind = p.node.kind;
-        p["$$$"] = p$ = { name: plab, kind: pkind, children: [], n: 1 };
+        p["$$$"] = p$ = { name: plab, kind: pkind, children: [], n: 1, node: p };
         parents.push(p);
     }
     if (p["$leaf$"]) {
@@ -125,29 +126,58 @@ function generateVisualizerTreeUpwards(tnode, parents) {
     }
     p$.children.push(n$);
 }
+function resetVisualTreeOrderToOriginal($node) {
+    if ($node && $node.children) {
+        $node.children.sort(function ($a, $b) {
+            resetVisualTreeOrderToOriginal($a);
+            resetVisualTreeOrderToOriginal($b);
+            var i = $node.node.children.indexOf($a.node);
+            var j = $node.node.children.indexOf($b.node);
+            return i - j;
+        });
+    }
+    return $node;
+}
 function countVisualizerTree($node) {
-    $node.children.forEach(function ($child) {
-        $node.n += countVisualizerTree($child);
-    });
+    if ($node.children)
+        $node.children.forEach(function ($child) {
+            $node.n += countVisualizerTree($child);
+        });
     return $node.n;
 }
 function tothingyjson(obj, ind) {
     if (ind === void 0) { ind = ""; }
     if (obj["$jsproc"])
         return undefined;
-    if (ind.length > 50)
-        return undefined;
+    if (ind.length > 150)
+        throw new Error("Too recursive... (75 deep)");
     obj["$jsproc"] = 1;
-    var chbuf = [];
-    obj.children.forEach(function (itm) {
-        var ij = tothingyjson(itm, ind + "  ");
-        if (ij)
-            chbuf.push(ij);
-    });
+    var row = [ind,
+        '{ "name":"' + (obj.name ? obj.name : "") + '"',
+        '"kind":"' + obj.kind + '"',
+        '"n":' + (obj.n ? obj.n : 0)
+    ];
+    if (obj.numleaves)
+        row.push('"numleaves":' + obj.numleaves);
+    if (obj.numlevels)
+        row.push('"numlevels":' + obj.numlevels);
     var buffer = [];
-    buffer.push(ind + '{ "name":"' + (obj.name ? obj.name : "") + '", "kind":"' + obj.kind + '", "n":' + (obj.n ? obj.n : 0) + (obj.numleaves ? ', "numleaves":' + obj.numleaves : "") + (obj.numlevels ? ', "numlevels":' + obj.numlevels : "") + ', "children":[');
-    buffer.push(chbuf.join(",\n"));
-    buffer.push(ind + "]  }");
+    if (obj.children) {
+        row.push('"children":[');
+        var chbuf = [];
+        if (obj.children)
+            obj.children.forEach(function (itm) {
+                var ij = tothingyjson(itm, ind + "  ");
+                if (ij)
+                    chbuf.push(ij);
+            });
+        buffer.push(row.join(", "));
+        buffer.push(chbuf.join(",\n"));
+        buffer.push(ind + "]  }");
+    }
+    else {
+        buffer.push(row.join(", ") + ' }');
+    }
     obj["$jsproc"] = 0;
     return buffer.join("\n");
 }

@@ -30,6 +30,10 @@ function generateTT(ast, ...args) {
 
       var g = ParseTableGenerator.createForRule(rule);
 
+      var main = Object.values(g.entryPoints)[0];
+      var main2 = g.startingStateNode.traverser;
+      if (main !== main2) throw new Error();
+
       var expectedStateId = 2;
       var leaves = g.allLeafStateNodes.map(itm => {
         if (itm.index !== expectedStateId) {
@@ -49,19 +53,16 @@ function generateTT(ast, ...args) {
       do {
         var parents = [];
         items.forEach(tnode => {
-          generateVisualizerTreeUpwards(tnode, parents);
+          shortenTreeUpwards(tnode, parents);
         });
         //console.log(i++ + "." + parents.length);
         items = parents;
         i++;
       } while (items.length);
 
-      var main = Object.values(g.entryPoints)[0];
-      var main2 = g.startingStateNode.traverser;
-      if (main !== main2) throw new Error();
-
       var vtree = main["$$$"];
       if (!vtree) throw new Error("Could not generate visual tree up to : " + main);
+      resetVisualTreeOrderToOriginal(vtree);
 
       countVisualizerTree(vtree);
       vtree.numleaves = leaves.length;
@@ -84,10 +85,10 @@ function generateTT(ast, ...args) {
 }
 
 
-function generateVisualizerTreeUpwards(tnode: RuleElementTraverser, parents: RuleElementTraverser[]) {
+function shortenTreeUpwards(tnode: RuleElementTraverser, parents: RuleElementTraverser[]) {
   var p$, n$;
   if (!(n$ = tnode["$$$"])) {
-    tnode["$$$"] = n$ = { name: tnode.shortLabel, n: 1, kind: tnode.node.kind };
+    tnode["$$$"] = n$ = { name: tnode.shortLabel, n: 1, kind: tnode.node.kind, node:tnode };
   }
   if (!tnode.parent) {
     return;
@@ -125,7 +126,7 @@ function generateVisualizerTreeUpwards(tnode: RuleElementTraverser, parents: Rul
   }
   if (!(p$ = p["$$$"])) {
     if (!pkind) pkind = p.node.kind;
-    p["$$$"] = p$ = { name: plab, kind: pkind, children: [], n: 1 };
+    p["$$$"] = p$ = { name: plab, kind: pkind, children: [], n: 1, node:p };
     parents.push(p);
   }
   if (p["$leaf$"]) {
@@ -134,8 +135,22 @@ function generateVisualizerTreeUpwards(tnode: RuleElementTraverser, parents: Rul
   p$.children.push(n$);
 }
 
+function resetVisualTreeOrderToOriginal($node) {
+  if ($node && $node.children) {
+    $node.children.sort(($a,$b)=>{
+      resetVisualTreeOrderToOriginal($a);
+      resetVisualTreeOrderToOriginal($b);
+      var i = $node.node.children.indexOf($a.node);
+      var j = $node.node.children.indexOf($b.node);
+      return i-j;
+    });
+  } 
+  return $node;
+}
+
+
 function countVisualizerTree($node: any) {
-  $node.children.forEach($child => {
+  if ($node.children) $node.children.forEach($child => {
     $node.n += countVisualizerTree($child);
   });
   return $node.n;
@@ -144,20 +159,37 @@ function countVisualizerTree($node: any) {
 
 function tothingyjson(obj: any, ind = "") {
   if (obj["$jsproc"]) return undefined;
-  if (ind.length > 50) return undefined;
+  if (ind.length > 150) throw new Error("Too recursive... (75 deep)");
 
   obj["$jsproc"] = 1;
 
-  var chbuf = [];
-  obj.children.forEach(itm => {
-    var ij = tothingyjson(itm, ind + "  ");
-    if (ij) chbuf.push(ij);
-  });
+  var row = [ind,
+     '{ "name":"'+(obj.name ? obj.name : "")+'"', 
+     '"kind":"'+obj.kind+'"', 
+     '"n":'+(obj.n ? obj.n : 0)
+  ];
+  if (obj.numleaves) row.push('"numleaves":' + obj.numleaves);
+  if (obj.numlevels) row.push('"numlevels":' + obj.numlevels);
+
 
   var buffer = [];
-  buffer.push(ind + '{ "name":"' + (obj.name ? obj.name : "") + '", "kind":"' + obj.kind + '", "n":' + (obj.n ? obj.n : 0) + (obj.numleaves ? ', "numleaves":' + obj.numleaves : "") + (obj.numlevels ? ', "numlevels":' + obj.numlevels : "") + ', "children":[');
-  buffer.push(chbuf.join(",\n"));
-  buffer.push(ind + "]  }");
+  if (obj.children) {
+  
+    row.push('"children":[');
+
+    var chbuf = [];
+    if (obj.children) obj.children.forEach(itm => {
+      var ij = tothingyjson(itm, ind + "  ");
+      if (ij) chbuf.push(ij);
+    });
+
+    buffer.push(row.join(", "));
+    buffer.push(chbuf.join(",\n"));
+    buffer.push(ind + "]  }");
+  } else {
+    buffer.push(row.join(", ")+' }');
+  }
+
 
   obj["$jsproc"] = 0;
 
