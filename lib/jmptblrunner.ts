@@ -5,7 +5,7 @@ import { RTShift } from './analyzer';
 import { IBaseParserProgram } from './interpreter';
 import { PRuleRef } from './parsers';
 
-export interface IJumpTable extends IBaseParserProgram {
+export interface IJumpTableProgram extends IBaseParserProgram {
 
   inputPos: number;
   inputLength: number;
@@ -13,13 +13,13 @@ export interface IJumpTable extends IBaseParserProgram {
   ruleAutomaton(index: number): ParseTblJumper;
 }
 
-export abstract class JumpTableRunner {
+export class JumpTableRunner {
 
-  owner: IJumpTable;
+  owner: IJumpTableProgram;
   numRules: number;
   result: ParseTblJumper[];
 
-  constructor(owner: IJumpTable) {
+  constructor(owner: IJumpTableProgram) {
     this.owner = owner;
     this.numRules = owner.numRules;
   }

@@ -456,7 +456,7 @@ export interface IBaseParserProgram {
 
 
 
-export interface IParserProgram {
+export interface IParserProgram extends IBaseParserProgram {
 
   ruleInterpreter(index: number): EntryPointInterpreter;
 }
