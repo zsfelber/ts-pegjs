@@ -86,9 +86,9 @@ export interface IOtherExpectation {
 
 export type Expectation = ILiteralExpectation | ITokenExpectation | IClassExpectation | IAnyExpectation | IEndExpectation | IOtherExpectation;
 
-export class PegjsParseErrorInfo<T extends IToken> {
+export class PegCannonParseErrorInfo<T extends IToken> {
 
-  private static buildMessage<T extends IToken>(input: IPegjsParseStream<T>, expected: Expectation[], found: Expectation) {
+  private static buildMessage<T extends IToken>(input: IPegCannonParseStream<T>, expected: Expectation[], found: Expectation) {
 
     function hex(ch: string): string {
       return ch.charCodeAt(0).toString(16).toUpperCase();
@@ -180,7 +180,7 @@ export class PegjsParseErrorInfo<T extends IToken> {
     return "Expected " + describeExpected(expected) + " but " + describeExpectation(found) + " found.";
   }
 
-  readonly input: IPegjsParseStream<T>;
+  readonly input: IPegCannonParseStream<T>;
   readonly message0: string;
   private message1: string;
   readonly expected: Expectation[];
@@ -188,7 +188,7 @@ export class PegjsParseErrorInfo<T extends IToken> {
   readonly absolutePosition: number;
   readonly name: string;
 
-  constructor(input: IPegjsParseStream<T>, message: string, expected: Expectation[], found: Expectation, absolutePosition?: number) {
+  constructor(input: IPegCannonParseStream<T>, message: string, expected: Expectation[], found: Expectation, absolutePosition?: number) {
     this.input = input;
     this.message0 = message;
     this.expected = expected;
@@ -203,7 +203,7 @@ export class PegjsParseErrorInfo<T extends IToken> {
 
   get message() {
     if (!this.message1) {
-      this.message1 = this.message0 + PegjsParseErrorInfo.buildMessage(this.input, this.expected, this.found);
+      this.message1 = this.message0 + PegCannonParseErrorInfo.buildMessage(this.input, this.expected, this.found);
     }
     return this.message1;
   }
@@ -212,9 +212,9 @@ export class PegjsParseErrorInfo<T extends IToken> {
 }
 
 export class SyntaxError<T extends IToken> extends Error {
-  info: PegjsParseErrorInfo<T>;
+  info: PegCannonParseErrorInfo<T>;
 
-  constructor(info: PegjsParseErrorInfo<T>) {
+  constructor(info: PegCannonParseErrorInfo<T>) {
     super();
     this.info = info;
   }
@@ -358,7 +358,7 @@ export interface IToken {
 }
 
 // !!!! string is ok !!!!
-export interface IBasicPegjsBuffer {
+export interface IBasicPegCannonBuffer {
 
   readonly length: number;
 
@@ -372,7 +372,7 @@ export interface IBasicPegjsBuffer {
 
 }
 
-export interface IPegjsBuffer<T extends IToken> extends IBasicPegjsBuffer {
+export interface IPegCannonBuffer<T extends IToken> extends IBasicPegCannonBuffer {
   currPos: number;
   savedPos: number;
   readonly tokens: T[];
@@ -397,11 +397,11 @@ export interface IPegjsBuffer<T extends IToken> extends IBasicPegjsBuffer {
 
 }
 
-export interface IPegjsParseStream<T extends IToken> extends IPegjsBuffer<T> {
+export interface IPegCannonParseStream<T extends IToken> extends IPegCannonBuffer<T> {
 
   readonly ruleNames: string[];
 
-  readonly buffer: IPegjsBuffer<T>;
+  readonly buffer: IPegCannonBuffer<T>;
 
   //"input.readForward(rule, expectedText.length) === expectedText",
   //=
@@ -416,13 +416,13 @@ export interface IPegjsParseStream<T extends IToken> extends IPegjsBuffer<T> {
 }
 
 
-export class PegjsParseStream<T extends IToken> implements IPegjsParseStream<T> {
+export class PegCannonParseStream<T extends IToken> implements IPegCannonParseStream<T> {
 
   readonly ruleNames: string[];
 
-  readonly buffer: IPegjsBuffer<T>;
+  readonly buffer: IPegCannonBuffer<T>;
 
-  constructor(buffer: IPegjsBuffer<T>, ruleNames?: string[]) {
+  constructor(buffer: IPegCannonBuffer<T>, ruleNames?: string[]) {
     this.buffer = buffer;
     this.ruleNames = ruleNames ? ruleNames : [];
   }
@@ -501,7 +501,7 @@ export class PegjsParseStream<T extends IToken> implements IPegjsParseStream<T> 
 
 
 
-export abstract class PegjsParseStreamBuffer<T extends IToken> implements IPegjsBuffer<T> {
+export abstract class PegCannonParseStreamBuffer<T extends IToken> implements IPegCannonBuffer<T> {
 
   readonly buffer: string;
   /* give read-write access to pegjs, do not manipulate them */
@@ -627,7 +627,7 @@ export abstract class PegjsParseStreamBuffer<T extends IToken> implements IPegjs
 
 }
 
-export abstract class PegjsSeekableParseBuffer<T extends IToken> extends PegjsParseStreamBuffer<T> {
+export abstract class PegCannonSeekableParseBuffer<T extends IToken> extends PegCannonParseStreamBuffer<T> {
 
   seek(position: number) {
     /*
