@@ -6,7 +6,8 @@ import { PRuleRef } from './parsers';
 
 export interface IJumpTable {
 
-  pos: number;
+  inputPos: number;
+  inputLength: number;
   
   readonly numRules: number;
   next(): IToken;
@@ -28,7 +29,7 @@ export abstract class JumpTableRunner {
   
   run(): any {
 
-    var jumper = ParseTblJumper.create(this, this.parseTable);
+    var jumper = new ParseTblJumper(this, this.parseTable);
 
     this.result = jumper.run();
 
@@ -46,25 +47,13 @@ class ParseTblJumper {
   shifts: RTShift[];
   currentStates: GrammarParsingLeafState[];
 
-  static create(runner: JumpTableRunner, parseTable: ParseTable, currentState?: GrammarParsingLeafState) {
+  constructor(runner: JumpTableRunner, parseTable: ParseTable, currentState?: GrammarParsingLeafState) {
+    this.runner = runner;
+    this.parseTable = parseTable;
     if (!currentState) {
       currentState = parseTable.startingState;
     }
-    if (currentState.recursiveShiftStates.length) {
-
-    } else {
-      return new SimpleParseTblJumper(runner, parseTable, currentState);
-    }
-  }
-
-  constructor(runner: JumpTableRunner, parseTable: ParseTable, currentState: GrammarParsingLeafState) {
-    this.runner = runner;
-    this.parseTable = parseTable;
-    this.currentStates = currentState ? [currentState] : [];
-  }
-
-  run(): boolean {
-    return false;
+    this.currentStates = [currentState];
   }
 
   reduceBefore() {
@@ -79,80 +68,43 @@ class ParseTblJumper {
       // ...
     });
   }
-}
 
-class SimpleParseTblJumper extends ParseTblJumper {
-
-
-  constructor(runner: JumpTableRunner, parseTable: ParseTable, currentState: GrammarParsingLeafState) {
-    super(runner, parseTable, currentState);
-  }
-
-  run() {
+  run(): boolean {
     while (this.process());
+    // TODO better from reduce
+    return this.runner.owner.inputPos === this.runner.owner.inputLength;
   }
 
-  process() {
+  process(): boolean {
     var token = this.runner.owner.next();
     if (token) {
       var thisRound = this.currentStates;
-      this.currentStates = [];
+
       thisRound.forEach(state=>{
         var newShifts = state.transitions[token.tokenId];
 
-        if (newShifts) {
-          newShifts.forEach(shift=>{
-
-            var min = Math.min(state.recursiveShiftStates.length, shift.shiftIndex)
-            for (var i = 0; i < min; i++) {
-              var reqstate = state.recursiveShiftStates[i];
-              if (reqstate) {
-                var rr =  reqstate.startingPoint as PRuleRef;
-                var nx = this.runner.owner.rule(rr.ruleIndex);
-
-                // TODO deferred( with {} parser) / immedate ( with regular parser )
-                if (nx.run()) {
-                  // TODO ?
-                  //this.currentStates 
-                } else {
-                  // ok skip
-                }
-              }
-            }
-
-        });
+        var reqstate = state.recursiveShiftState;
+        if (!newShifts && reqstate) {
+          var t = reqstate.toState;
+          var rr =  t.startingPoint as PRuleRef;
+          var nx = this.runner.owner.rule(rr.ruleIndex);
+    
+          // TODO deferred( with {} parser) / immedate ( with regular parser )
+          if (nx.run()) {
+            token = this.runner.owner.next();
+            newShifts = t.transitions[token.tokenId];
+          } else {
+            // ok skip
+          }
         }
-  
-      })
+
+        this.currentStates = newShifts ? newShifts.map(shift=>shift.toState) : null;
+
+      });
     } else {
-      this.currentState = null;
+      this.currentStates = null;
     }
-    return this.currentState;
+    return !!(this.currentStates && this.currentStates.length);
   }
 
-}
-
-class MaybeRecursiveParseTblJumper extends ParseTblJumper {
-
-  toStates: ParseTblJumper[];
-
-  constructor(runner: JumpTableRunner, parseTable: ParseTable, currentState: GrammarParsingLeafState) {
-    super(runner, parseTable, currentState);
-  }
-
-  process() {
-    var token = this.runner.owner.next();
-    if (token) {
-      this.shifts = this.currentState.transitions[token.tokenId];
-      if (this.shifts) {
-        this.toStates = [];
-        this.shifts.forEach(shift=>{
-          var shist = ParseTblJumper.create(this.runner, shift)
-        })
-      }
-    } else {
-      this.currentState = null;
-    }
-    return this.currentState;
-  }
 }

@@ -529,7 +529,7 @@ export class GrammarParsingLeafState {
   private _transitions: NumMapLike<RTShift[]>;
   readonly reduceActions: PNode[];
   readonly epsilonReduceActions: PNode[];
-  readonly recursiveShiftStates: GrammarParsingLeafState[];
+  recursiveShiftState: RTShift;
 
   constructor(startState?: StateNode, startingPoint?: PRef) {
     if (startState) {
@@ -540,7 +540,6 @@ export class GrammarParsingLeafState {
     this.startingPoint = startingPoint;
     this.epsilonReduceActions = [];
     this.reduceActions = [];
-    this.recursiveShiftStates = [];
   }
 
   get transitions(): NumMapLike<RTShift[]> {
@@ -564,6 +563,11 @@ export class GrammarParsingLeafState {
 
       var shiftIndex = 0;
       this.startState.shiftsAndReduces.forEach(nextTerm => {
+
+        if (this.recursiveShiftState) {
+          throw new Error("Recursive shift already found, error : "+this.recursiveShiftState+"  while generating state:"+this.startState+" shiftIndex:"+shiftIndex+" unexpected:"+nextTerm.item);
+        }
+
         switch (nextTerm.kind) {
           case ShiftReduceKind.SHIFT:
             var s = nextTerm as Shift;
@@ -584,10 +588,7 @@ export class GrammarParsingLeafState {
           case ShiftReduceKind.SHIFT_RECURSIVE:
 
             var sr = nextTerm as ShiftRecursive;
-            for (var i = this.recursiveShiftStates.length; i < shiftIndex; i++) {
-              this.recursiveShiftStates.push(null);
-            }
-            this.recursiveShiftStates.push(sr.item.stateNode.generateState());
+            this.recursiveShiftState = new RTShift(shiftIndex, sr.item.stateNode.generateState());
 
             shiftIndex++;
             break;
@@ -633,13 +634,13 @@ export class GrammarParsingLeafState {
       });
     });
 
-    var shiftIdxs = 0;
-    var recshift: number[] = [];
-    if (this.recursiveShiftStates.length) {
-      shiftIdxs = this.recursiveShiftStates.length;
-      this.recursiveShiftStates.forEach(state => {
-        recshift.push(state ? state.index : null);
-      });
+    var recshift: number[];
+    if (this.recursiveShiftState) {
+      recshift = [];
+      recshift.push(this.recursiveShiftState.toState.index);
+      recshift.push(this.recursiveShiftState.shiftIndex);
+    } else {
+      recshift = [0,0];
     }
     var reduce: number[] = [];
     this.reduceActions.forEach(r => {
@@ -657,7 +658,6 @@ export class GrammarParsingLeafState {
       buf.push(0);
     }
     buf.push(additionalStates);
-    buf.push(shiftIdxs);
     buf.push(reduce.length);
     buf.push(ereduce.length);
 
@@ -669,7 +669,7 @@ export class GrammarParsingLeafState {
 
 
   deser(maxStateId: number, maxTknId: number, index: number, buf: number[], pos: number): number {
-    var [isrl, sndx, addsts, shiftIdxs, rlen, erlen] = buf;
+    var [isrl, sndx, addsts, rlen, erlen] = buf;
     this.isRule = isrl === 1;
     this.index = index;
     this.startingPoint = sndx ? SerDeser.nodeTable[sndx] as PRef : null;
@@ -693,14 +693,11 @@ export class GrammarParsingLeafState {
         this.transitions[i] = [new RTShift(buf[pos + 1], state)];
       }
     }
-    for (var i = 0; i < shiftIdxs; i++, pos++) {
-      var si = buf[pos];
-      if (si) {
-        var state = Analysis.leafState(si);
-        this.recursiveShiftStates.push(state);
-      } else {
-        this.recursiveShiftStates.push(null);
-      }
+    var rsi = buf[pos++];
+    var shi = buf[pos++];
+    if (rsi) {
+      var state = Analysis.leafState(rsi);
+      this.recursiveShiftState = new RTShift(shi, state);
     }
     for (var i = 0; i < rlen; i++, pos++) {
       var node = SerDeser.nodeTable[buf[pos]];
@@ -1475,7 +1472,10 @@ class RuleRefTraverser extends RefTraverser {
       case TraversionItemKind.DEFERRED_RULE:
         switch (inTraversion.purpose) {
           case TraversionPurpose.FIND_NEXT_TOKENS:
+
             cache.intoState.shiftsAndReduces.push({ kind: ShiftReduceKind.SHIFT_RECURSIVE, item: this });
+            inTraversion.execute(TraversionItemActionKind.STOP, step);
+
             break;
           case TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN:
             break;
