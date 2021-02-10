@@ -2,37 +2,19 @@
 export const MATCH_TOKEN = 40;
 export const ACCEPT_TOKEN = 41;
 
-
 export interface IFailure {
-  absoluteFailPos: number;
+  maxFailPos: number;
   maxFailExpected: Expectation[];
-  found: Expectation;
+  found?: Expectation;
 }
-
-export interface ILocalFailure {
-  localFailPos: number;
-  maxFailExpected: Expectation[];
-}
-
 
 export function mergeFailures(into: IFailure, other: IFailure) {
-  if (other.absoluteFailPos < into.absoluteFailPos) { return; }
+  if (other.maxFailPos < into.maxFailPos) { return; }
 
-  if (other.absoluteFailPos > into.absoluteFailPos) {
-    into.absoluteFailPos = other.absoluteFailPos;
+  if (other.maxFailPos > into.maxFailPos) {
+    into.maxFailPos = other.maxFailPos;
     into.maxFailExpected = [];
     into.found = other.found;
-  }
-
-  into.maxFailExpected = into.maxFailExpected.concat(other.maxFailExpected);
-}
-
-export function mergeLocalFailures(into: ILocalFailure, other: ILocalFailure) {
-  if (other.localFailPos < into.localFailPos) { return; }
-
-  if (other.localFailPos > into.localFailPos) {
-    into.localFailPos = other.localFailPos;
-    into.maxFailExpected = [];
   }
 
   into.maxFailExpected = into.maxFailExpected.concat(other.maxFailExpected);
@@ -363,8 +345,6 @@ export abstract class PegCannonParseStream<T extends IToken> {
    * }
    **/
   abstract printToken(tokenId: number): string;
-
-  abstract toAbsolutePosition(pos: number): number;
 
   abstract calculatePosition(pos: number): IFilePosition;
 
