@@ -1039,7 +1039,7 @@ export abstract class RuleElementTraverser {
     this.node = node;
     this.constructionLevel = parent ? parent.constructionLevel + 1 : 0;
     if (this.importPoint) {
-      this.importPoint.allNodes[this.nodeTravId] = this;
+      if (this.importPoint.allNodes) this.importPoint.allNodes[this.nodeTravId] = this;
     } else {
       this.parser.allNodes[this.nodeTravId] = this;
     }
@@ -1398,7 +1398,15 @@ class RuleRefTraverser extends RefTraverser {
 
     if (this.traverserStep) throw new Error("There is a traverserStep already : " + this + "  traverserStep:" + this.traverserStep);
 
-    if (recursiveRule) {
+    var deferred = Analysis.deferredRules.indexOf(this.targetRule.rule) !== -1;
+
+    if (deferred) {
+      //console.log("Deferred node : "+this+" in "+inTraversion);
+      //
+      // NOTE  manually declared defer mode 
+      //
+      this.isDeferred = true;
+    } else if (recursiveRule) {
 
       console.log("Auto defer recursive rule : " + this + " in " + inTraversion);
       //
@@ -1409,16 +1417,6 @@ class RuleRefTraverser extends RefTraverser {
       // to pass later: a deferred automaton should adjust parsing position
       this.isDeferred = true;
 
-    } else {
-      var deferred = Analysis.deferredRules.indexOf(this.targetRule.rule) !== -1;
-
-      if (deferred) {
-        //console.log("Deferred node : "+this+" in "+inTraversion);
-        //
-        // NOTE  manually declared defer mode 
-        //
-        this.isDeferred = true;
-      }
     }
 
     if (this.traverserStep) throw new Error("There is a traverserStep already : " + this + "  traverserStep:" + this.traverserStep);
@@ -1611,11 +1609,13 @@ export class RuleTraverser extends SingleTraverser {
 export class CopiedRuleTraverser extends RuleTraverser {
 
   _ReferencedRuleTraverser;
-  allNodes: NumMapLike<RuleElementTraverser> = {};
+  allNodes: NumMapLike<RuleElementTraverser>;
 
   constructor(parser: ParseTableGenerator, parent: RuleRefTraverser, node: PRule) {
     super(parser, parent, node);
     if (!parent) throw new Error();
+    this.allNodes = {};
+    this.allNodes[this.nodeTravId] = this;
   }
 
   get importPoint(): CopiedRuleTraverser {
