@@ -11,7 +11,7 @@ export interface IJumpTable {
   
   readonly numRules: number;
   next(): IToken;
-  rule(index: number): ParseTblJumper;
+  ruleAutomaton(index: number): ParseTblJumper;
 }
 
 export abstract class JumpTableRunner {
@@ -101,10 +101,11 @@ class ParseTblJumper {
       if (!newShifts && reqstate) {
         var t = reqstate.toState;
         var rr =  t.startingPoint as PRuleRef;
-        var nx = this.runner.owner.rule(rr.ruleIndex);
+
+        var ruleRefAutom = this.runner.owner.ruleAutomaton(rr.ruleIndex);
   
         // TODO deferred( with {} parser) / immedate ( with regular parser )
-        if (nx.run()) {
+        if (ruleRefAutom.run()) {
           token = this.runner.owner.next();
           newShifts = t.transitions[token.tokenId];
         } else {
