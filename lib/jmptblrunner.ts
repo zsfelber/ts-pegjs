@@ -1,8 +1,9 @@
 import { ParseTable, GrammarParsingLeafState } from '.';
 import { IToken } from '.';
+import { SerDeser } from 'ts-pegjs/lib';
 
 
-export abstract class JmpTblRunner {
+export abstract class JumpTableRunner {
 
   _numRules: number;
   
@@ -31,11 +32,11 @@ export abstract class JmpTblRunner {
 
 class ParseTblJumper {
 
-  readonly runner: JmpTblRunner;
+  readonly runner: JumpTableRunner;
   readonly parseTable: ParseTable;
   currentState: GrammarParsingLeafState;
 
-  constructor(runner: JmpTblRunner, parseTable: ParseTable) {
+  constructor(runner: JumpTableRunner, parseTable: ParseTable) {
     this.runner = runner;
     this.parseTable = parseTable;
     this.currentState = parseTable.startingState;
@@ -52,5 +53,10 @@ class ParseTblJumper {
       this.currentState = null;
     }
     return this.currentState;
+  }
+  reduceAll() {
+    this.currentState.reduceActions.forEach(node=>{
+      
+    });
   }
 }
