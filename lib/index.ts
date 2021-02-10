@@ -322,9 +322,9 @@ export class DefaultTracer {
 }
 
 export interface ICached {
-  nextPos: number;
-  result: any;
-  maxFailPos: number;
+  nextPos?: number;
+  result?: any;
+  maxFailPos?: number;
 }
 
 export interface IToken {
@@ -468,5 +468,6 @@ function hex(ch) {
 
 export * from "./parsers";
 export * from "./analyzer";
+export * from "./interpreter";
 export * from "./packrat";
 export * from "./jmptblrunner";

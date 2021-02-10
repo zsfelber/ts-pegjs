@@ -2,15 +2,14 @@ import { ParseTable, GrammarParsingLeafState, Analysis } from '.';
 import { IToken } from '.';
 import { SerDeser } from '../lib';
 import { RTShift } from './analyzer';
+import { IBaseParserProgram } from './interpreter';
 import { PRuleRef } from './parsers';
 
-export interface IJumpTable {
+export interface IJumpTable extends IBaseParserProgram {
 
   inputPos: number;
   inputLength: number;
 
-  readonly numRules: number;
-  next(): IToken;
   ruleAutomaton(index: number): ParseTblJumper;
 }
 
@@ -18,21 +17,20 @@ export abstract class JumpTableRunner {
 
   owner: IJumpTable;
   numRules: number;
-  parseTable: ParseTable;
   result: ParseTblJumper[];
 
-  constructor(owner: IJumpTable, parseTable: ParseTable) {
+  constructor(owner: IJumpTable) {
     this.owner = owner;
-    this.parseTable = parseTable;
     this.numRules = owner.numRules;
   }
 
-  run(): any {
+  run(parseTable: ParseTable): any {
 
-    var jumper = new ParseTblJumper(this, this.parseTable);
+    var jumper = new ParseTblJumper(this, parseTable);
 
-    this.result = jumper.run();
-
+    jumper.run();
+    var result = jumper.result;
+    return result;
   }
 }
 
@@ -64,12 +62,6 @@ class ParseTblJumper {
 
   run(withToken?: IToken): boolean {
 
-
-    // TODO better from reduce
-    return this.runner.owner.inputPos === this.runner.owner.inputLength;
-  }
-
-  process(withToken?: IToken): boolean {
     var token: IToken;
     if (withToken) token = withToken
     else token = this.runner.owner.next();
@@ -126,7 +118,8 @@ class ParseTblJumper {
       }
     }
 
-
+    // TODO better from reduce
+    return !token;
 
   }
 
