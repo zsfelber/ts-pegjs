@@ -17,7 +17,6 @@ export interface IJumpTableProgram extends IBaseParserProgram {
   inputPos: number;
   inputLength: number;
 
-  ruleParseTable(index: number): ParseTable;
 }
 
 export class JumpTableRunner {
