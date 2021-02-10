@@ -16,7 +16,7 @@ export namespace Analysis {
 
   export var deferredRules = [];
 
-  export var leafStates:GrammarParsingLeafState[] = [];
+  export var leafStates: GrammarParsingLeafState[] = [];
 
   export function leafState(index: number) {
     var ls = leafStates[index];
@@ -70,7 +70,7 @@ namespace Factory {
           throw new Error("Not expecting it here please fix it");
           //return new CopiedRuleTraverser(parser, parent, node as PRule);
         } else {
-          throw new Error("bad parent:"+parent);
+          throw new Error("bad parent:" + parent);
         }
 
     }
@@ -396,11 +396,11 @@ export class ParseTableGenerator {
     this.startingStateNode = new RootStateNode(mainEntryPoint);
 
     //console.log("Generating traversion...")
-    
+
     this.theTraversion = new LinearTraversion(this, mainEntryPoint);
 
     //console.log("Generating starting transitions...")
-    
+
     this.startingStateNode.generateTransitions(this, this.theTraversion);
 
 
@@ -411,7 +411,7 @@ export class ParseTableGenerator {
     // so simply these always must be made sequentially
 
     //console.log("Generating states...")
-    
+
 
     this.allLeafStateNodes.forEach(state => {
       state.generateTransitions(this, this.theTraversion);
@@ -462,7 +462,7 @@ export class ParseTable {
   static deserialize(rule: PRule, buf: number[]) {
     var result = new ParseTable(0, rule, null, []);
     var pos = result.deser(buf);
-    if (pos !== buf.length) throw new Error("ptable:"+rule+" pos:"+pos+" !== "+buf.length);
+    if (pos !== buf.length) throw new Error("ptable:" + rule + " pos:" + pos + " !== " + buf.length);
     return result;
   }
 
@@ -479,12 +479,12 @@ export class ParseTable {
     var result = [this.rule.nodeIdx, this.allStates.length, this.maxTokenId].concat(serStates);
     return result;
   }
-  
+
   deser(buf: number[]): number {
     var maxIdx = 0;
     var [ridx, stlen, mxtki] = buf;
     if (ridx !== this.rule.nodeIdx) {
-      throw new Error("Data error , invalid rule : "+this.rule+"/"+this.rule.nodeIdx+" vs  ridx:"+ridx);
+      throw new Error("Data error , invalid rule : " + this.rule + "/" + this.rule.nodeIdx + " vs  ridx:" + ridx);
     }
 
     this.maxTokenId = mxtki;
@@ -494,7 +494,7 @@ export class ParseTable {
     this.startingState = st0;
 
     stlen++;
-    for (var i=2; i<=stlen; i++) {
+    for (var i = 2; i <= stlen; i++) {
       var st = Analysis.leafState(i);
       pos = st.deser(stlen, mxtki, i, buf, pos);
       this.allStates.push(st);
@@ -506,7 +506,7 @@ export class ParseTable {
 }
 
 export class RTShift {
-  
+
   readonly shiftIndex: number;
 
   readonly toState: GrammarParsingLeafState;
@@ -557,7 +557,7 @@ export class GrammarParsingLeafState {
               this.reduceActions.push(r.item.node);
             break;
           default:
-            throw new Error("111  "+nextTerm);
+            throw new Error("111  " + nextTerm);
         }
 
       });
@@ -584,7 +584,7 @@ export class GrammarParsingLeafState {
           case ShiftReduceKind.SHIFT_RECURSIVE:
 
             var sr = nextTerm as ShiftRecursive;
-            for(var i = this.recursiveShiftStates.length; i < shiftIndex; i++) {
+            for (var i = this.recursiveShiftStates.length; i < shiftIndex; i++) {
               this.recursiveShiftStates.push(null);
             }
             this.recursiveShiftStates.push(sr.item.stateNode.generateState());
@@ -598,11 +598,11 @@ export class GrammarParsingLeafState {
             if (r.isEpsilonReduce)
               this.epsilonReduceActions.push(r.item.node);
             else
-              throw new Error("222  "+nextTerm);
+              throw new Error("222  " + nextTerm);
             break;
           default:
-            throw new Error("222b  "+nextTerm);
-          }
+            throw new Error("222b  " + nextTerm);
+        }
       });
 
     }
@@ -611,14 +611,14 @@ export class GrammarParsingLeafState {
 
   ser(maxStateId: number, maxTknId: number, buf: number[]): void {
     var toTknIds: number[] = [];
-    toTknIds.fill(0, 0, 2*(maxTknId+1));
+    toTknIds.fill(0, 0, 2 * (maxTknId + 1));
 
     var additionalStates = 0;
     var es = Object.entries(this.transitions);
     es.forEach(([key, shifts]: [string, RTShift[]]) => {
       var tokenId = Number(key);
       var pos = tokenId * 2;
-      if (shifts.length!==1) {
+      if (shifts.length !== 1) {
         toTknIds[pos++] = maxStateId + (++additionalStates);
         toTknIds[pos++] = shifts.length;
       } else {
@@ -626,8 +626,8 @@ export class GrammarParsingLeafState {
         toTknIds[pos++] = shift.toState.index;
         toTknIds[pos++] = shift.shiftIndex;
       }
-      var pos = (maxTknId+1) * 2 + additionalStates * 2;
-      shifts.forEach(shift=>{
+      var pos = (maxTknId + 1) * 2 + additionalStates * 2;
+      shifts.forEach(shift => {
         toTknIds[pos++] = shift.toState.index;
         toTknIds[pos++] = shift.shiftIndex;
       });
@@ -667,33 +667,33 @@ export class GrammarParsingLeafState {
     buf.push.apply(buf, ereduce);
   }
 
-  
-  deser(maxStateId: number, maxTknId: number, index:number, buf: number[], pos: number): number {
+
+  deser(maxStateId: number, maxTknId: number, index: number, buf: number[], pos: number): number {
     var [isrl, sndx, addsts, shiftIdxs, rlen, erlen] = buf;
-    this.isRule = isrl===1;
+    this.isRule = isrl === 1;
     this.index = index;
     this.startingPoint = sndx ? SerDeser.nodeTable[sndx] as PRef : null;
 
     var postkn0 = pos;
     var addst = 0;
-    for (var i = 0; i<=maxTknId; i++, pos+=2) {
+    for (var i = 0; i <= maxTknId; i++, pos += 2) {
       var si = buf[pos];
       if (si > maxStateId) {
-        var ass:RTShift[] = [];
+        var ass: RTShift[] = [];
         this.transitions[i] = ass;
-        var len = buf[pos+1];
-        var posa = postkn0 + (maxStateId+1)*2;
-        for (var j = 0; j<len; j++, posa+=2) {
+        var len = buf[pos + 1];
+        var posa = postkn0 + (maxStateId + 1) * 2;
+        for (var j = 0; j < len; j++, posa += 2) {
           var sia = buf[posa]
           var statea = Analysis.leafState(sia);
-          ass.push(new RTShift(buf[posa+1], statea));
+          ass.push(new RTShift(buf[posa + 1], statea));
         }
       } else if (si) {
         var state = Analysis.leafState(si);
-        this.transitions[i] = [new RTShift(buf[pos+1], state)];
+        this.transitions[i] = [new RTShift(buf[pos + 1], state)];
       }
     }
-    for (var i = 0; i<shiftIdxs; i++, pos++) {
+    for (var i = 0; i < shiftIdxs; i++, pos++) {
       var si = buf[pos];
       if (si) {
         var state = Analysis.leafState(si);
@@ -702,11 +702,11 @@ export class GrammarParsingLeafState {
         this.recursiveShiftStates.push(null);
       }
     }
-    for (var i = 0; i<rlen; i++, pos++) {
+    for (var i = 0; i < rlen; i++, pos++) {
       var node = SerDeser.nodeTable[buf[pos]];
       this.reduceActions.push(node);
     }
-    for (var i = 0; i<erlen; i++, pos++) {
+    for (var i = 0; i < erlen; i++, pos++) {
       var node = SerDeser.nodeTable[buf[pos]];
       this.epsilonReduceActions.push(node);
     }
@@ -842,8 +842,8 @@ class LinearTraversion {
     // only which located beneath start rule and copied EntryPointTraversers ,
     // are traversable,
     // the rest which created for linked rules, and/or in parser.getReferencedRule, is not
-    if (!item.top.parent && item.top!==this.parser.startingStateNode.rule) {
-      throw new Error("This how : "+item+"  in:"+this);
+    if (!item.top.parent && item.top !== this.parser.startingStateNode.rule) {
+      throw new Error("This how : " + item + "  in:" + this);
     }
 
 
@@ -1019,7 +1019,7 @@ class LinearTraversion {
     }
   }
   toString() {
-    return "Traversing "+this.rule + "/" + (this.position===undefined?"gen.time/"+this.traversionControls.length:TraversionPurpose[this.purpose] + "/" + this.position);
+    return "Traversing " + this.rule + "/" + (this.position === undefined ? "gen.time/" + this.traversionControls.length : TraversionPurpose[this.purpose] + "/" + this.position);
   }
 }
 
@@ -1105,7 +1105,7 @@ export abstract class RuleElementTraverser {
   toString() {
     return "T~" + this.node + (this.optionalBranch ? "<opt>" : "");
   }
-  
+
   get shortLabel() {
     return "";
   }
@@ -1310,7 +1310,7 @@ class OrMoreTraverser extends SingleCollectionTraverser {
 
 class ZeroOrMoreTraverser extends OrMoreTraverser {
 
-  
+
   get shortLabel() {
     return "*";
   }
@@ -1403,7 +1403,7 @@ class RuleRefTraverser extends RefTraverser {
 
     if (recursiveRule) {
 
-      console.log("Auto defer recursive rule : "+this+" in "+inTraversion);
+      console.log("Auto defer recursive rule : " + this + " in " + inTraversion);
       //
       // NOTE  auto-defer mode here
       //       when a rule is infinitely included !!!
@@ -1426,8 +1426,24 @@ class RuleRefTraverser extends RefTraverser {
 
     if (this.traverserStep) throw new Error("There is a traverserStep already : " + this + "  traverserStep:" + this.traverserStep);
 
+    var ruledup: CopiedRuleTraverser;
+
+    if (!this.isDeferred) {
+
+      recursionCacheStack["rule_ref#" + this.targetRule.nodeIdx] = this;
+      //console.log("rule#" + this.targetRule.nodeIdx +"->"+ recursionCacheStack.indent+" "+this);
+
+      ruledup = new CopiedRuleTraverser(this.parser, this, this.targetRule);
+      var cntNodes = Object.keys(ruledup.allNodes).length;
+      if (cntNodes >= 2000) {
+        console.warn("Auto defer, rule is too big : " + this + " in " + inTraversion + "  number of its nodes:" + cntNodes);
+        console.warn("Consider configuring deferred rules manually for your code esthetics. This rule reference is made deferred automatically due to its large extent. Analyzer could not simply include this node, because it lead to increased analyzing time and parsing table output size with exponential complexity.");
+
+        this.isDeferred = true;
+      }
+    }
+
     if (this.isDeferred) {
-      //console.log("peek rule_ref#" + this.targetRule.nodeIdx + recursionCacheStack.indent+" "+this.recursiveRuleOriginal);
 
       this.traverserStep = new TraversionControl(inTraversion, TraversionItemKind.DEFERRED_RULE, this);
       inTraversion.pushControl(this.traverserStep);
@@ -1436,44 +1452,24 @@ class RuleRefTraverser extends RefTraverser {
       this.parser.allLeafStateNodes.push(this.stateNode);
 
       return false;
+
     } else {
+      Object.assign(this.parser.allNodes, ruledup.allNodes);
 
-      recursionCacheStack["rule_ref#" + this.targetRule.nodeIdx] = this;
-      //console.log("rule#" + this.targetRule.nodeIdx +"->"+ recursionCacheStack.indent+" "+this);
+      this.ownRuleEntry = ruledup;
+      this.child = this.ownRuleEntry;
+      this.children.push(this.ownRuleEntry);
 
-      var ruledup = new CopiedRuleTraverser(this.parser, this, this.targetRule);
-      var cntNodes = Object.keys(ruledup.allNodes).length;
-      if (cntNodes >= 2000) {
-        console.warn("Auto defer, rule is too big : "+this+" in "+inTraversion+"  number of its nodes:"+cntNodes);
-        console.warn("Consider configuring deferred rules manually for your code esthetics. This rule reference is made deferred automatically due to its large extent. Analyzer could not simply include this node, because it lead to increased analyzing time and parsing table output size with exponential complexity.");
-
-        this.isDeferred = true;
-
-        this.traverserStep = new TraversionControl(inTraversion, TraversionItemKind.DEFERRED_RULE, this);
-        inTraversion.pushControl(this.traverserStep);
-  
-        this.stateNode = new JumpIntoSubroutineLeafStateNode(this);
-        this.parser.allLeafStateNodes.push(this.stateNode);
-  
-        return false;
-  
-      } else {
-        Object.assign(this.parser.allNodes, ruledup.allNodes);
-
-        this.ownRuleEntry = ruledup;
-        this.child = this.ownRuleEntry;
-        this.children.push(this.ownRuleEntry);
-  
-        this.traverserStep = new TraversionControl(inTraversion, TraversionItemKind.RULE, this);
-        inTraversion.pushControl(this.traverserStep);
-      }
+      this.traverserStep = new TraversionControl(inTraversion, TraversionItemKind.RULE, this);
+      inTraversion.pushControl(this.traverserStep);
 
       return true;
     }
 
+
   }
 
-  
+
   traversionActions(inTraversion: LinearTraversion, step: TraversionControl, cache: TraversionCache) {
     switch (step.kind) {
       case TraversionItemKind.DEFERRED_RULE:
@@ -1501,7 +1497,7 @@ class RuleRefTraverser extends RefTraverser {
   }
 
   get shortLabel() {
-    return this.node.rule+(this.stateNode?"#"+this.stateNode.index:"");
+    return this.node.rule + (this.stateNode ? "#" + this.stateNode.index : "");
   }
 
 }
@@ -1560,7 +1556,7 @@ class TerminalRefTraverser extends RefTraverser {
   }
 
   get shortLabel() {
-    return this.node.terminal+"#"+this.stateNode.index;
+    return this.node.terminal + "#" + this.stateNode.index;
   }
 
 }
@@ -1601,7 +1597,7 @@ export class RuleTraverser extends SingleTraverser {
 }
 
 export class CopiedRuleTraverser extends RuleTraverser {
-  
+
   _ReferencedRuleTraverser;
   allNodes: NumMapLike<RuleElementTraverser> = {};
 
@@ -1637,14 +1633,14 @@ export class EntryPointTraverser extends RuleTraverser {
     if (!ruleOriginal) {
 
       recursionCacheStack["rule_ref#" + this.node.nodeIdx] = this.node;
-  
+
     }
     return true;
   }
 
 
   get shortLabel() {
-    return this.node.rule+"#1";
+    return this.node.rule + "#1";
   }
 
 }
