@@ -8,7 +8,7 @@ export interface IJumpTable {
 
   inputPos: number;
   inputLength: number;
-  
+
   readonly numRules: number;
   next(): IToken;
   ruleAutomaton(index: number): ParseTblJumper;
@@ -20,13 +20,13 @@ export abstract class JumpTableRunner {
   numRules: number;
   parseTable: ParseTable;
   result: ParseTblJumper[];
-  
+
   constructor(owner: IJumpTable, parseTable: ParseTable) {
     this.owner = owner;
     this.parseTable = parseTable;
     this.numRules = owner.numRules;
   }
-  
+
   run(): any {
 
     var jumper = new ParseTblJumper(this, this.parseTable);
@@ -44,85 +44,91 @@ class ParseTblJumper {
   readonly runner: JumpTableRunner;
   readonly parseTable: ParseTable;
 
-  shifts: RTShift[];
-  currentStates: GrammarParsingLeafState[];
-
-  constructor(runner: JumpTableRunner, parseTable: ParseTable, currentState?: GrammarParsingLeafState) {
+  constructor(runner: JumpTableRunner, parseTable: ParseTable) {
     this.runner = runner;
     this.parseTable = parseTable;
-    if (!currentState) {
-      currentState = parseTable.startingState;
-    }
-    this.currentStates = [currentState];
   }
 
   reduceBefore() {
-    this.currentState.reduceActions.forEach(node=>{
-      
+    this.currentState.reduceActions.forEach(node => {
+
     });
   }
 
   // Not necessary to call, it's just a diagnostical feature
   reduceEmptyAfter(newState: GrammarParsingLeafState) {
-    newState.epsilonReduceActions.forEach(node=>{
+    newState.epsilonReduceActions.forEach(node => {
       // ...
     });
   }
 
   run(withToken?: IToken): boolean {
-    var token;
-    if (withToken) token = withToken
-    else token = this.runner.owner.next();
 
-    do {
-      if (token) {
-        if (this.process(token)) {
-          token = this.runner.owner.next();
-        }
-      } else {
-        this.currentStates = null;
-        token = null;
-      }
-    } while (token);
 
     // TODO better from reduce
     return this.runner.owner.inputPos === this.runner.owner.inputLength;
   }
 
-  process(token: IToken): boolean {
-    var thisRound = this.currentStates;
+  process(withToken?: IToken): boolean {
+    var token: IToken;
+    if (withToken) token = withToken
+    else token = this.runner.owner.next();
 
-    this.currentStates = [];
+    var currentStates: GrammarParsingLeafState[] = [this.parseTable.startingState];
+    var stack: [GrammarParsingLeafState[], IToken, number, number][] = [];
+    var i = 0;
 
-    thisRound.forEach(state=>{
-      var newShifts = state.transitions[tokenAfterRq.tokenId];
+    // NOTE to avoid recursion for each stepping forward one single step  
+    maincyc:while (token) {
 
-      var rsh = state.recursiveShift;
-      if (!newShifts && rsh) {
-        var reqstate = rsh.toState;
-        var rr =  reqstate.startingPoint as PRuleRef;
+      for (; i < currentStates.length; i++) {
+        var currentState = currentStates[i];
 
-        var ruleRefAutom = this.runner.owner.ruleAutomaton(rr.ruleIndex);
+        var newShifts = currentState.transitions[token.tokenId];
+        var rsh: RTShift;
   
-        var pos0 = this.runner.owner.inputPos;
-        // TODO deferred( with {} parser) / immedate ( with regular parser )
-        if (ruleRefAutom.run()) {
-          var tokenAfterRq = this.runner.owner.next();
-          if (tokenAfterRq) {
-            newShifts = reqstate.transitions[tokenAfterRq.tokenId];
+        if (newShifts) {
+
+          stack.push([currentStates, token, i + 1, this.runner.owner.inputPos]);
+          currentStates = newShifts.map(shift=>shift.toState);
+          token = this.runner.owner.next();
+          i = 0;
+          continue maincyc;
+
+        } else if (rsh = currentState.recursiveShift) {
+          var reqstate = rsh.toState;
+          var rr = reqstate.startingPoint as PRuleRef;
+  
+          var ruleRefAutom = this.runner.owner.ruleAutomaton(rr.ruleIndex);
+  
+          // TODO deferred( with {} parser) / immedate ( with regular parser )
+          if (ruleRefAutom.run()) {
+
+            stack.push([currentStates, token, i + 1, this.runner.owner.inputPos]);
+            currentStates = [reqstate];
+            token = this.runner.owner.next();
+            i = 0;
+            continue maincyc;
+
+          } else {
+            // ok skip
+            // FIXME ?? rewind to pos0 here or in ruleRefAutom.run() ??
           }
-        } else {
-          // ok skip
         }
-        this.runner.owner.inputPos = pos0;
       }
 
-      if (newShifts) {
-        this.currentStates = this.currentStates.concat(newShifts.map(shift=>shift.toState));
+      if (stack.length) {
+        var inputPos: number;
+        [currentStates, token, i, inputPos] = stack.pop();
+        this.runner.owner.inputPos = inputPos;
+      } else {
+        break;
       }
+    }
 
-    });
-    return !!(this.currentStates && this.currentStates.length);
+
+
   }
+
 
 }
