@@ -22,19 +22,23 @@ export interface IJumpTableProgram extends IBaseParserProgram {
 export class JumpTableRunner {
 
   owner: IJumpTableProgram;
+  parseTable: ParseTable;
   packrat: Packrat;
   numRules: number;
   reduce: {[index: number]:DeferredReduce};
 
-  constructor(owner: IJumpTableProgram, packrat?: Packrat) {
+  constructor(owner: IJumpTableProgram, parseTable: ParseTable, packrat?: Packrat) {
     this.owner = owner;
+    this.parseTable = parseTable;
     this.packrat = packrat ? packrat : new Packrat(owner);
     this.numRules = owner.numRules;
     this.reduce = [];
   }
 
   get result(): DeferredReduce {
-    return this.reduce[this.]
+    // maybe rolling up
+    //return this.reduce[this.parseTable.rule.nodeIdx];
+    return this.reduce[this.parseTable.rule.children[0].nodeIdx];
   }
 
   reduceBefore(currentState: GrammarParsingLeafState) {
@@ -54,8 +58,9 @@ export class JumpTableRunner {
     });
   }
 
-  run(parseTable: ParseTable, withToken?: IToken): boolean {
+  run(withToken?: IToken): boolean {
 
+    const parseTable = this.parseTable;
     var token: IToken;
     if (withToken) token = withToken
     else token = this.owner.next();
@@ -102,11 +107,11 @@ export class JumpTableRunner {
             // REDUCE cached.result;
             continue maincyc;
           } else {
-            var ruleRefTbl = this.owner.ruleParseTable(rr.ruleIndex);
-            var childRunner = new JumpTableRunner(this.owner, this.packrat);
+            var ruleRefTbl = JumpTables.parseTables[rr.ruleIndex];
+            var childRunner = new JumpTableRunner(this.owner, ruleRefTbl, this.packrat);
   
             // TODO deferred( with {} parser) / immedate ( with regular parser )
-            if (childRunner.run(ruleRefTbl, token)) {
+            if (childRunner.run(token)) {
   
               stack.push([currentStates, token, i + 1, this.owner.inputPos]);
               currentStates = [reqstate];
