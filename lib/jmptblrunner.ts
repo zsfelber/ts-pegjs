@@ -69,41 +69,54 @@ class ParseTblJumper {
     });
   }
 
-  run(): boolean {
-    while (this.process());
+  run(withToken?: IToken): boolean {
+    var token;
+    if (withToken) token = withToken
+    else token = this.runner.owner.next();
+
+    do {
+      if (token) {
+        if (this.process(token)) {
+          token = this.runner.owner.next();
+        }
+      } else {
+        this.currentStates = null;
+        token = null;
+      }
+    } while (token);
+
     // TODO better from reduce
     return this.runner.owner.inputPos === this.runner.owner.inputLength;
   }
 
-  process(): boolean {
-    var token = this.runner.owner.next();
-    if (token) {
-      var thisRound = this.currentStates;
+  process(token: IToken): boolean {
+    var thisRound = this.currentStates;
 
-      thisRound.forEach(state=>{
-        var newShifts = state.transitions[token.tokenId];
+    this.currentStates = [];
 
-        var reqstate = state.recursiveShiftState;
-        if (!newShifts && reqstate) {
-          var t = reqstate.toState;
-          var rr =  t.startingPoint as PRuleRef;
-          var nx = this.runner.owner.rule(rr.ruleIndex);
-    
-          // TODO deferred( with {} parser) / immedate ( with regular parser )
-          if (nx.run()) {
-            token = this.runner.owner.next();
-            newShifts = t.transitions[token.tokenId];
-          } else {
-            // ok skip
-          }
+    thisRound.forEach(state=>{
+      var newShifts = state.transitions[token.tokenId];
+
+      var reqstate = state.recursiveShiftState;
+      if (!newShifts && reqstate) {
+        var t = reqstate.toState;
+        var rr =  t.startingPoint as PRuleRef;
+        var nx = this.runner.owner.rule(rr.ruleIndex);
+  
+        // TODO deferred( with {} parser) / immedate ( with regular parser )
+        if (nx.run()) {
+          token = this.runner.owner.next();
+          newShifts = t.transitions[token.tokenId];
+        } else {
+          // ok skip
         }
+      }
 
-        this.currentStates = newShifts ? newShifts.map(shift=>shift.toState) : null;
+      if (newShifts) {
+        this.currentStates = this.currentStates.concat(newShifts.map(shift=>shift.toState));
+      }
 
-      });
-    } else {
-      this.currentStates = null;
-    }
+    });
     return !!(this.currentStates && this.currentStates.length);
   }
 
