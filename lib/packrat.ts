@@ -28,7 +28,7 @@ export class Packrat {
     this.numRules = owner.numRules;
   }
 
-  readCacheEntry(rule: EntryPointInterpreter): ICached {
+  readCacheEntry(rule: PRule): ICached {
     const p = this.owner;
     const key = p.cacheKey(rule);
     var cached: ICached = this.peg$resultsCache[key];

@@ -2,54 +2,49 @@ import { ParseTable, GrammarParsingLeafState, Analysis } from '.';
 import { IToken } from '.';
 import { SerDeser } from '../lib';
 import { RTShift } from './analyzer';
-import { IBaseParserProgram } from './interpreter';
-import { PRuleRef } from './parsers';
+import { IBaseParserProgram, DeferredReduce } from './interpreter';
+import { PRuleRef, PValueNode } from './parsers';
+import { Packrat } from './packrat';
+
+export namespace JumpTables {
+
+  export var parseTables: {[index:number]:ParseTable};
+
+}
 
 export interface IJumpTableProgram extends IBaseParserProgram {
 
   inputPos: number;
   inputLength: number;
 
-  ruleAutomaton(index: number): ParseTblJumper;
+  ruleParseTable(index: number): ParseTable;
 }
 
 export class JumpTableRunner {
 
   owner: IJumpTableProgram;
+  packrat: Packrat;
   numRules: number;
-  result: ParseTblJumper[];
+  reduce: {[index: number]:DeferredReduce};
 
-  constructor(owner: IJumpTableProgram) {
+  constructor(owner: IJumpTableProgram, packrat?: Packrat) {
     this.owner = owner;
+    this.packrat = packrat ? packrat : new Packrat(owner);
     this.numRules = owner.numRules;
+    this.reduce = [];
   }
 
-  run(parseTable: ParseTable): any {
-
-    var jumper = new ParseTblJumper(this, parseTable);
-
-    jumper.run();
-    var result = jumper.result;
-    return result;
-  }
-}
-
-
-
-
-class ParseTblJumper {
-
-  readonly runner: JumpTableRunner;
-  readonly parseTable: ParseTable;
-
-  constructor(runner: JumpTableRunner, parseTable: ParseTable) {
-    this.runner = runner;
-    this.parseTable = parseTable;
+  get result(): DeferredReduce {
+    return this.reduce[this.]
   }
 
-  reduceBefore() {
-    this.currentState.reduceActions.forEach(node => {
-
+  reduceBefore(currentState: GrammarParsingLeafState) {
+    currentState.reduceActions.forEach(node => {
+      var r = node as PValueNode;
+      var args: DeferredReduce[] = 
+        r.action.args.map(arg=>this.reduce[arg.evaluate.nodeIdx]);
+      var reduce = new DeferredReduce(r.action, args, this.owner.inputPos);
+      this.reduce[r.nodeIdx] = reduce;
     });
   }
 
@@ -60,13 +55,16 @@ class ParseTblJumper {
     });
   }
 
-  run(withToken?: IToken): boolean {
+  run(parseTable: ParseTable, withToken?: IToken): boolean {
 
     var token: IToken;
     if (withToken) token = withToken
-    else token = this.runner.owner.next();
+    else token = this.owner.next();
 
-    var currentStates: GrammarParsingLeafState[] = [this.parseTable.startingState];
+    // TODO
+    var ruleMaxFailPos = 0;
+
+    var currentStates: GrammarParsingLeafState[] = [parseTable.startingState];
     var stack: [GrammarParsingLeafState[], IToken, number, number][] = [];
     var i = 0;
 
@@ -76,14 +74,17 @@ class ParseTblJumper {
       for (; i < currentStates.length; i++) {
         var currentState = currentStates[i];
 
+        // !! :)  !!
+        this.reduceBefore(currentState);
+
         var newShifts = currentState.transitions[token.tokenId];
         var rsh: RTShift;
   
         if (newShifts) {
 
-          stack.push([currentStates, token, i + 1, this.runner.owner.inputPos]);
+          stack.push([currentStates, token, i + 1, this.owner.inputPos]);
           currentStates = newShifts.map(shift=>shift.toState);
-          token = this.runner.owner.next();
+          token = this.owner.next();
           i = 0;
           continue maincyc;
 
@@ -91,20 +92,38 @@ class ParseTblJumper {
           var reqstate = rsh.toState;
           var rr = reqstate.startingPoint as PRuleRef;
   
-          var ruleRefAutom = this.runner.owner.ruleAutomaton(rr.ruleIndex);
-  
-          // TODO deferred( with {} parser) / immedate ( with regular parser )
-          if (ruleRefAutom.run()) {
+          const cached = this.packrat.readCacheEntry(SerDeser.ruleTable[rr.ruleIndex]);
 
-            stack.push([currentStates, token, i + 1, this.runner.owner.inputPos]);
+          if (cached.nextPos!==undefined) {
+            stack.push([currentStates, token, i + 1, this.owner.inputPos]);
             currentStates = [reqstate];
-            token = this.runner.owner.next();
+            token = this.owner.next();
             i = 0;
+            // TODO
+            // REDUCE cached.result;
             continue maincyc;
-
           } else {
-            // ok skip
-            // FIXME ?? rewind to pos0 here or in ruleRefAutom.run() ??
+            var ruleRefTbl = this.owner.ruleParseTable(rr.ruleIndex);
+            var childRunner = new JumpTableRunner(this.owner, this.packrat);
+  
+            // TODO deferred( with {} parser) / immedate ( with regular parser )
+            if (childRunner.run(ruleRefTbl, token)) {
+  
+              stack.push([currentStates, token, i + 1, this.owner.inputPos]);
+              currentStates = [reqstate];
+              token = this.owner.next();
+              i = 0;
+
+              // TODO result
+              Object.assign(cached, { nextPos: this.owner.inputPos, 
+                maxFailPos: ruleMaxFailPos, result:childRunner.result });
+          
+              continue maincyc;
+  
+            } else {
+              // ok skip
+              // FIXME ?? rewind to pos0 here or in ruleRefAutom.run() ??
+            }
           }
         }
       }
@@ -112,7 +131,7 @@ class ParseTblJumper {
       if (stack.length) {
         var inputPos: number;
         [currentStates, token, i, inputPos] = stack.pop();
-        this.runner.owner.inputPos = inputPos;
+        this.owner.inputPos = inputPos;
       } else {
         break;
       }
