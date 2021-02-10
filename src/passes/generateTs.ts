@@ -25,6 +25,7 @@ function generateTS(ast, ...args) {
   const options = args[args.length - 1];
   //options.returnTypes = {};
   const param0 = options.param0 ? options.param0 + ', ' : '';
+  const param00 = options.param00 ? options.param00 + ', ' : '';
 
   var allstarts: string[];
   allstarts = ast.allstarts;
@@ -175,18 +176,17 @@ function generateTS(ast, ...args) {
       [
         '',
         '',
-        'export class PegCannonParser<T extends ' + baseTokenType + ', I extends PegCannonParseStream<T>> {',
+        'export abstract class PegCannonParser<T extends ' + baseTokenType + ', I extends PegCannonParseStream<T>> {',
         '',
         '  options: IParseOptions;',
         '  input: I;',
         '',
-        '  localFailPos = 0;',
-        '  maxFailExpected: Expectation[] = [];',
-        '  peg$silentFails = 0;', // 0 = report failures, > 0 = silence failures
-        '  peg$result' + startType + ';',
-        '  currentRule: RuleId;',
+        '  peg$result;',
         '',
-        '  get result' + startType + '() { return this.peg$result; }',
+        '  currentRule: RuleId;',
+        '  // TODO',
+        '  maxFailExpected: Expectation[] = [];',
+        '  maxFailPos: number;',
         ''
       ].join('\n')
     );
@@ -210,97 +210,133 @@ function generateTS(ast, ...args) {
     }
 
 
-
-    parts.push(
-      [
-        '  }',
-        '',
-        '  token() {',
-        '    return this.input.tokenAt(this.input.currPos);',
-        '  }',
-        '  parse(): IFailure {',
-        '',
-        '  }',
-        '',
-        '',
-        '  next() {',
-        '    const input = this.input;',
-        '    input.currPos++;',
-        '    if (input.currPos >= input.length) return undefined;',
-        '    return input.tokenAt(input.currPos);',
-        '  }',
-        '',
-        '  cacheKey(rule: EntryPointInterpreter) {',
-        '    return this.input.currPos * ' + grammar.rules.length + ' + rule.index;',
-        '  }',
-        '',
-        '  get pos(): number {',
-        '    return this.input.currPos;',
-        '  }',
-        '  set pos(topos: number) {',
-        '    this.input.currPos = topos;',
-        '  }',
-        '  get numRules(): number {',
-        '    return ' + grammar.rules.length + ';',
-        '  }',
-        '  rule(index: number): EntryPointInterpreter {',
-        '    return peg$rulesPackrat[index];',
-        '  }',
-        '',
-        '  peg$failure() {',
-        '    return {  maxFailExpected:     this.maxFailExpected,',
-        '              absoluteFailPos:     this.peg$absoluteFailPos(),',
-        '              found:               this.peg$foundErrorLiteral()   };',
-        '  }',
-        '',
-        '  peg$absoluteFailPos() {',
-        '    return this.input.toAbsolutePosition(this.localFailPos);',
-        '  }',
-        '',
-        '  peg$foundErrorLiteral(): ITokenExpectation {',
-        '    return    this.input.length > this.localFailPos',
-        '          ?   { type: "token", tokenId: this.input.tokenAt(this.localFailPos).tokenId }',
-        '          :   null     ;',
-        '  }',
-        '',
-        '  peg$computeLocation(startPos: number, endPos: number): IFileRange {',
-        '    const startPosDetails = this.input.calculatePosition(startPos);',
-        '    const endPosDetails = startPos===endPos ? startPosDetails : this.input.calculatePosition(endPos);',
-        '',
-        '    return {',
-        '      start: {',
-        '        offset: startPos,',
-        '        line: startPosDetails.line,',
-        '        column: startPosDetails.column',
-        '      },',
-        '      end: {',
-        '        offset: endPos,',
-        '        line: endPosDetails.line,',
-        '        column: endPosDetails.column',
-        '      }',
-        '    };',
-        '  }',
-        '',
-        '  peg$fail(expected1: Expectation) {',
-        '    mergeLocalFailures(this, { maxFailExpected: [ expected1 ],',
-        '                               localFailPos:    this.input.currPos }  );',
-        '  }',
-        '',
-        '  /*function peg$buildSimpleError(message: string, location1: IFileRange) {',
-        '    return new SyntaxError(input, message, [], "", location1);',
-        '  }*/',
-        '',
-        '  peg$buildFailureReport(failure: IFailure) {',
-        '    return new PegCannonParseErrorInfo(',
-        '      this.input, "", failure.maxFailExpected,',
-        '      failure.found, failure.absoluteFailPos',
-        '    );',
-        '  }',
-        '',
-        ''
-      ].join('\n')
-    );
-
+    parts.push([
+      '  }',
+      '',
+      '  get result() { return this.peg$result; }',
+      '',
+      '  token() {',
+      '    return this.input.tokenAt(this.input.currPos);',
+      '  }',
+      '',
+      '  parse(silent: boolean, startRuleIndex: RuleId = 0): IFailure {',
+      '    const input = this.input;',
+      '',
+      '    if (startRuleIndex) {',
+      '      if (!(StartRules.get(startRuleIndex))) {',
+      '        throw new Error("Can\'t start parsing from rule \\"" + RuleNames[startRuleIndex] + "\\".");',
+      '      }',
+      '    }',
+      '',
+      '    var M = ProfilingInfo.mainEntries = pushc(ProfilingInfo, "mainEntries");',
+      '    ProfilingInfo.ruleEntries = pushc(ProfilingInfo, "ruleEntries");',
+      '',
+      '    currentMain = pushc(M, RuleNames[startRuleIndex]);',
+      '    M.mainentriescnt = M.mainentriescnt? M.mainentriescnt+1 : 1;',
+      '    currentMain.mainentriescnt = currentMain.mainentriescnt? currentMain.mainentriescnt+1 : 1;',
+      '',
+      '    this.run(silent, startRuleIndex);',
+      '',
+      '    if (this.peg$result !== peg$FAILED) {',
+      '      if (input.length > this.input.currPos) {',
+      '        this.peg$fail(peg$endExpectation());',
+      '      } else {',
+      '        return;',
+      '      }',
+      '    }',
+      '',
+      '    const f = this.peg$failure();',
+      '    if (silent) {',
+      '       return f;',
+      '    } else {',
+      '       throw new SyntaxError(this.peg$buildFailureReport(f));',
+      '    }',
+      '',
+      '  }',
+      '',
+      '  abstract run(silent: boolean, startRuleIndex?: RuleId): IFailure;',
+      '',
+      '',
+      '  next() {',
+      '    const input = this.input;',
+      '    input.currPos++;',
+      '    if (input.currPos >= input.length) return undefined;',
+      '    return input.tokenAt(input.currPos);',
+      '  }',
+      '',
+      '  cacheKey(rule: PRule) {',
+      '    return this.input.currPos * 132 + rule.index;',
+      '  }',
+      '  ',
+      '  fail(token: IToken): void {',
+      '    throw new Error("Method not implemented.");',
+      '  }',
+      '',
+      '  get inputPos(): number {',
+      '    return this.input.currPos;',
+      '  }',
+      '  set inputPos(topos: number) {',
+      '    this.input.currPos = topos;',
+      '  }',
+      '',
+      '  get inputLength(): number {',
+      '    return this.input.length;',
+      '  }',
+      '',
+      '  get numRules(): number {',
+      '    return 132;',
+      '  }',
+      '',
+      '  peg$failure() {',
+      '    return {  maxFailExpected:     this.maxFailExpected,',
+      '              maxFailPos:          this.maxFailPos,',
+      '              found:               this.peg$foundErrorLiteral()   };',
+      '  }',
+      '',
+      '  peg$foundErrorLiteral(): ITokenExpectation {',
+      '    return    this.input.length > this.maxFailPos',
+      '          ?   { type: "token", tokenId: this.input.tokenAt(this.maxFailPos).tokenId }',
+      '          :   null     ;',
+      '  }',
+      '',
+      '  peg$computeLocation(startPos: number, endPos: number): IFileRange {',
+      '    const startPosDetails = this.input.calculatePosition(startPos);',
+      '    const endPosDetails = startPos===endPos ? startPosDetails : this.input.calculatePosition(endPos);',
+      '',
+      '    return {',
+      '      start: {',
+      '        offset: startPos,',
+      '        line: startPosDetails.line,',
+      '        column: startPosDetails.column',
+      '      },',
+      '      end: {',
+      '        offset: endPos,',
+      '        line: endPosDetails.line,',
+      '        column: endPosDetails.column',
+      '      }',
+      '    };',
+      '  }',
+      '',
+      '  peg$fail(expected1: Expectation) {',
+      '    mergeFailures(this, { maxFailExpected: [ expected1 ],',
+      '                          maxFailPos:    this.input.currPos }  );',
+      '  }',
+      '',
+      '  /*function peg$buildSimpleError(message: string, location1: IFileRange) {',
+      '    return new SyntaxError(input, message, [], "", location1);',
+      '  }*/',
+      '',
+      '  peg$buildFailureReport(failure: IFailure) {',
+      '    return new PegCannonParseErrorInfo(',
+      '      this.input, "", failure.maxFailExpected,',
+      '      failure.found, failure.maxFailPos',
+      '    );',
+      '  }',
+      '',
+      '',
+      '',
+      ''
+    ].join('\n'));
 
     function genMainFunc(action: PFunction) {
 
@@ -347,107 +383,32 @@ function generateTS(ast, ...args) {
     var startType = ast.inferredTypes[r0];
     startType = startType ? ': ' + startType : '';
 
-    parts.push(
-      [
-        '',
-        '',
-        'export class PegCannonPackratRunner<T extends ' + baseTokenType + ', I extends PegCannonParseStream<T>> extends PackratRunner {',
-        '',
-        '  options: IParseOptions;',
-        '  input: I;',
-        '',
-        '  localFailPos = 0;',
-        '  maxFailExpected: Expectation[] = [];',
-        '  peg$silentFails = 0;', // 0 = report failures, > 0 = silence failures
-        '  peg$result;',
-        '  currentRule: RuleId;',
-        '',
-        '  get result' + startType + '() { return this.peg$result; }',
-        ''
-      ].join('\n')
-    );
-
-    parts.push(['  readonly peg$resultsCache: {[id: number]: ICached};', ''].join('\n'));
-
-    parts.push(
-      [
-        '',
-        '  constructor(' + param0 + 'input: I, options?: IParseOptions) {',
-        '    super();',
-        '    this.input = input;',
-        '    this.options = options !== undefined ? options : {};',
-        '',
-        '    if (this.options.customCache)',
-        '      this.peg$resultsCache = this.options.customCache;',
-        ''
-      ].join('\n')
-    );
-
-    parts.push(
-      [
-        '    this.init();',
-        '  }',
-        '',
-        '  parse(silent: boolean, peg$startRuleIndex: RuleId = 0): IFailure {',
-        '    const input = this.input;',
-        ''
-      ].join('\n')
-    );
-
-
     parts.push([
-      '    if (peg$startRuleIndex) {',
-      '      if (!(StartRules.get(peg$startRuleIndex))) {',
-      '        throw new Error("Can\'t start parsing from rule \\"" + RuleNames[peg$startRuleIndex] + "\\".");',
-      '      }',
-      '    }'
+      '',
+      '',
+      'export  class       PegCannonInterpretedParser<T extends ' + baseTokenType + ', I extends PegCannonParseStream<T>> ',
+      '        extends     PegCannonParser<T,I> ',
+      '        implements  IParserProgram {',
+      '',
+      '  runner: InterpreterRunner;',
+      '  constructor(' + param0 + 'input: I, options?: IParseOptions) {',
+      '    super(' + param00 + 'input, options);',
+      '    this.runner = new InterpreterRunner(this);',
+      '    this.input = input;',
+      '    this.options = options !== undefined ? options : {};',
+      '',
+      '  }',
+      '',
+      '  run(silent: boolean, startRuleIndex: RuleId = 0): IFailure {',
+      '    var entry = peg$rulesPackrat[startRuleIndex];',
+      '    this.peg$result = this.runner.run(entry);',
+      '    ',
+      '    // TODO failure',
+      '    return null;',
+      '  }',
+      '}',
+      '',
     ].join('\n'));
-
-    if (options.profiling) {
-      parts.push(
-        [
-          '',
-          '    var M = ProfilingInfo.mainEntries = pushc(ProfilingInfo, "mainEntries");',
-          '    ProfilingInfo.ruleEntries = pushc(ProfilingInfo, "ruleEntries");',
-          '',
-          '    currentMain = pushc(M, RuleNames[peg$startRuleIndex]);',
-          '    M.mainentriescnt = M.mainentriescnt? M.mainentriescnt+1 : 1;',
-          '    currentMain.mainentriescnt = currentMain.mainentriescnt? currentMain.mainentriescnt+1 : 1;',
-        ].join('\n'));
-    }
-
-    if (ast.initializer) {
-      parts.push(indent4(ast.initializer.code));
-      parts.push('');
-    }
-    parts.push('');
-    parts.push('');
-
-    parts.push('    var entry = peg$rulesPackrat[peg$startRuleIndex];');
-    parts.push('    this.peg$result = this.run(entry);');
-
-    parts.push(
-      [
-        '',
-        '    if (this.peg$result !== peg$FAILED) {',
-        '      if (input.length > this.input.currPos) {',
-        '        this.peg$fail(peg$endExpectation());',
-        '      } else {',
-        '        return;',
-        '      }',
-        '    }',
-        '',
-        '    const f = this.peg$failure();',
-        '    if (silent) {',
-        '       return f;',
-        '    } else {',
-        '       throw new SyntaxError(this.peg$buildFailureReport(f));',
-        '    }',
-        '',
-        '  }'
-      ].join('\n')
-    );
-    parts.push(['}', ''].join('\n'));
 
     return parts.join('\n');
 
@@ -461,36 +422,37 @@ function generateTS(ast, ...args) {
     var startType = ast.inferredTypes[r0];
     startType = startType ? ': ' + startType : '';
 
-    parts.push(
-      [
-        '',
-        '',
-        'export class PegCannonJumpTableRunner<T extends ' + baseTokenType + ', I extends PegCannonParseStream<T>> extends JumpTableRunner {',
-        '',
-        '  options: IParseOptions;',
-        '  input: I;',
-        '',
-        '  currentRule: RuleId;',
-        '',
-        '  get result' + startType + '() { return this.peg$result; }',
-        ''
-      ].join('\n')
-    );
-
-    parts.push(['  readonly peg$resultsCache: {[id: number]: ICached};', ''].join('\n'));
-
-    parts.push(
-      [
-        '',
-        '  constructor(' + param0 + 'input: I, options?: IParseOptions) {',
-        '    super();',
-        '    this.input = input;',
-        '    this.options = options !== undefined ? options : {};',
-        '  }',
-        '}'
-      ].join('\n')
-    );
-
+    parts.push([
+      '',
+      '',
+      '',
+      '',
+      'export  class       PegCannonPrecompiledParser<T extends ' + baseTokenType + ', I extends PegCannonParseStream<T>> ',
+      '        extends     PegCannonParser<T,I>',
+      '        implements  IJumpTableProgram {',
+      '',
+      '  constructor(' + param0 + 'input: I, options?: IParseOptions) {',
+      '    super(' + param00 + 'input, options);',
+      '    this.input = input;',
+      '    this.options = options !== undefined ? options : {};',
+      '  }',
+      '',
+      '',
+      '  run(silent: boolean, startRuleIndex: RuleId = 0): IFailure {',
+      '',
+      '    var parseTable = peg$PrsTbls[startRuleIndex] as ParseTable;',
+      '',
+      '    const runner = new JumpTableRunner(this, parseTable);',
+      '',
+      '    this.peg$result = runner.run();',
+      '',
+      '    // TODO failure',
+      '    return null;',
+      '  }',
+      '}',
+      '',
+      ''
+    ].join('\n'));
     return parts.join('\n');
   }
 
@@ -580,7 +542,9 @@ function pushc(cache: any, item: any): any {
       .join('\n');
 
     res = res.concat([
-      "import { IFilePosition, IFileRange, IAnyExpectation, IEndExpectation, IOtherExpectation, Expectation, SyntaxError, ITraceEvent, DefaultTracer, ICached, PegCannonParseStream, PackratRunner, PRule, IFailure, PegCannonParseErrorInfo, mergeFailures, mergeLocalFailures, IToken, ITokenExpectation, PNode, EntryPointInterpreter, SerDeser, peg$FAILED, ParseTable, Packrat } from 'ts-pegjs/lib';",
+      "import { IFilePosition, IFileRange, IAnyExpectation, IEndExpectation, IOtherExpectation, Expectation, SyntaxError, ITraceEvent, DefaultTracer, ICached, PegCannonParseStream, InterpreterRunner, PRule, IFailure, PegCannonParseErrorInfo, mergeFailures, IToken, ITokenExpectation, PNode, EntryPointInterpreter, SerDeser, peg$FAILED, ParseTable, Packrat, JumpTableRunner, Interpreters, JumpTables } from 'ts-pegjs/lib';",
+      "import { IParserProgram } from 'ts-pegjs/lib';",
+      "import { IJumpTableProgram } from 'ts-pegjs/lib';",
       '',
       '// Generated by PEG.js v. ' +
       ppack.version +
@@ -767,17 +731,18 @@ function pushc(cache: any, item: any): any {
         "];"
       ].join('\n'));
 
-    tables.push([
-      "",
-      "SerDeser.functionTable = peg$functions;",
-      "SerDeser.ruleTable = peg$rules;",
-      "Packrat.ruleTable = peg$rulesPackrat;"
-    ].join('\n'));
-
     tables.push("");
     tables.push("");
     tables = tables.concat(generateParseTable());
     tables.push("");
+
+    tables.push([
+      "",
+      'SerDeser.functionTable = peg$functions;',
+      'SerDeser.ruleTable = peg$rules;',
+      'Interpreters.ruleTable = peg$rulesPackrat;',
+      'JumpTables.parseTables = peg$PrsTbls;',
+    ].join('\n'));
     //TODO
     /*
     if (options.optimize === 'size') {
