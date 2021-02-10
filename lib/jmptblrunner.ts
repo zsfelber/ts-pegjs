@@ -60,10 +60,14 @@ export class JumpTableRunner {
 
   run(withToken?: IToken): boolean {
 
+    const owner = this.owner;
     const parseTable = this.parseTable;
+
     var token: IToken;
     if (withToken) token = withToken
-    else token = this.owner.next();
+    else token = owner.next();
+
+    owner.currentRule = parseTable.rule.index;
 
     // TODO
     var ruleMaxFailPos = 0;
@@ -86,9 +90,9 @@ export class JumpTableRunner {
   
         if (newShifts) {
 
-          stack.push([currentStates, token, i + 1, this.owner.inputPos]);
+          stack.push([currentStates, token, i + 1, owner.inputPos]);
           currentStates = newShifts.map(shift=>shift.toState);
-          token = this.owner.next();
+          token = owner.next();
           i = 0;
           continue maincyc;
 
@@ -99,27 +103,27 @@ export class JumpTableRunner {
           const cached = this.packrat.readCacheEntry(SerDeser.ruleTable[rr.ruleIndex]);
 
           if (cached.nextPos!==undefined) {
-            stack.push([currentStates, token, i + 1, this.owner.inputPos]);
+            stack.push([currentStates, token, i + 1, owner.inputPos]);
             currentStates = [reqstate];
-            token = this.owner.next();
+            token = owner.next();
             i = 0;
             // TODO
             // REDUCE cached.result;
             continue maincyc;
           } else {
             var ruleRefTbl = JumpTables.parseTables[rr.ruleIndex];
-            var childRunner = new JumpTableRunner(this.owner, ruleRefTbl, this.packrat);
+            var childRunner = new JumpTableRunner(owner, ruleRefTbl, this.packrat);
   
             // TODO deferred( with {} parser) / immedate ( with regular parser )
             if (childRunner.run(token)) {
   
-              stack.push([currentStates, token, i + 1, this.owner.inputPos]);
+              stack.push([currentStates, token, i + 1, owner.inputPos]);
               currentStates = [reqstate];
-              token = this.owner.next();
+              token = owner.next();
               i = 0;
 
               // TODO result
-              Object.assign(cached, { nextPos: this.owner.inputPos, 
+              Object.assign(cached, { nextPos: owner.inputPos, 
                 maxFailPos: ruleMaxFailPos, result:childRunner.result });
           
               continue maincyc;
@@ -135,7 +139,7 @@ export class JumpTableRunner {
       if (stack.length) {
         var inputPos: number;
         [currentStates, token, i, inputPos] = stack.pop();
-        this.owner.inputPos = inputPos;
+        owner.inputPos = inputPos;
       } else {
         break;
       }

@@ -1430,11 +1430,23 @@ class RuleRefTraverser extends RefTraverser {
       recursionCacheStack["rule_ref#" + this.targetRule.nodeIdx] = this;
       //console.log("rule#" + this.targetRule.nodeIdx +"->"+ recursionCacheStack.indent+" "+this);
 
+      //
+      // NOTE  auto-defer mode also
+      //       when a rule is too large
+      //
+      //       Though, recommended defining these manually in ellegant hotspots
+      //       which not autodetectable but this safeguard is definitely required:
+
       ruledup = new CopiedRuleTraverser(this.parser, this, this.targetRule);
       var cntNodes = Object.keys(ruledup.allNodes).length;
       if (cntNodes >= 2000) {
         console.warn("Auto defer, rule is too big : " + this + " in " + inTraversion + "  number of its nodes:" + cntNodes);
-        console.warn("Consider configuring deferred rules manually for your code esthetics. This rule reference is made deferred automatically due to its large extent. Analyzer could not simply include this node, because it lead to increased analyzing time and parsing table output size with exponential complexity.");
+        console.warn(
+        "  Consider configuring deferred rules manually for your code esthetics.\n"+
+        "  This rule reference is made deferred automatically due to its large extent.\n"+
+        "  Analyzer could not simply generate everything to beneath one root, because\n"+
+        "  it may add an unexpected rapid growth effect to analyzing time and parsing\n"+
+        "  table output size at some point due to its exponential nature.\n");
 
         this.isDeferred = true;
       }
@@ -1707,6 +1719,12 @@ abstract class SemanticTraverser extends EmptyTraverser {
     }
     return dirty;
   }
+
+  // TODO impl like this:
+  // this too should stop the traversion :
+  // cache.intoState.shiftsAndReduces.push({ kind: ShiftReduceKind.SHIFT_RECURSIVE, item: this });
+  // inTraversion.execute(TraversionItemActionKind.STOP, step);
+
 
 }
 

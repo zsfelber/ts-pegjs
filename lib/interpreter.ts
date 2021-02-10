@@ -423,6 +423,7 @@ export class EntryPointInterpreter extends SingleInterpreter {
 export interface IBaseParserProgram {
 
   inputPos: number;
+  currentRule: number;
   
   readonly numRules: number;
 
@@ -460,6 +461,7 @@ export class InterpreterRunner {
       return cached.result;
     }
 
+    owner.currentRule = rule.node.index;
     var stack = new RuleProcessStack(this, null, []);
 
     // TODO
