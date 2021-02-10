@@ -60,6 +60,7 @@ function generateTT(ast) {
         countVisualizerTree(vtree);
         vtree.numleaves = leaves.length;
         vtree.numlevels = i;
+        vtree.leaf1id = "0" + leaves[0]["stateNode"].index;
         var j = tothingyjson(vtree);
         var fnm = "../www/ast/pnodes-graph-" + rule.rule + ".json";
         fs.writeFileSync(fnm, j);
@@ -75,7 +76,7 @@ function generateTT(ast) {
 function shortenTreeUpwards(tnode, parents) {
     var p$, n$;
     if (!(n$ = tnode["$$$"])) {
-        tnode["$$$"] = n$ = { name: tnode.shortLabel, n: 1, kind: tnode.node.kind, leftNode: tnode, rightNode: tnode };
+        tnode["$$$"] = n$ = { name: tnode.shortLabel, n: 1, kind: tnode.node.kind, id: "0" + tnode["stateNode"].index };
     }
     if (!tnode.parent) {
         return;
@@ -84,7 +85,7 @@ function shortenTreeUpwards(tnode, parents) {
     if (p) {
         plab = p.shortLabel;
     }
-    var p0 = p;
+    var p0 = p.node.kind === parsers_1.PNodeKind.RULE ? null : p;
     shortenTree: while (p.parent) {
         switch (p.parent.node.kind) {
             case parsers_1.PNodeKind.ONE_OR_MORE:
@@ -94,6 +95,8 @@ function shortenTreeUpwards(tnode, parents) {
                 if (!pkind)
                     pkind = p.node.kind;
                 p = p.parent;
+                if (!p0)
+                    p0 = p;
                 p["$$$collapsed"] = 1;
                 break;
             case parsers_1.PNodeKind.RULE_REF:
@@ -101,6 +104,8 @@ function shortenTreeUpwards(tnode, parents) {
                 if (!pkind)
                     pkind = p.node.kind;
                 p = p.parent;
+                if (!p0)
+                    p0 = p;
                 p["$$$collapsed"] = 1;
                 break;
             case parsers_1.PNodeKind.RULE:
@@ -122,7 +127,18 @@ function shortenTreeUpwards(tnode, parents) {
     if (!(p$ = p["$$$"])) {
         if (!pkind)
             pkind = p.node.kind;
-        p["$$$"] = p$ = { name: plab, kind: pkind, n: 1, leftNode: p, rightNode: p0 };
+        if (!p0) {
+            if (p.node.kind === parsers_1.PNodeKind.RULE) {
+                if (p.parent)
+                    p0 = p.parent;
+                else
+                    p0 = p;
+            }
+            else {
+                p0 = p;
+            }
+        }
+        p["$$$"] = p$ = { name: plab, kind: pkind, n: 1, id: p0.node.nodeIdx };
         parents.push(p);
     }
     if (p["$leaf$"]) {
@@ -175,12 +191,14 @@ function tothingyjson(obj, ind) {
         '{ "name":"' + (obj.name ? obj.name : "") + '"',
         '"kind":"' + obj.kind + '"',
         '"n":' + (obj.n ? obj.n : 0),
-        '"nodeIdx":' + obj.rightNode.node.nodeIdx
+        '"id":"' + obj.id + '"'
     ];
     if (obj.numleaves)
         row.push('"numleaves":' + obj.numleaves);
     if (obj.numlevels)
         row.push('"numlevels":' + obj.numlevels);
+    if (obj.leaf1id)
+        row.push('"leaf1id":"' + obj.leaf1id + '"');
     var buffer = [];
     if (obj.children) {
         row.push('"children":[');
