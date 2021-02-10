@@ -67,7 +67,8 @@ namespace Factory {
         if (!parent) {
           return new EntryPointTraverser(parser, null, node as PRule);
         } else if (parent instanceof RuleRefTraverser) {
-          return new CopiedRuleTraverser(parser, parent, node as PRule);
+          throw new Error("Not expecting it here please fix it");
+          //return new CopiedRuleTraverser(parser, parent, node as PRule);
         } else {
           throw new Error("bad parent:"+parent);
         }
@@ -1040,7 +1041,11 @@ export abstract class RuleElementTraverser {
     this.nodeTravId = parser.nodeTravIds++;
     this.node = node;
     this.constructionLevel = parent ? parent.constructionLevel + 1 : 0;
-    this.parser.allNodes[this.nodeTravId] = this;
+    if (this.importPoint) {
+      this.importPoint.allNodes[this.nodeTravId] = this;
+    } else {
+      this.parser.allNodes[this.nodeTravId] = this;
+    }
 
     this.node.children.forEach(n => {
       this.children.push(Factory.createTraverser(parser, this, n));
@@ -1056,6 +1061,9 @@ export abstract class RuleElementTraverser {
   }
   get top(): EntryPointTraverser {
     return this.parent.top;
+  }
+  get importPoint(): CopiedRuleTraverser {
+    return this.parent.importPoint;
   }
 
   checkConstructFailed(): any {
@@ -1433,12 +1441,32 @@ class RuleRefTraverser extends RefTraverser {
       recursionCacheStack["rule_ref#" + this.targetRule.nodeIdx] = this;
       //console.log("rule#" + this.targetRule.nodeIdx +"->"+ recursionCacheStack.indent+" "+this);
 
-      this.ownRuleEntry = new CopiedRuleTraverser(this.parser, this, this.targetRule);
-      this.child = this.ownRuleEntry;
-      this.children.push(this.ownRuleEntry);
+      var ruledup = new CopiedRuleTraverser(this.parser, this, this.targetRule);
+      var cntNodes = Object.keys(ruledup.allNodes).length;
+      if (cntNodes >= 2000) {
+        console.warn("Auto defer, rule is too big : "+this+" in "+inTraversion+"  number of its nodes:"+cntNodes);
+        console.warn("Consider configuring deferred rules manually for your code esthetics. This rule reference is made deferred automatically due to its large extent. Analyzer could not simply include this node, because it lead to increased analyzing time and parsing table output size with exponential complexity.");
 
-      this.traverserStep = new TraversionControl(inTraversion, TraversionItemKind.RULE, this);
-      inTraversion.pushControl(this.traverserStep);
+        this.isDeferred = true;
+
+        this.traverserStep = new TraversionControl(inTraversion, TraversionItemKind.DEFERRED_RULE, this);
+        inTraversion.pushControl(this.traverserStep);
+  
+        this.stateNode = new JumpIntoSubroutineLeafStateNode(this);
+        this.parser.allLeafStateNodes.push(this.stateNode);
+  
+        return false;
+  
+      } else {
+        Object.assign(this.parser.allNodes, ruledup.allNodes);
+
+        this.ownRuleEntry = ruledup;
+        this.child = this.ownRuleEntry;
+        this.children.push(this.ownRuleEntry);
+  
+        this.traverserStep = new TraversionControl(inTraversion, TraversionItemKind.RULE, this);
+        inTraversion.pushControl(this.traverserStep);
+      }
 
       return true;
     }
@@ -1575,10 +1603,15 @@ export class RuleTraverser extends SingleTraverser {
 export class CopiedRuleTraverser extends RuleTraverser {
   
   _ReferencedRuleTraverser;
+  allNodes: NumMapLike<RuleElementTraverser> = {};
 
   constructor(parser: ParseTableGenerator, parent: RuleRefTraverser, node: PRule) {
     super(parser, parent, node);
     if (!parent) throw new Error();
+  }
+
+  get importPoint(): CopiedRuleTraverser {
+    return this;
   }
 }
 
@@ -1593,6 +1626,9 @@ export class EntryPointTraverser extends RuleTraverser {
 
   get top(): EntryPointTraverser {
     return this;
+  }
+  get importPoint(): CopiedRuleTraverser {
+    return this.parent ? this.parent.importPoint : null;
   }
 
   traversionGeneratorEnter(inTraversion: LinearTraversion, recursionCacheStack: TraversionMakerCache) {

@@ -1,6 +1,7 @@
 import { ParseTable, GrammarParsingLeafState } from '.';
 import { IToken } from '.';
 import { SerDeser } from 'ts-pegjs/lib';
+import { RTShift } from './analyzer';
 
 
 export abstract class JumpTableRunner {
@@ -34,6 +35,7 @@ class ParseTblJumper {
 
   readonly runner: JumpTableRunner;
   readonly parseTable: ParseTable;
+  shifts: RTShift[];
   currentState: GrammarParsingLeafState;
 
   constructor(runner: JumpTableRunner, parseTable: ParseTable) {
@@ -48,15 +50,24 @@ class ParseTblJumper {
   process() {
     var token = this.runner.next();
     if (token) {
-      this.currentState = this.currentState.transitions[token.tokenId];
+      this.shifts = this.currentState.transitions[token.tokenId];
+      if (this.shifts)
     } else {
       this.currentState = null;
     }
     return this.currentState;
   }
-  reduceAll() {
+
+  reduceBefore() {
     this.currentState.reduceActions.forEach(node=>{
       
+    });
+  }
+
+  // Not necessary to call, it's just a diagnostical feature
+  reduceEmptyAfter(newState: GrammarParsingLeafState) {
+    newState.epsilonReduceActions.forEach(node=>{
+      // ...
     });
   }
 }
