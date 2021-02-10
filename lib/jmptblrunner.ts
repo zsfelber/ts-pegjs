@@ -95,22 +95,26 @@ class ParseTblJumper {
     this.currentStates = [];
 
     thisRound.forEach(state=>{
-      var newShifts = state.transitions[token.tokenId];
+      var newShifts = state.transitions[tokenAfterRq.tokenId];
 
-      var reqstate = state.recursiveShiftState;
-      if (!newShifts && reqstate) {
-        var t = reqstate.toState;
-        var rr =  t.startingPoint as PRuleRef;
+      var rsh = state.recursiveShift;
+      if (!newShifts && rsh) {
+        var reqstate = rsh.toState;
+        var rr =  reqstate.startingPoint as PRuleRef;
 
         var ruleRefAutom = this.runner.owner.ruleAutomaton(rr.ruleIndex);
   
+        var pos0 = this.runner.owner.inputPos;
         // TODO deferred( with {} parser) / immedate ( with regular parser )
         if (ruleRefAutom.run()) {
-          token = this.runner.owner.next();
-          newShifts = t.transitions[token.tokenId];
+          var tokenAfterRq = this.runner.owner.next();
+          if (tokenAfterRq) {
+            newShifts = reqstate.transitions[tokenAfterRq.tokenId];
+          }
         } else {
           // ok skip
         }
+        this.runner.owner.inputPos = pos0;
       }
 
       if (newShifts) {

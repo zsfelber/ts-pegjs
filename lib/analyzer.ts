@@ -529,7 +529,7 @@ export class GrammarParsingLeafState {
   private _transitions: NumMapLike<RTShift[]>;
   readonly reduceActions: PNode[];
   readonly epsilonReduceActions: PNode[];
-  recursiveShiftState: RTShift;
+  recursiveShift: RTShift;
 
   constructor(startState?: StateNode, startingPoint?: PRef) {
     if (startState) {
@@ -564,8 +564,8 @@ export class GrammarParsingLeafState {
       var shiftIndex = 0;
       this.startState.shiftsAndReduces.forEach(nextTerm => {
 
-        if (this.recursiveShiftState) {
-          throw new Error("Recursive shift already found, error : "+this.recursiveShiftState+"  while generating state:"+this.startState+" shiftIndex:"+shiftIndex+" unexpected:"+nextTerm.item);
+        if (this.recursiveShift) {
+          throw new Error("Recursive shift already found, error : "+this.recursiveShift+"  while generating state:"+this.startState+" shiftIndex:"+shiftIndex+" unexpected:"+nextTerm.item);
         }
 
         switch (nextTerm.kind) {
@@ -588,7 +588,7 @@ export class GrammarParsingLeafState {
           case ShiftReduceKind.SHIFT_RECURSIVE:
 
             var sr = nextTerm as ShiftRecursive;
-            this.recursiveShiftState = new RTShift(shiftIndex, sr.item.stateNode.generateState());
+            this.recursiveShift = new RTShift(shiftIndex, sr.item.stateNode.generateState());
 
             shiftIndex++;
             break;
@@ -635,10 +635,10 @@ export class GrammarParsingLeafState {
     });
 
     var recshift: number[];
-    if (this.recursiveShiftState) {
+    if (this.recursiveShift) {
       recshift = [];
-      recshift.push(this.recursiveShiftState.toState.index);
-      recshift.push(this.recursiveShiftState.shiftIndex);
+      recshift.push(this.recursiveShift.toState.index);
+      recshift.push(this.recursiveShift.shiftIndex);
     } else {
       recshift = [0,0];
     }
@@ -697,7 +697,7 @@ export class GrammarParsingLeafState {
     var shi = buf[pos++];
     if (rsi) {
       var state = Analysis.leafState(rsi);
-      this.recursiveShiftState = new RTShift(shi, state);
+      this.recursiveShift = new RTShift(shi, state);
     }
     for (var i = 0; i < rlen; i++, pos++) {
       var node = SerDeser.nodeTable[buf[pos]];
