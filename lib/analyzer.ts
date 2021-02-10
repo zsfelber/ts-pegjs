@@ -95,8 +95,12 @@ abstract class StateNode {
   index: number;
 
   // of state transitions starting from here
+  // includes Regular SHIFTs
+  // includes Epsilon REDUCEs
+  // includes SHIFT_RECURSIVEs
   readonly shiftsAndReduces: ShiftReduce[] = [];
 
+  // Regular REDUCEs 
   // of state transitions arriving to here
   readonly regularReduces: Reduce[] = [];
 
@@ -176,11 +180,6 @@ abstract class LeafStateNode extends StateNode {
     parser.cntStates++;
   }
 
-  generateState() {
-    var result: GrammarParsingLeafState = new GrammarParsingLeafState(this, this.ref.node);
-    return result;
-  }
-
 }
 
 class TraversedLeafStateNode extends LeafStateNode {
@@ -195,6 +194,11 @@ class TraversedLeafStateNode extends LeafStateNode {
     return false;
   }
 
+  generateState() {
+    var result: GrammarParsingLeafState = new GrammarParsingLeafState(this, this.ref.node);
+    return result;
+  }
+
 }
 
 class JumpIntoSubroutineLeafStateNode extends LeafStateNode {
@@ -207,6 +211,11 @@ class JumpIntoSubroutineLeafStateNode extends LeafStateNode {
 
   get isRule(): boolean {
     return true;
+  }
+
+  generateState() {
+    var result: GrammarParsingLeafState = new GrammarParsingLeafState(this, this.ref.node);
+    return result;
   }
 
 }
@@ -226,6 +235,13 @@ class Shift extends ShiftReduce {
   kind = ShiftReduceKind.SHIFT;
 
   item: TerminalRefTraverser;
+}
+
+class ShiftRecursive extends ShiftReduce {
+
+  kind = ShiftReduceKind.SHIFT_RECURSIVE;
+
+  item: RuleRefTraverser;
 }
 
 class Reduce extends ShiftReduce {
@@ -451,24 +467,21 @@ export class ParseTable {
 
   ser(): number[] {
     var serStates: number[] = [];
-    var maxIdx = 0;
 
-    var ind = this.startingState.ser(this.maxTokenId, serStates);
-    if (ind > maxIdx) maxIdx = ind;
+    var maxStateId = this.allStates.length;
+    var ind = this.startingState.ser(maxStateId, this.maxTokenId, serStates);
 
     this.allStates.forEach(s => {
-      var ind = s.ser(this.maxTokenId, serStates);
-      if (ind > maxIdx) maxIdx = ind;
+      var ind = s.ser(maxStateId, this.maxTokenId, serStates);
     });
-    if (this.allStates.length > maxIdx) maxIdx = this.allStates.length;
 
-    var result = [this.rule.nodeIdx, this.allStates.length, this.maxTokenId, maxIdx].concat(serStates);
+    var result = [this.rule.nodeIdx, this.allStates.length, this.maxTokenId].concat(serStates);
     return result;
   }
   
   deser(buf: number[]): number {
     var maxIdx = 0;
-    var [ridx, stlen, mxtki, maxIdx] = buf;
+    var [ridx, stlen, mxtki] = buf;
     if (ridx !== this.rule.nodeIdx) {
       throw new Error("Data error , invalid rule : "+this.rule+"/"+this.rule.nodeIdx+" vs  ridx:"+ridx);
     }
@@ -476,19 +489,31 @@ export class ParseTable {
     this.maxTokenId = mxtki;
     var pos = 4;
     var st0 = Analysis.leafState(1);
-    pos = st0.deser(mxtki, 1, buf, pos);
+    pos = st0.deser(stlen, mxtki, 1, buf, pos);
     this.startingState = st0;
 
     stlen++;
     for (var i=2; i<=stlen; i++) {
       var st = Analysis.leafState(i);
-      pos = st.deser(mxtki, i, buf, pos);
+      pos = st.deser(stlen, mxtki, i, buf, pos);
       this.allStates.push(st);
     }
 
     return pos;
   }
 
+}
+
+export class RTShift {
+  
+  readonly shiftIndex: number;
+
+  readonly toState: GrammarParsingLeafState;
+
+  constructor(shiftIndex: number, toState: GrammarParsingLeafState) {
+    this.shiftIndex = shiftIndex;
+    this.toState = toState;
+  }
 }
 
 export class GrammarParsingLeafState {
@@ -500,9 +525,10 @@ export class GrammarParsingLeafState {
   private startState: StateNode;
 
   // tokenId -> traversion state
-  private _transitions: NumMapLike<GrammarParsingLeafState>;
+  private _transitions: NumMapLike<RTShift[]>;
   readonly reduceActions: PNode[];
   readonly epsilonReduceActions: PNode[];
+  readonly recursiveShiftStates: GrammarParsingLeafState[];
 
   constructor(startState?: StateNode, startingPoint?: PRef) {
     if (startState) {
@@ -513,9 +539,10 @@ export class GrammarParsingLeafState {
     this.startingPoint = startingPoint;
     this.epsilonReduceActions = [];
     this.reduceActions = [];
+    this.recursiveShiftStates = [];
   }
 
-  get transitions(): NumMapLike<GrammarParsingLeafState> {
+  get transitions(): NumMapLike<RTShift[]> {
     if (!this._transitions) {
       this._transitions = {};
       this.startState.regularReduces.forEach(nextTerm => {
@@ -533,16 +560,37 @@ export class GrammarParsingLeafState {
         }
 
       });
+
+      var shiftIndex = 0;
       this.startState.shiftsAndReduces.forEach(nextTerm => {
         switch (nextTerm.kind) {
           case ShiftReduceKind.SHIFT:
-          case ShiftReduceKind.SHIFT_RECURSIVE:
             var s = nextTerm as Shift;
-            if (!this._transitions[s.item.node.value]) {
-              //nextTerm.
-              this._transitions[s.item.node.value] = s.item.stateNode.generateState();
+            var ts = this._transitions[s.item.node.value];
+            if (!ts) {
+              this._transitions[s.item.node.value] = ts = [];
             }
+            var tshift = new RTShift(shiftIndex, s.item.stateNode.generateState());
+            ts.push(tshift)
+
+            shiftIndex++;
             break;
+
+          // these are the rule-ref recursive states
+          // these have unknown jumping-in tokens, so 
+          // we should check at runtime whether it is over-traversed, if so,
+          // stop processing and opening its sub-rule automaton
+          case ShiftReduceKind.SHIFT_RECURSIVE:
+
+            var sr = nextTerm as ShiftRecursive;
+            for(var i = this.recursiveShiftStates.length; i < shiftIndex; i++) {
+              this.recursiveShiftStates.push(null);
+            }
+            this.recursiveShiftStates.push(sr.item.stateNode.generateState());
+
+            shiftIndex++;
+            break;
+
           case ShiftReduceKind.REDUCE:
           case ShiftReduceKind.REDUCE_RECURSIVE:
             var r = nextTerm as Reduce;
@@ -551,64 +599,107 @@ export class GrammarParsingLeafState {
             else
               throw new Error("222  "+nextTerm);
             break;
-        }
+          default:
+            throw new Error("222b  "+nextTerm);
+          }
       });
 
     }
     return this._transitions;
   }
 
-  ser(maxTknId: number, buf: number[]): number {
+  ser(maxStateId: number, maxTknId: number, buf: number[]): void {
     var toTknIds: number[] = [];
-    toTknIds[maxTknId] = 0;
-    toTknIds.fill(0, 0, maxTknId);
+    toTknIds.fill(0, 0, 2*(maxTknId+1));
 
+    var additionalStates = 0;
     var es = Object.entries(this.transitions);
-    es.forEach(([key, trans]: [string, GrammarParsingLeafState]) => {
+    es.forEach(([key, shifts]: [string, RTShift[]]) => {
       var tokenId = Number(key);
-      toTknIds[tokenId] = trans.index;
+      var pos = tokenId * 2;
+      if (shifts.length!==1) {
+        toTknIds[pos++] = maxStateId + (++additionalStates);
+        toTknIds[pos++] = shifts.length;
+      } else {
+        var shift = shifts[0];
+        toTknIds[pos++] = shift.toState.index;
+        toTknIds[pos++] = shift.shiftIndex;
+      }
+      var pos = (maxTknId+1) * 2 + additionalStates * 2;
+      shifts.forEach(shift=>{
+        toTknIds[pos++] = shift.toState.index;
+        toTknIds[pos++] = shift.shiftIndex;
+      });
     });
 
-    var maxIdx = 0;
+    var shiftIdxs = 0;
+    var recshift: number[] = [];
+    if (this.recursiveShiftStates.length) {
+      shiftIdxs = this.recursiveShiftStates.length;
+      this.recursiveShiftStates.forEach(state => {
+        recshift.push(state ? state.index : null);
+      });
+    }
     var reduce: number[] = [];
     this.reduceActions.forEach(r => {
       reduce.push(r.nodeIdx);
-      if (r.nodeIdx > maxIdx) maxIdx = r.nodeIdx;
     });
     var ereduce: number[] = [];
     this.epsilonReduceActions.forEach(r => {
       ereduce.push(r.nodeIdx);
-      if (r.nodeIdx > maxIdx) maxIdx = r.nodeIdx;
     });
 
     buf.push(this.isRule ? 1 : 0);
     if (this.startingPoint) {
       buf.push(this.startingPoint.nodeIdx);
-      if (this.startingPoint.nodeIdx > maxIdx) maxIdx = this.startingPoint.nodeIdx;
     } else {
       buf.push(0);
     }
+    buf.push(additionalStates);
+    buf.push(shiftIdxs);
     buf.push(reduce.length);
     buf.push(ereduce.length);
 
     buf.push.apply(buf, toTknIds);
+    buf.push.apply(buf, recshift);
     buf.push.apply(buf, reduce);
     buf.push.apply(buf, ereduce);
-
-    return maxIdx;
   }
 
   
-  deser(maxTknId: number, index:number, buf: number[], pos: number): number {
-    var [isrl, sndx, rlen, erlen] = buf;
+  deser(maxStateId: number, maxTknId: number, index:number, buf: number[], pos: number): number {
+    var [isrl, sndx, addsts, shiftIdxs, rlen, erlen] = buf;
     this.isRule = isrl===1;
     this.index = index;
     this.startingPoint = sndx ? SerDeser.nodeTable[sndx] as PRef : null;
 
-    for (var i = 0; i<maxTknId; i++, pos++) {
+    var postkn0 = pos;
+    var addst = 0;
+    for (var i = 0; i<=maxTknId; i++, pos+=2) {
       var si = buf[pos];
-      var state = si ? Analysis.leafState(si) : null;
-      this.transitions[i] = state;
+      if (si > maxStateId) {
+        var ass:RTShift[] = [];
+        this.transitions[i] = ass;
+        var len = buf[pos+1];
+        var posa = postkn0 + (maxStateId+1)*2;
+        for (var j = 0; j<len; j++, posa+=2) {
+          var sia = buf[posa]
+          var statea = Analysis.leafState(sia);
+          ass.push(new RTShift(buf[posa+1], statea));
+        }
+      } else if (si) {
+        var state = Analysis.leafState(si);
+        this.transitions[i] = [new RTShift(buf[pos+1], state)];
+      }
+    }
+    for (var i = 0; i<shiftIdxs; i++, pos++) {
+      var si = buf[pos];
+      if (si) {
+        var state = Analysis.leafState(si);
+        this.recursiveShiftStates.push(state);
+      } else {
+        this.recursiveShiftStates.push(null);
+      }
     }
     for (var i = 0; i<rlen; i++, pos++) {
       var node = SerDeser.nodeTable[buf[pos]];
@@ -1352,6 +1443,22 @@ class RuleRefTraverser extends RefTraverser {
       return true;
     }
 
+  }
+
+  
+  traversionActions(inTraversion: LinearTraversion, step: TraversionControl, cache: TraversionCache) {
+    switch (step.kind) {
+      case TraversionItemKind.DEFERRED_RULE:
+        switch (inTraversion.purpose) {
+          case TraversionPurpose.FIND_NEXT_TOKENS:
+            cache.intoState.shiftsAndReduces.push({ kind: ShiftReduceKind.SHIFT_RECURSIVE, item: this });
+            break;
+          case TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN:
+            break;
+        }
+        break;
+      default:
+    }
   }
 
 

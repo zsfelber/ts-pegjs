@@ -175,7 +175,7 @@ function generateTS(ast, ...args) {
       [
         '',
         '',
-        'export class PegjsParser0<T extends ' + baseTokenType + ', I extends PegjsParseStream<T>> {',
+        'export class PegjsParser<T extends ' + baseTokenType + ', I extends PegjsParseStream<T>> {',
         '',
         '  options: IParseOptions;',
         '  input: I;',
@@ -742,7 +742,7 @@ function pushc(cache: any, item: any): any {
             name = action.ownerRule.symbol;
           }
           name += "$" + action.index;
-          return "PegjsParser0.prototype." + name;
+          return "PegjsParser.prototype." + name;
         }).join(", "),
         "];"
       ].join('\n'));

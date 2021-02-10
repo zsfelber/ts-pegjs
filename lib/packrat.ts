@@ -1,4 +1,5 @@
 import { ICached, IToken, PNodeKind, PRule, PRuleRef, PTerminalRef, PValueNode, SerDeser } from '.';
+import { PFunction } from './parsers';
 
 export const peg$FAILED: Readonly<any> = {};
 
@@ -64,6 +65,58 @@ class RuleProcessStack {
 }
 
 
+// NOTE :
+// We collect the reduced nodes but we don't actually reduce
+// until the final state top node reached ! 
+// We can omit calculation of the dead branches this way:
+
+class DeferredReduce {
+
+  readonly action: PFunction;
+  readonly fun: (...etc) => any;
+  readonly argsToLeft: DeferredReduce[];
+  readonly calculatedArgs: any[];
+  readonly pos: number;
+
+  constructor(action: PFunction, argsToLeft: any[], pos: number) {
+    this.action = action;
+    this.fun = action?action.fun:null;
+    this.argsToLeft = argsToLeft;
+    this.pos = pos;
+  }
+
+  calculateFromTop(parser: PackratRunner) {
+    const p = parser.packrat;
+    var savedPos = p.pos;
+    var result = this.calculate(parser);
+    p.pos = savedPos;
+    return result;
+  }
+
+  private calculate(parser: PackratRunner) {
+    const p = parser.packrat;
+    this.calculateArgs(parser);
+    if (this.fun) {
+      p.pos = this.pos;
+      return this.fun.apply(parser, this.calculateArgs);
+    } else {
+      return this.calculatedArgs;
+    }
+  }
+
+  private calculateArgs(parser: PackratRunner) {
+    this.argsToLeft.forEach(arg=>{
+      var result: any;
+      if (arg) {
+        result = arg.calculate(parser);
+      } else {
+        result = arg;
+      }
+      this.calculatedArgs.push(result);
+    });
+  }
+}
+
 // NOTE Not exported.  The only exported one is EntryPointParser
 abstract class RuleElementInterpreter {
 
@@ -85,21 +138,17 @@ abstract class RuleElementInterpreter {
   }
 
   parse(stack: RuleProcessStack) {
+    const p = stack.parser.packrat;
 
-    var pos = stack.parser.pos;
+    var pos = p.pos;
 
     var r0 = this.parseImpl(stack);
 
     if (r0 === peg$FAILED) {
-      stack.parser.pos = pos;
+      p.pos = pos;
       return r0;
     } else if (r0 === peg$SUCCESS) {
-      var r;
-      if (this.node.action) {
-        r = this.node.action.fun.apply(stack.parser, stack.argsToLeft);
-      } else {
-        r = stack.argsToLeft;
-      }
+      var r = new DeferredReduce(this.node.action, stack.argsToLeft, p.pos);
       return r;
     } else {
       return r0;
@@ -165,17 +214,18 @@ abstract class SingleInterpreter extends SingleCollectionInterpreter {
   
   parse(stack: RuleProcessStack) {
 
-    var pos = stack.parser.pos;
+    const p = stack.parser.packrat;
+    var pos = p.pos;
 
     var r0 = this.parseImpl(stack);
 
     if (r0 === peg$FAILED) {
-      stack.parser.pos = pos;
+      p.pos = pos;
       return r0;
     } else if (r0 === peg$SUCCESS) {
       var r;
       if (this.node.action) {
-        r = this.node.action.fun.apply(stack.parser, stack.argsToLeft);
+        r = this.node.action.fun.apply(p, stack.argsToLeft);
       } else {
         r = stack.argsToLeft[0];
       }
@@ -308,10 +358,12 @@ class TerminalRefInterpreter extends EmptyInterpreter {
   }
 
   parseImpl(stack: RuleProcessStack) {
-    var token = stack.parser.next();
+    const p = stack.parser.packrat;
+    var token = p.next();
     if (token && token.tokenId === this.node.value) {
       return token;
     } else {
+      p.fail(token);
       return peg$FAILED;
     }
   }
@@ -379,31 +431,36 @@ class SemanticNotInterpreter extends SingleInterpreter {
 //   !!
 //
 
-export abstract class PackratRunner {
+export interface IPackrat {
 
-  _numRules: number;
+  pos: number;
   
-  constructor() {
-  }
-  init() {
-    this._numRules = this.numRules;
+  readonly numRules: number;
+
+  fail(token: IToken): void;
+  cacheKey(rule: EntryPointInterpreter): number;
+  next(): IToken;
+  rule(index: number): EntryPointInterpreter;
+}
+
+export class PackratRunner {
+
+  packrat: IPackrat;
+  numRules: number;
+  
+  constructor(packrat: IPackrat) {
+    this.packrat = packrat;
+    this.numRules = packrat.numRules;
   }
 
   readonly peg$resultsCache: {[id: number]: ICached} = {};
-
-  abstract get pos(): number;
-  abstract set pos(topos: number);
-  
-  abstract get numRules(): number;
-  abstract cacheKey(rule: EntryPointInterpreter): number;
-  abstract next(): IToken;
-  abstract rule(index: number): EntryPointInterpreter;
   
   run(rule: EntryPointInterpreter): any {
-    const key = this.cacheKey(rule);
+    const p = this.packrat;
+    const key = p.cacheKey(rule);
     const cached: ICached = this.peg$resultsCache[key];
     if (cached) {
-      this.pos = cached.nextPos;
+      p.pos = cached.nextPos;
     }
     if (cached) {
       return cached.result;
@@ -416,7 +473,7 @@ export abstract class PackratRunner {
 
     var result = rule.child.parse(stack);
 
-    this.peg$resultsCache[key] = { nextPos: this.pos, maxFailPos: ruleMaxFailPos, 
+    this.peg$resultsCache[key] = { nextPos: p.pos, maxFailPos: ruleMaxFailPos, 
       result };
   }
 }
