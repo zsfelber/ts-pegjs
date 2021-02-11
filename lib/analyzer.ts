@@ -89,6 +89,8 @@ export namespace Analysis {
   export function readAllSerializedTables(buf: number[], pos: number): number {
 
     var [stransln,sredsln,stplsln] = buf;
+    pos = 3;
+
     for (var i=0; i<stransln; i++) {
       var trans = new GrammarParsingLeafStateTransitions();
       trans.index = i;
@@ -105,6 +107,9 @@ export namespace Analysis {
       var [t0, t1, t2, t3, t4] = [buf[pos++],buf[pos++],buf[pos++],buf[pos++],buf[pos++]];
       var tuple:[number,number,number,number,number] = [t0, t1, t2, t3, t4];
       tuples.push(tuple);
+    }
+    if (pos !== buf.length) {
+      throw new Error("pos !== buf.length  "+pos+" !== "+buf.length);
     }
     return pos;
   }
@@ -672,10 +677,10 @@ export class ParseTable {
   ser(): number[] {
     var serStates: number[] = [];
 
-    var ind = this.startingState.ser(serStates);
+    this.startingState.ser(serStates);
 
     this.allStates.forEach(s => {
-      var ind = s.ser(serStates);
+      s.ser(serStates);
     });
 
     var result = [this.rule.nodeIdx, this.allStates.length].concat(serStates);
@@ -683,13 +688,12 @@ export class ParseTable {
   }
 
   deser(buf: number[]): number {
-    var maxIdx = 0;
     var [ridx, stlen] = buf;
     if (ridx !== this.rule.nodeIdx) {
       throw new Error("Data error , invalid rule : " + this.rule + "/" + this.rule.nodeIdx + " vs  ridx:" + ridx);
     }
 
-    var pos = 4;
+    var pos = 2;
     var st0 = Analysis.leafState(1);
     pos = st0.deser(1, buf, pos);
     this.startingState = st0;
@@ -754,16 +758,19 @@ export class GrammarParsingLeafStateTransitions {
   deser(buf: number[], pos: number): number {
     var [eslen] = buf;
  
+    pos = 1;
     for (var i = 0; i < eslen; i++) {
       var tokenId = buf[pos++];
       var shlen = buf[pos++];
-      
+
+      var shs = [];
+      this[tokenId] = shs;
       for (var j = 0; j < shlen; j++) {
         var stind = buf[pos++];
         var shind = buf[pos++];
 
         var state = Analysis.leafState(stind);
-        this[tokenId] = [new RTShift(shind, state)];
+        shs.push(new RTShift(shind, state));
       }
     }
     return pos;
@@ -788,6 +795,7 @@ export class GrammarParsingLeafStateReduces {
 
   deser(buf: number[], pos: number): number {
     var [rlen] = buf;
+    pos = 1;
     for (var i = 0; i < rlen; i++) {
       var node = SerDeser.nodeTable[buf[pos++]];
       this.reducedNodes.push(node);
