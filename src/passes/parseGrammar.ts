@@ -231,27 +231,47 @@ function generate(ast, ...args) {
     });
   }
 
-  var def0 = 0, ldef0 = 0;
-  if (options.deferredRules) {
-    def0 = options.deferredRules.length;
-    console.log("deferredRules:" + options.deferredRules.join(", "));
+  function distinct(inparr:any[]) {
+    if (!inparr) return inparr;
+    if (!inparr.length) return [];
+    inparr.sort();
+    var pd = inparr[0];
+    var resarr = [pd];
+    for (var i = 1; i < inparr.length; i++, pd = d) {
+      var d = inparr[i];
+      if (d !== pd) resarr.push(d);
+    }
+    return resarr;
   }
-  do {
-    if (def0 < Analysis.deferredRules.length) {
-      console.log("indirect deferredRules:" + Analysis.deferredRules.slice(def0).join(", "));
+
+  if (options.deferredRules) {
+    options.deferredRules = distinct(options.deferredRules);
+
+    console.log("User-defined deferred rules: " + options.deferredRules.join(", "));
+  }
+
+  Analysis.deferredRules = distinct(Analysis.deferredRules);
+  Analysis.localDeferredRules = distinct(Analysis.localDeferredRules);
+
+  var def0 = 0, ldef0 = 0;
+  for (var first = true; ; ) {
+    var ds = Analysis.deferredRules.slice(def0).concat(Analysis.localDeferredRules.slice(ldef0));
+    ds = distinct(ds);
+
+    if (ds.length) {
+      console.log("Remaining deferred rules: " + ds.join(", "));
+    } else if (first) {
+      first = false;
+    } else {
+      break;
     }
-    if (ldef0 < Analysis.localDeferredRules.length) {
-      console.log("indirect deferredRules(local):" + Analysis.localDeferredRules.slice(ldef0).join(", "));
-    }
+
     def0 = Analysis.deferredRules.length;
     ldef0 = Analysis.localDeferredRules.length;
-    Analysis.deferredRules.forEach(r => {
+    ds.forEach(r => {
       if (doit(r)) allstarts.push(r);
     });
-    Analysis.localDeferredRules.forEach(r => {
-      if (doit(r)) allstarts.push(r);
-    });
-  } while (Analysis.deferredRules.length > def0 || Analysis.localDeferredRules.length > ldef0);
+  }
 
   allstarts.sort();
   allstarts.splice(allstarts.indexOf(options.allowedStartRules[0]), 1);

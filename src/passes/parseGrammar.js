@@ -194,29 +194,47 @@ function generate(ast) {
                 allstarts.push(r);
         });
     }
-    var def0 = 0, ldef0 = 0;
-    if (options.deferredRules) {
-        def0 = options.deferredRules.length;
-        console.log("deferredRules:" + options.deferredRules.join(", "));
-    }
-    do {
-        if (def0 < analyzer_1.Analysis.deferredRules.length) {
-            console.log("indirect deferredRules:" + analyzer_1.Analysis.deferredRules.slice(def0).join(", "));
+    function distinct(inparr) {
+        if (!inparr)
+            return inparr;
+        if (!inparr.length)
+            return [];
+        inparr.sort();
+        var pd = inparr[0];
+        var resarr = [pd];
+        for (var i = 1; i < inparr.length; i++, pd = d) {
+            var d = inparr[i];
+            if (d !== pd)
+                resarr.push(d);
         }
-        if (ldef0 < analyzer_1.Analysis.localDeferredRules.length) {
-            console.log("indirect deferredRules(local):" + analyzer_1.Analysis.localDeferredRules.slice(ldef0).join(", "));
+        return resarr;
+    }
+    if (options.deferredRules) {
+        options.deferredRules = distinct(options.deferredRules);
+        console.log("User-defined deferred rules: " + options.deferredRules.join(", "));
+    }
+    analyzer_1.Analysis.deferredRules = distinct(analyzer_1.Analysis.deferredRules);
+    analyzer_1.Analysis.localDeferredRules = distinct(analyzer_1.Analysis.localDeferredRules);
+    var def0 = 0, ldef0 = 0;
+    for (var first = true;;) {
+        var ds = analyzer_1.Analysis.deferredRules.slice(def0).concat(analyzer_1.Analysis.localDeferredRules.slice(ldef0));
+        ds = distinct(ds);
+        if (ds.length) {
+            console.log("Remaining deferred rules: " + ds.join(", "));
+        }
+        else if (first) {
+            first = false;
+        }
+        else {
+            break;
         }
         def0 = analyzer_1.Analysis.deferredRules.length;
         ldef0 = analyzer_1.Analysis.localDeferredRules.length;
-        analyzer_1.Analysis.deferredRules.forEach(function (r) {
+        ds.forEach(function (r) {
             if (doit(r))
                 allstarts.push(r);
         });
-        analyzer_1.Analysis.localDeferredRules.forEach(function (r) {
-            if (doit(r))
-                allstarts.push(r);
-        });
-    } while (analyzer_1.Analysis.deferredRules.length > def0 || analyzer_1.Analysis.localDeferredRules.length > ldef0);
+    }
     allstarts.sort();
     allstarts.splice(allstarts.indexOf(options.allowedStartRules[0]), 1);
     allstarts.unshift(options.allowedStartRules[0]);
