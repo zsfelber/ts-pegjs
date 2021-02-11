@@ -186,15 +186,20 @@ function generate(ast, ...args) {
       err = 1;
     }
   });
+  var maxTknId = 0;
   ctx.terminalRefs.forEach(tr => {
     var target = ctx.terminals.get(tr.terminal);
     if (target) {
       //tr.terminalIndex = target.index;
+      if (tr.value > maxTknId) {
+        maxTknId = tr.value;
+      }
     } else {
       console.error("No terminal for terminal ref : " + tr.terminal);
       err = 1;
     }
   });
+  Analysis.maxTokenId = maxTknId;
 
   var allstarts = [];
   var created: StrMapLike<number> = {};

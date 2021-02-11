@@ -579,8 +579,6 @@ export class TerminalRefTraverser extends RefTraverser {
   constructor(parser: ParseTableGenerator, parent: RuleElementTraverser, node: PTerminalRef) {
     super(parser, parent, node);
     this.topRule.allTerminalReferences.push(this);
-
-    if (this.node && this.node.value > parser.maxTokenId) parser.maxTokenId = this.node.value;
   }
 
   get isReducable() {

@@ -42,7 +42,7 @@ export class JumpTableRunner {
   }
 
   reduceBefore(currentState: GrammarParsingLeafState) {
-    currentState.reduceActions.forEach(node => {
+    currentState.reduceActions.reducedNodes.forEach(node => {
       var r = node as PValueNode;
       var args: DeferredReduce[] = 
         r.action.args.map(arg=>this.reduce[arg.evaluate.nodeIdx]);
@@ -53,7 +53,7 @@ export class JumpTableRunner {
 
   // Not necessary to call, it's just a diagnostical feature
   reduceEmptyAfter(newState: GrammarParsingLeafState) {
-    newState.epsilonReduceActions.forEach(node => {
+    newState.epsilonReduceActions.reducedNodes.forEach(node => {
       // ...
     });
   }

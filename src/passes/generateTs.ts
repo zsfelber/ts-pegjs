@@ -592,6 +592,13 @@ function pushc(cache: any, item: any): any {
       doit(r);
     });
 
+    var ttbuf: number[] = [];
+    Analysis.writeAllSerializedTables(ttbuf);
+
+    parseTbl.push("");
+    parseTbl.push("const peg$PrsTblBuf = '" + encodeVsimPck(ttbuf) + '";');
+    parseTbl.push("");
+    parseTbl.push("const peg$PrsTblTbls = peg$decodePrsTblTbls(peg$PrsTblBuf);");
     parseTbl.push("");
     parseTbl.push("const peg$PrsTbls = {" + allstarts.map(r => ruleMap[r] + ": peg$decodePrsTbl(" + ruleMap[r] + ", peg$PrsTbl" + r + ")").join(", ") + "};");
     parseTbl.push([
@@ -607,7 +614,10 @@ function pushc(cache: any, item: any): any {
   }
 
   function encodePrsTbl(parseTable: ParseTable): string {
-    return verySimplePackMany0(CodeTblToHex(parseTable.ser()).join(''));
+    return encodeVsimPck(parseTable.ser());
+  }
+  function encodeVsimPck(code: number[]): string {
+    return verySimplePackMany0(CodeTblToHex(code).join(''));
   }
   function verySimplePackMany0(raw: string) {
     var result = "";
@@ -685,6 +695,12 @@ function pushc(cache: any, item: any): any {
       '  var node = PNode.deserialize(code);',
       '  var rule = node as PRule;',
       '  return rule;',
+      '}',
+      '',
+      'function peg$decodePrsTblTbls(s: string) {',
+      '  var code = peg$decode(s);',
+      '  var parseTableTbls = Analysis.readAllSerializedTables(code, 0);',
+      '  return parseTableTbls;',
       '}',
       '',
       'function peg$decodePrsTbl(ri: RuleId, s: string) {',
