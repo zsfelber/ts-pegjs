@@ -85,7 +85,7 @@ export class JumpTableRunner {
         // !! :)  !!
         this.reduceBefore(currentState);
 
-        var newShifts = currentState.transitions[token.tokenId];
+        var newShifts = currentState.transitions.map[token.tokenId];
         var rsh: RTShift;
   
         if (newShifts) {

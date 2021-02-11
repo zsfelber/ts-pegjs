@@ -540,17 +540,25 @@ export class ParseTable {
     }
 
     var redidx = 0;
+    var e = 0;
+
     prstate(this.startingState);
     this.allStates.forEach(state=>{
       prstate(state);
     });
 
-    var initialT = Object.keys(Analysis.serializedTransitions).length;
-    var initialR = Object.keys(Analysis.serializedReduces).length;
+    var t = Object.keys(Analysis.serializedTransitions).length;
+    var r = Object.keys(Analysis.serializedReduces).length;
+
+    console.log("Now     transitions:"+(t)+"     reduces:"+(r)+"   of states here:1+"+this.allStates.length+"  is empty:"+e);
 
     function prstate(state: GrammarParsingLeafState) {
       var trans = state.transitions;
       trans.index = state.index;
+
+      //var empty = !Object.keys(trans.map).length;
+      var empty = !state.startStateNode.shiftsAndReduces.length;
+      if (empty) e++;
 
       var buf = [];
       trans.alreadySerialized = null;
@@ -569,12 +577,6 @@ export class ParseTable {
       red(state.reduceActions);
       red(state.epsilonReduceActions);
     }
-
-    var t = Object.keys(Analysis.serializedTransitions).length;
-    var r = Object.keys(Analysis.serializedReduces).length;
-
-    console.log("Added   transitions:"+(t-initialT)+"  reduces:"+(r-initialR));
-    console.log("Now     transitions:"+(t)+"           reduces:"+(r));
 
     function red(rr: GrammarParsingLeafStateReduces) {
       rr.index = redidx++;
@@ -649,13 +651,13 @@ export class RTShift {
   }
 }
 
-export class GrammarParsingLeafStateTransitions implements NumMapLike<RTShift[]> {
+export class GrammarParsingLeafStateTransitions {
 
   index: number;
 
   startingStateMinus1: number;
 
-  [index: number]: RTShift[];
+  map: NumMapLike<RTShift[]> = {};
 
   alreadySerialized: number[];
 
@@ -664,64 +666,40 @@ export class GrammarParsingLeafStateTransitions implements NumMapLike<RTShift[]>
   }
 
   ser(buf: number[]): void {
-    if (this.alreadySerialized) {
-      this.alreadySerialized.forEach(itm=>buf.push(itm));
-      return;
-    }
 
-    var toTknIds: number[] = [];
-    toTknIds.fill(0, 0, 2 * (Analysis.maxTokenId + 1));
+    var es = Object.entries(this.map);
 
-    var additionalStates = 0;
-    var es = Object.entries(this);
-    var posA = (Analysis.maxTokenId + 1) * 2;
+    buf.push(es.length);
 
     es.forEach(([key, shifts]: [string, RTShift[]]) => {
 
-      if (!shifts || !(shifts instanceof Array)) return;// continue
-
       var tokenId = Number(key);
-      var pos = tokenId * 2;
-      if (shifts.length !== 1) {
-        toTknIds[pos++] = Analysis.uniformMaxStateId + (++additionalStates);
-        toTknIds[pos++] = shifts.length;
-
-        shifts.forEach(shift => {
-          toTknIds[posA++] = this.delta(shift.toState.index);
-          toTknIds[posA++] = shift.shiftIndex;
-        });
-      } else {
-        var shift = shifts[0];
-        toTknIds[pos++] = this.delta(shift.toState.index);
-        toTknIds[pos++] = shift.shiftIndex;
-      }
+      buf.push(tokenId)
+      buf.push(shifts.length)
+      shifts.forEach(shift => {
+        buf.push(this.delta(shift.toState.index));
+        buf.push(shift.shiftIndex);
+      });
     });
 
-    buf.push.apply(buf, toTknIds);
   }
 
   deser(buf: number[], pos: number): number {
-    var postkn0 = pos;
-    var posA = postkn0 + (Analysis.maxTokenId + 1) * 2;
+    var [eslen] = buf;
  
-    for (var i = 0; i <= Analysis.maxTokenId; i++, pos += 2) {
-      var si = buf[pos];
-      if (si > Analysis.uniformMaxStateId) {
-        var ass: RTShift[] = [];
-        this[i] = ass;
-        var len = buf[pos + 1];
-        for (var j = 0; j < len; j++, posA += 2) {
-          var sia = buf[posA]
-          var statea = Analysis.leafState(sia);
-          ass.push(new RTShift(buf[posA + 1], statea));
-        }
-      } else if (si) {
-        var state = Analysis.leafState(si);
-        this[i] = [new RTShift(buf[pos + 1], state)];
+    for (var i = 0; i < eslen; i++) {
+      var tokenId = buf[pos++];
+      var shlen = buf[pos++];
+      
+      for (var j = 0; j < shlen; j++) {
+        var stind = buf[pos++];
+        var shind = buf[pos++];
+
+        var state = Analysis.leafState(stind);
+        this[tokenId] = [new RTShift(shind, state)];
       }
     }
-    // posA !
-    return posA;
+    return pos;
   }
 }
 
@@ -734,10 +712,6 @@ export class GrammarParsingLeafStateReduces {
   alreadySerialized: number[];
 
   ser(buf: number[]): void {
-    if (this.alreadySerialized) {
-      this.alreadySerialized.forEach(itm=>buf.push(itm));
-      return;
-    }
 
     buf.push(this.reducedNodes.length);
     this.reducedNodes.forEach(r => {
@@ -747,8 +721,8 @@ export class GrammarParsingLeafStateReduces {
 
   deser(buf: number[], pos: number): number {
     var [rlen] = buf;
-    for (var i = 0; i < rlen; i++, pos++) {
-      var node = SerDeser.nodeTable[buf[pos]];
+    for (var i = 0; i < rlen; i++) {
+      var node = SerDeser.nodeTable[buf[pos++]];
       this.reducedNodes.push(node);
     }
     return pos;
@@ -811,9 +785,9 @@ export class GrammarParsingLeafState {
         switch (nextTerm.kind) {
           case ShiftReduceKind.SHIFT:
             var s = nextTerm as Shift;
-            var ts = this._transitions[s.item.node.value];
+            var ts = this._transitions.map[s.item.node.value];
             if (!ts) {
-              this._transitions[s.item.node.value] = ts = [];
+              this._transitions.map[s.item.node.value] = ts = [];
             }
             var tshift = new RTShift(shiftIndex, s.item.stateNode.generateState());
             ts.push(tshift)

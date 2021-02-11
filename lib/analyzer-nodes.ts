@@ -597,11 +597,11 @@ export class TerminalRefTraverser extends RefTraverser {
   pushPrefixControllerItem(inTraversion: LinearTraversion) {
     if (this.traverserStep) throw new Error("There is a traverserStep already : " + this + "  traverserStep:" + this.traverserStep);
 
-    this.stateNode = new TraversedLeafStateNode(this);
-    this.parser.allLeafStateNodes.push(this.stateNode);
-
     this.traverserStep = new TraversionControl(inTraversion, TraversionItemKind.TERMINAL, this);
     inTraversion.pushControl(this.traverserStep);
+
+    this.stateNode = new TraversedLeafStateNode(this);
+    this.parser.allLeafStateNodes.push(this.stateNode);
   }
 
   traversionActions(inTraversion: LinearTraversion, step: TraversionControl, cache: TraversionCache) {
