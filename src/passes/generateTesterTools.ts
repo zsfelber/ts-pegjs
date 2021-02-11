@@ -24,12 +24,17 @@ function generateTT(ast, ...args) {
   Analysis.ruleTable = grammar.rules;
   Analysis.deferredRules = options.deferredRules ? options.deferredRules : [];
 
+  var allstarts = ast.allstarts;
 
   console.log("Generate visualizer trees...");
 
-  glob.sync("../www/ast/pnodes-graph*.json").forEach(f => {
-    console.log("Remove old :"+f);
-    fs.unlinkSync(f);
+  var asrgx = new RegExp("../www/ast/pnodes-graph-(.*)\\.json");
+  glob.sync("../www/ast/pnodes-graph-*.json").forEach(f => {
+    var x = asrgx.exec(f);
+    if (allstarts.indexOf(x[1])===-1) {
+      console.log("Remove old :"+x[1]+" "+f);
+      fs.unlinkSync(f);
+    }
   });
 
   const doit = (r: string) => {
@@ -84,8 +89,6 @@ function generateTT(ast, ...args) {
     fs.writeFileSync(fnm, j);
     return true;
   };
-
-  var allstarts = ast.allstarts;
 
   allstarts.forEach(r => {
     doit(r);

@@ -22,10 +22,15 @@ function generateTT(ast) {
     ast.rules.forEach(function (r) { ruleMap[r.name] = ri++; });
     lib_1.Analysis.ruleTable = grammar.rules;
     lib_1.Analysis.deferredRules = options.deferredRules ? options.deferredRules : [];
+    var allstarts = ast.allstarts;
     console.log("Generate visualizer trees...");
-    glob.sync("../www/ast/pnodes-graph*.json").forEach(function (f) {
-        console.log("Remove old :" + f);
-        fs.unlinkSync(f);
+    var asrgx = new RegExp("../www/ast/pnodes-graph-(.*)\\.json");
+    glob.sync("../www/ast/pnodes-graph-*.json").forEach(function (f) {
+        var x = asrgx.exec(f);
+        if (allstarts.indexOf(x[1]) === -1) {
+            console.log("Remove old :" + x[1] + " " + f);
+            fs.unlinkSync(f);
+        }
     });
     var doit = function (r) {
         ri = ruleMap[r];
@@ -72,7 +77,6 @@ function generateTT(ast) {
         fs.writeFileSync(fnm, j);
         return true;
     };
-    var allstarts = ast.allstarts;
     allstarts.forEach(function (r) {
         doit(r);
     });

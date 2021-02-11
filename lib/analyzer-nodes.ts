@@ -400,7 +400,7 @@ export class RuleRefTraverser extends RefTraverser {
     return true;
   }
 
-  lazyCouldGenerateNew() {
+  lazyLinkRule() {
     if (this.linkedRuleEntry) {
       return false;
     } else {
@@ -438,7 +438,7 @@ export class RuleRefTraverser extends RefTraverser {
       this.isDeferred = true;
     } else if (recursiveRule) {
 
-      console.log("Auto defer recursive rule : " + this + " in " + inTraversion);
+      //console.log("Auto defer recursive rule : " + this + " in " + inTraversion);
       //
       // NOTE  auto-defer mode here
       //       when a rule is infinitely included !!!
@@ -463,9 +463,13 @@ export class RuleRefTraverser extends RefTraverser {
       //       Though, recommended defining these manually in ellegant hotspots
       //       which not autodetectable but this safeguard is definitely required:
 
-      var cntNodes = this.linkedRuleEntry ? this.linkedRuleEntry.allNodes.length : 1;
-      if (cntNodes>=MAX_CNT_BRANCH_NODES) {
-        console.warn("Auto defer big rule : " + this + " in " + inTraversion + "  its nodes:" + cntNodes);
+      this.lazyLinkRule();
+      var cntNodesL1 = this.linkedRuleEntry.hubSize(1);
+      var cntNodesL2 = this.linkedRuleEntry.hubSize(2);
+      var estCntNodes = Traversing.recursionCacheStack.parent.upwardBranchCnt * 
+          cntNodesL1;
+      if (cntNodesL2>=50 && estCntNodes>=MAX_CNT_BRANCH_NODES) {
+        /*console.warn("Auto defer rule hub : " + this + " in " + inTraversion + "  its size L1:" + cntNodesL1+"   L2:" + cntNodesL2+"  est.tot:"+estCntNodes);
         if (!Analysis["consideredManualDefer"]) {
           Analysis["consideredManualDefer"] = true;
           console.warn(
@@ -474,13 +478,13 @@ export class RuleRefTraverser extends RefTraverser {
             "  Analyzer could not simply generate everything to beneath one root, because\n"+
             "  it will reach a prematurely rapid growth effect at some point in analyzing\n"+
             "  time and output table size due to its exponential nature.\n");
-        }
+        }*/
 
         Analysis.deferredRules.push(this.targetRule.rule);
         this.isDeferred = true;
         delete Traversing.recursionCacheStack["rule_ref#" + this.targetRule.nodeIdx];
-      } else if (cntNodes>=20) {
-        console.log("Copied rule branch : " + ruledup+" cntNodes:"+cntNodes);
+      //} else if (estCntNodes>=20) {
+      //  console.log("Copied rule branch : " + ruledup+" cntNodes:"+estCntNodes);
       }
 
     }
@@ -689,6 +693,23 @@ export class EntryPointTraverser extends RuleTraverser {
   get importPoint(): CopiedRuleTraverser {
     return null;
   }
+
+  // 1+1 level deep graph size
+  hubSize(maxLev: number) {
+
+    var result = this.allNodes.length;
+
+    if (maxLev>0) this.allRuleReferences.forEach(rr=>{
+      rr.lazyLinkRule();
+      if (rr.linkedRuleEntry!==this) {
+        result += rr.linkedRuleEntry.hubSize(maxLev - 1);
+      }
+    });
+
+    return result;
+  }
+
+
 
   traversionGeneratorEnter(inTraversion: LinearTraversion) {
     var ruleOriginal = Traversing.recursionCacheStack["rule_ref#" + this.node.nodeIdx];
