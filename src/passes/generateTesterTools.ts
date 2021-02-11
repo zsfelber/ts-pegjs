@@ -2,7 +2,8 @@ import * as fs from "fs";
 import * as glob from "glob";
 import { Analysis, ParseTableGenerator } from "../../lib";
 import { PGrammar, PRule, PNode, PRuleRef, PNodeKind } from '../../lib/parsers';
-import { RuleElementTraverser, StrMapLike } from '../../lib/analyzer';
+import {  StrMapLike } from '../../lib/analyzer';
+import { RuleElementTraverser } from '../../lib/analyzer-nodes';
 
 
 // Generates parser JavaScript code.

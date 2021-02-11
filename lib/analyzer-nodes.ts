@@ -463,7 +463,7 @@ export class RuleRefTraverser extends RefTraverser {
       //       Though, recommended defining these manually in ellegant hotspots
       //       which not autodetectable but this safeguard is definitely required:
 
-      var cntNodes = this.linkedRuleEntry.allNodes.length;
+      var cntNodes = this.linkedRuleEntry ? this.linkedRuleEntry.allNodes.length : 1;
       if (cntNodes>=MAX_CNT_BRANCH_NODES) {
         console.warn("Auto defer big rule : " + this + " in " + inTraversion + "  its nodes:" + cntNodes);
         if (!Analysis["consideredManualDefer"]) {

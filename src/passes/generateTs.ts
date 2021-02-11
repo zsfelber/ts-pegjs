@@ -12,7 +12,7 @@ import {
   PNodeKind, PActionKind, PRuleRef, PTerminalRef, SerDeser
 } from "../../lib";
 
-import { EntryPointTraverser, ParseTable, ParseTableGenerator } from '../../lib/analyzer';
+import {  ParseTable, ParseTableGenerator } from '../../lib/analyzer';
 import {
   Analysis
 } from "../../lib";
