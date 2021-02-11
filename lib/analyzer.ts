@@ -534,47 +534,63 @@ export class ParseTable {
   }
 
   pack() {
-    Analysis.serializedTransitions = {};
-    Analysis.serializedReduces = {};
 
     if (this.allStates.length > Analysis.uniformMaxStateId) {
       throw new Error("State id overflow. Grammar too big. uniformMaxStateId:"+Analysis.uniformMaxStateId+"  Too many states:"+this.allStates.length);
     }
 
     var redidx = 0;
+    prstate(this.startingState);
     this.allStates.forEach(state=>{
+      prstate(state);
+    });
+
+    var initialT = Object.keys(Analysis.serializedTransitions).length;
+    var initialR = Object.keys(Analysis.serializedReduces).length;
+
+    function prstate(state: GrammarParsingLeafState) {
       var trans = state.transitions;
       trans.index = state.index;
 
-      trans.alreadySerialized = [];
-      trans.ser(trans.alreadySerialized);
-
-      var encoded = CodeTblToHex(trans.alreadySerialized).join("");
-
+      var buf = [];
+      trans.alreadySerialized = null;
+      trans.ser(buf);
+      trans.alreadySerialized = buf;
+  
+      var encoded = CodeTblToHex(buf).join("");
+  
       var trans0 = Analysis.serializedTransitions[encoded];
       if (trans0) {
-        console.log("Merged state transitions into : "+trans0.index+" <-<- "+trans.index);
         trans.index = trans0.index;
+      } else {
+        Analysis.serializedTransitions[encoded] = trans;
       }
-
-      function red(rr: GrammarParsingLeafStateReduces) {
-        rr.index = redidx++;
-        rr.alreadySerialized = [];
-        rr.ser(rr.alreadySerialized);
-        var encred = CodeTblToHex(rr.alreadySerialized).join("");
   
-        var rr0 = Analysis.serializedReduces[encred];
-        if (rr0) {
-          console.log("Merged reduces into : "+rr0.index+" <-<- "+rr.index);
-          rr.index = rr0.index;
-        }
-      }
-
       red(state.reduceActions);
       red(state.epsilonReduceActions);
+    }
 
-    });
+    var t = Object.keys(Analysis.serializedTransitions).length;
+    var r = Object.keys(Analysis.serializedReduces).length;
 
+    console.log("Added   transitions:"+(t-initialT)+"  reduces:"+(r-initialR));
+    console.log("Now     transitions:"+(t)+"           reduces:"+(r));
+
+    function red(rr: GrammarParsingLeafStateReduces) {
+      rr.index = redidx++;
+      var buf = [];
+      rr.alreadySerialized = null;
+      rr.ser(buf);
+      rr.alreadySerialized = buf;
+      var encred = CodeTblToHex(buf).join("");
+
+      var rr0 = Analysis.serializedReduces[encred];
+      if (rr0) {
+        rr.index = rr0.index;
+      } else {
+        Analysis.serializedReduces[encred] = rr;
+      }
+    }
   }
 
   static deserialize(rule: PRule, buf: number[]) {
@@ -661,6 +677,9 @@ export class GrammarParsingLeafStateTransitions implements NumMapLike<RTShift[]>
     var posA = (Analysis.maxTokenId + 1) * 2;
 
     es.forEach(([key, shifts]: [string, RTShift[]]) => {
+
+      if (!shifts || !(shifts instanceof Array)) return;// continue
+
       var tokenId = Number(key);
       var pos = tokenId * 2;
       if (shifts.length !== 1) {
@@ -720,10 +739,9 @@ export class GrammarParsingLeafStateReduces {
       return;
     }
 
-    buf.push(reduce.length);
-    var reduce: number[] = [];
+    buf.push(this.reducedNodes.length);
     this.reducedNodes.forEach(r => {
-      reduce.push(r.nodeIdx);
+      buf.push(r.nodeIdx);
     });
   }
 
