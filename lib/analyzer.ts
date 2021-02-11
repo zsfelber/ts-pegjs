@@ -61,6 +61,15 @@ export namespace Analysis {
     var strans = Object.values(serializedTransitions);
     var sreds = Object.values(serializedReduces);
     var stpls = Object.values(serializedTuples);
+    strans.sort((a,b)=>{
+      return a.index-b.index;
+    });
+    sreds.sort((a,b)=>{
+      return a.index-b.index;
+    });
+    stpls.sort((a,b)=>{
+      return a[0]-b[0];
+    });
 
     buf.push(strans.length);
     buf.push(sreds.length);
@@ -68,15 +77,12 @@ export namespace Analysis {
 
     strans.forEach(s=>{
       s.alreadySerialized.forEach(num=>buf.push(num));
-    })
+    });
     sreds.forEach(s=>{
       s.alreadySerialized.forEach(num=>buf.push(num));
-    })
-    var i = 0;
+    });
     stpls.forEach(s=>{
-      if (s[0] !== i) throw new Error("s[0] !== i  "+s[0]+" !== "+i);
       buf.push(s[1], s[2], s[3], s[4], s[5]);
-      i++;
     });
   }
 
@@ -605,7 +611,9 @@ export class ParseTable {
       if (tuple0) {
         state.serializedTupleIndex = tuple[0];
       } else {
-        Analysis.serializedTuples[tkey] = [Object.keys(Analysis.serializedTuples).length, tuple[0], tuple[1], tuple[2], tuple[3], tuple[4]];
+        var tpli = Object.keys(Analysis.serializedTuples).length;
+        Analysis.serializedTuples[tkey] = [tpli, tuple[0], tuple[1], tuple[2], tuple[3], tuple[4]];
+        state.serializedTupleIndex = tpli;
       }
 
     }

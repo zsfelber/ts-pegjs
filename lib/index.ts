@@ -432,9 +432,7 @@ export function JSstringEscape(s) {
 
 export function CodeTblToHex(s: number[]) {
   var r = s.map(c=>{
-    if (c===undefined) {
-      return "00";
-    }
+    if (!c) return "00";
     else if (c <= 0xf) return '0' + c.toString(16).toUpperCase();
     else if (c <= 0xff) return '' + c.toString(16).toUpperCase();
     else if (c <= 0xfff) return 'x' + c.toString(16).toUpperCase();
