@@ -7,7 +7,7 @@ export const START_STATE = 1;
 
 export const CNT_HUB_LEVELS = 5;
 
-export const LEV_CNT_LN_RULE = 300;
+export const LEV_CNT_LN_RULE = 500;
 
 export const LEV_CNT_BRANCH_NODES = 500;
 
