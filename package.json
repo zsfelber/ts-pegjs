@@ -49,7 +49,7 @@
     "test/test.js"
   ],
   "scripts": {
-    "compile:ts_src": "tsc --target ES5 --sourceMap --resolveJsonModule lib/index.ts lib/parsers.ts lib/analyzer.ts src/passes/parseGrammar.ts src/passes/inferRuleTypes.ts src/passes/generateTs.ts src/passes/generateTesterTools.ts",
+    "compile:ts_src": "tsc --target ES5 --sourceMap --resolveJsonModule lib/index.ts lib/parsers.ts lib/analyzer.ts src/passes/parseGrammar.ts src/passes/inferRuleTypes.ts src/passes/generateTs.ts src/passes/generateTesterTools.ts src/tspegjs.ts",
     "clean": "rimraf output/*.ts output/*.js",
     "pretest": "npm run clean",
     "test": "npm run test:non-optimized && npm run test:optimize-size && npm run lint",

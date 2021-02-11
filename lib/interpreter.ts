@@ -298,20 +298,19 @@ class OneOrMoreInterpreter extends SingleCollectionInterpreter {
 class RuleRefInterpreter extends EmptyInterpreter {
 
   node: PRuleRef;
-  ruleEntryParser: EntryPointInterpreter;
+  _ruleEntryParser: EntryPointInterpreter;
 
   constructor(node: PRuleRef) {
     super(node);
-    this.ruleEntryParser = Interpreters.ruleTable[node.ruleIndex];
   }
-
-  checkConstructFailed() {
-    var dirty = super.checkConstructFailed();
-    if (!this.ruleEntryParser) {
-      console.error("no this.ruleEntryParser  " + this.node);
-      dirty = 1;
+  get ruleEntryParser() {
+    if (!this._ruleEntryParser) {
+      this._ruleEntryParser = Interpreters.ruleTable[this.node.ruleIndex];
+      if (!this._ruleEntryParser) {
+        console.error("no this.ruleEntryParser  " + this.node);
+      }
     }
-    return dirty;
+    return this._ruleEntryParser;
   }
 
   parseImpl(stack: RuleProcessStack) {

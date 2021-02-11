@@ -32,7 +32,7 @@ export const FAIL_STATE = 0;
 
 export const START_STATE = 1;
 
-export const FINAL_STATE = 255;
+export const MAX_CNT_BRANCH_NODES = 2000;
 
 namespace Factory {
 
@@ -1039,7 +1039,14 @@ export abstract class RuleElementTraverser {
     this.node = node;
     this.constructionLevel = parent ? parent.constructionLevel + 1 : 0;
     if (this.importPoint) {
-      if (this.importPoint.allNodes) this.importPoint.allNodes[this.nodeTravId] = this;
+      if (this.importPoint.allNodes) {
+        this.importPoint.allNodes[this.nodeTravId] = this;
+        var cntNodes = Object.keys(this.importPoint.allNodes).length;
+        if (cntNodes >= MAX_CNT_BRANCH_NODES) {
+          throw {"anApple":MAX_CNT_BRANCH_NODES,"anOrange":1};
+        }
+  
+      }
     } else {
       this.parser.allNodes[this.nodeTravId] = this;
     }
@@ -1435,18 +1442,23 @@ class RuleRefTraverser extends RefTraverser {
       //       Though, recommended defining these manually in ellegant hotspots
       //       which not autodetectable but this safeguard is definitely required:
 
-      ruledup = new CopiedRuleTraverser(this.parser, this, this.targetRule);
-      var cntNodes = Object.keys(ruledup.allNodes).length;
-      if (cntNodes >= 2000) {
-        console.warn("Auto defer, rule is too big : " + this + " in " + inTraversion + "  number of its nodes:" + cntNodes);
-        console.warn(
-        "  Consider configuring deferred rules manually for your code esthetics.\n"+
-        "  This rule reference is made deferred automatically due to its large extent.\n"+
-        "  Analyzer could not simply generate everything to beneath one root, because\n"+
-        "  it may add an unexpected rapid growth effect to analyzing time and parsing\n"+
-        "  table output size at some point due to its exponential nature.\n");
+      try {
+        ruledup = new CopiedRuleTraverser(this.parser, this, this.targetRule);
+      } catch (somethg) {
+        if (somethg.anApple===MAX_CNT_BRANCH_NODES && somethg.anOrange) {
+          console.warn("Auto defer, rule is too big : " + this + " in " + inTraversion + "  number of its nodes:" + MAX_CNT_BRANCH_NODES);
+          console.warn(
+          "  Consider configuring deferred rules manually for your code esthetics.\n"+
+          "  This rule reference is made deferred automatically due to its large extent.\n"+
+          "  Analyzer could not simply generate everything to beneath one root, because\n"+
+          "  it may add an unexpected rapid growth effect to analyzing time and parsing\n"+
+          "  table output size at some point due to its exponential nature.\n");
 
-        this.isDeferred = true;
+          Analysis.deferredRules[this.targetRule.rule] = 1;
+          this.isDeferred = true;
+        } else {
+          throw somethg;
+        }
       }
     }
 
