@@ -86,9 +86,9 @@ export interface IOtherExpectation {
 
 export type Expectation = ILiteralExpectation | ITokenExpectation | IClassExpectation | IAnyExpectation | IEndExpectation | IOtherExpectation;
 
-export class PegCannonParseErrorInfo<T extends IToken> {
+export class HyperGParseErrorInfo<T extends IToken> {
 
-  private static buildMessage<T extends IToken>(input: IPegCannonParseStream<T>, expected: Expectation[], found: Expectation) {
+  private static buildMessage<T extends IToken>(input: IHyperGParseStream<T>, expected: Expectation[], found: Expectation) {
 
     function hex(ch: string): string {
       return ch.charCodeAt(0).toString(16).toUpperCase();
@@ -180,7 +180,7 @@ export class PegCannonParseErrorInfo<T extends IToken> {
     return "Expected " + describeExpected(expected) + " but " + describeExpectation(found) + " found.";
   }
 
-  readonly input: IPegCannonParseStream<T>;
+  readonly input: IHyperGParseStream<T>;
   readonly message0: string;
   private message1: string;
   readonly expected: Expectation[];
@@ -188,7 +188,7 @@ export class PegCannonParseErrorInfo<T extends IToken> {
   readonly absolutePosition: number;
   readonly name: string;
 
-  constructor(input: IPegCannonParseStream<T>, message: string, expected: Expectation[], found: Expectation, absolutePosition?: number) {
+  constructor(input: IHyperGParseStream<T>, message: string, expected: Expectation[], found: Expectation, absolutePosition?: number) {
     this.input = input;
     this.message0 = message;
     this.expected = expected;
@@ -203,7 +203,7 @@ export class PegCannonParseErrorInfo<T extends IToken> {
 
   get message() {
     if (!this.message1) {
-      this.message1 = this.message0 + PegCannonParseErrorInfo.buildMessage(this.input, this.expected, this.found);
+      this.message1 = this.message0 + HyperGParseErrorInfo.buildMessage(this.input, this.expected, this.found);
     }
     return this.message1;
   }
@@ -212,9 +212,9 @@ export class PegCannonParseErrorInfo<T extends IToken> {
 }
 
 export class SyntaxError<T extends IToken> extends Error {
-  info: PegCannonParseErrorInfo<T>;
+  info: HyperGParseErrorInfo<T>;
 
-  constructor(info: PegCannonParseErrorInfo<T>) {
+  constructor(info: HyperGParseErrorInfo<T>) {
     super();
     this.info = info;
   }
@@ -358,7 +358,7 @@ export interface IToken {
 }
 
 // !!!! string is ok !!!!
-export interface IBasicPegCannonBuffer {
+export interface IBasicHyperGBuffer {
 
   readonly length: number;
 
@@ -372,7 +372,7 @@ export interface IBasicPegCannonBuffer {
 
 }
 
-export interface IPegCannonBuffer<T extends IToken> extends IBasicPegCannonBuffer {
+export interface IHyperGBuffer<T extends IToken> extends IBasicHyperGBuffer {
   currPos: number;
   savedPos: number;
   readonly tokens: T[];
@@ -397,11 +397,11 @@ export interface IPegCannonBuffer<T extends IToken> extends IBasicPegCannonBuffe
 
 }
 
-export interface IPegCannonParseStream<T extends IToken> extends IPegCannonBuffer<T> {
+export interface IHyperGParseStream<T extends IToken> extends IHyperGBuffer<T> {
 
   readonly ruleNames: string[];
 
-  readonly buffer: IPegCannonBuffer<T>;
+  readonly buffer: IHyperGBuffer<T>;
 
   //"input.readForward(rule, expectedText.length) === expectedText",
   //=
@@ -416,13 +416,13 @@ export interface IPegCannonParseStream<T extends IToken> extends IPegCannonBuffe
 }
 
 
-export class PegCannonParseStream<T extends IToken> implements IPegCannonParseStream<T> {
+export class HyperGParseStream<T extends IToken> implements IHyperGParseStream<T> {
 
   readonly ruleNames: string[];
 
-  readonly buffer: IPegCannonBuffer<T>;
+  readonly buffer: IHyperGBuffer<T>;
 
-  constructor(buffer: IPegCannonBuffer<T>, ruleNames?: string[]) {
+  constructor(buffer: IHyperGBuffer<T>, ruleNames?: string[]) {
     this.buffer = buffer;
     this.ruleNames = ruleNames ? ruleNames : [];
   }
@@ -501,7 +501,7 @@ export class PegCannonParseStream<T extends IToken> implements IPegCannonParseSt
 
 
 
-export abstract class PegCannonParseStreamBuffer<T extends IToken> implements IPegCannonBuffer<T> {
+export abstract class HyperGParseStreamBuffer<T extends IToken> implements IHyperGBuffer<T> {
 
   readonly buffer: string;
   /* give read-write access to pegjs, do not manipulate them */
@@ -627,7 +627,7 @@ export abstract class PegCannonParseStreamBuffer<T extends IToken> implements IP
 
 }
 
-export abstract class PegCannonSeekableParseBuffer<T extends IToken> extends PegCannonParseStreamBuffer<T> {
+export abstract class HyperGSeekableParseBuffer<T extends IToken> extends HyperGParseStreamBuffer<T> {
 
   seek(position: number) {
     /*

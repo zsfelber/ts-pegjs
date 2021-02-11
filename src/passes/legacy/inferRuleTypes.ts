@@ -183,7 +183,7 @@ function generate(ast, ...args) {
         isaction = 1;
         simpleNode.parentAction = simpleNode;
         var f = gf();
-        simpleNode.node.templateFunction = "PegCannonParser.prototype." + f;
+        simpleNode.node.templateFunction = "HyperGParser.prototype." + f;
         generateNodeClasses(simpleRule, simpleNode.element, simpleNode, indent);
         simpleNode.node.checkids = simpleNode.element.checkids;
         if (!simpleNode.node.checkids) simpleNode.node.checkids = [];
@@ -249,7 +249,7 @@ function generate(ast, ...args) {
 
 
   var genclss = [];
-  genclss.push("import { IFilePosition, IFileRange, ILiteralExpectation, IClassParts, IClassExpectation, IAnyExpectation, IEndExpectation, IOtherExpectation, Expectation, SyntaxError, ITraceEvent, DefaultTracer, ICached, IPegCannonParseStream, PegCannonParseStream, IPegCannonBuffer, IToken } from 'ts-pegjs/lib';");
+  genclss.push("import { IFilePosition, IFileRange, ILiteralExpectation, IClassParts, IClassExpectation, IAnyExpectation, IEndExpectation, IOtherExpectation, Expectation, SyntaxError, ITraceEvent, DefaultTracer, ICached, IHyperGParseStream, HyperGParseStream, IHyperGBuffer, IToken } from 'ts-pegjs/lib';");
 
   if (options.tspegjs.customHeader) {
     genclss.push(options.tspegjs.customHeader.length? options.tspegjs.customHeader.join("\n"):options.tspegjs.customHeader + "");
@@ -262,8 +262,8 @@ function generate(ast, ...args) {
   genclss.push("");
   genclss.push("class UselessClassJustToResolveTypes<T extends "+baseTokenType+"> {");
   genclss.push(["",
-  'input: IPegCannonParseStream<T>;',
-  'inputBuf: IPegCannonBuffer<T>;',
+  'input: IHyperGParseStream<T>;',
+  'inputBuf: IHyperGBuffer<T>;',
   "",
   "peg$maxFailPos = 0;",
   "peg$maxFailExpected: Expectation[] = [];",

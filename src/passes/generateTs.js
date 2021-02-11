@@ -504,10 +504,14 @@ function generateTS(ast) {
         return parseTbl;
     }
     function encodePrsTbl(parseTable) {
-        return encodeVsimPck(parseTable.ser());
+        var code = parseTable.ser();
+        var enc = encodeVsimPck(code);
+        return enc;
     }
     function encodeVsimPck(code) {
-        return verySimplePackMany0(lib_1.CodeTblToHex(code).join(''));
+        var hex = lib_1.CodeTblToHex(code).join('');
+        var enc = verySimplePackMany0(hex);
+        return enc;
     }
     function verySimplePackMany0(raw) {
         var result = "";
@@ -518,6 +522,7 @@ function generateTS(ast) {
             result += (ra[1] ? ra[1] : "") + "{" + ra[2].length.toString(16).toUpperCase() + "}";
             li = R.lastIndex;
         }
+        result += raw.substring(li);
         return result;
     }
     function generateTables() {

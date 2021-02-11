@@ -53,9 +53,9 @@ export interface IOtherExpectation {
 
 export type Expectation = ITokenExpectation | IAnyExpectation | IEndExpectation | IOtherExpectation;
 
-export class PegCannonParseErrorInfo<T extends IToken> {
+export class HyperGParseErrorInfo<T extends IToken> {
 
-  private static buildMessage<T extends IToken>(input: PegCannonParseStream<T>, expected: Expectation[], found: Expectation) {
+  private static buildMessage<T extends IToken>(input: HyperGParseStream<T>, expected: Expectation[], found: Expectation) {
 
     function hex(ch: string): string {
       return ch.charCodeAt(0).toString(16).toUpperCase();
@@ -137,7 +137,7 @@ export class PegCannonParseErrorInfo<T extends IToken> {
     return "Expected " + describeExpected(expected) + " but " + describeExpectation(found) + " found.";
   }
 
-  readonly input: PegCannonParseStream<T>;
+  readonly input: HyperGParseStream<T>;
   readonly message0: string;
   private message1: string;
   readonly expected: Expectation[];
@@ -145,7 +145,7 @@ export class PegCannonParseErrorInfo<T extends IToken> {
   readonly absolutePosition: number;
   readonly name: string;
 
-  constructor(input: PegCannonParseStream<T>, message: string, expected: Expectation[], found: Expectation, absolutePosition?: number) {
+  constructor(input: HyperGParseStream<T>, message: string, expected: Expectation[], found: Expectation, absolutePosition?: number) {
     this.input = input;
     this.message0 = message;
     this.expected = expected;
@@ -160,7 +160,7 @@ export class PegCannonParseErrorInfo<T extends IToken> {
 
   get message() {
     if (!this.message1) {
-      this.message1 = this.message0 + PegCannonParseErrorInfo.buildMessage(this.input, this.expected, this.found);
+      this.message1 = this.message0 + HyperGParseErrorInfo.buildMessage(this.input, this.expected, this.found);
     }
     return this.message1;
   }
@@ -169,9 +169,9 @@ export class PegCannonParseErrorInfo<T extends IToken> {
 }
 
 export class SyntaxError<T extends IToken> extends Error {
-  info: PegCannonParseErrorInfo<T>;
+  info: HyperGParseErrorInfo<T>;
 
-  constructor(info: PegCannonParseErrorInfo<T>) {
+  constructor(info: HyperGParseErrorInfo<T>) {
     super();
     this.info = info;
   }
@@ -318,7 +318,7 @@ export interface IStringLike {
   charCodeAt(pos: number): number;
 }
 
-export abstract class PegCannonParseStream<T extends IToken> {
+export abstract class HyperGParseStream<T extends IToken> {
 
   readonly ruleNames: string[];
 

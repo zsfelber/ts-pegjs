@@ -569,6 +569,8 @@ export class ParseTable {
     var er = 0;
     var ee = 0;
 
+    var adtnlti = this.allStates.length + 1;
+
     prstate(this.startingState);
     this.allStates.forEach(state=>{
       prstate(state);
@@ -587,8 +589,8 @@ export class ParseTable {
       // 0 means empty
       trans.index = state.index + 1;
 
-      var empt = !tra(trans);
-      var emptr = !tra(state._recursiveShift);
+      var empt = !tra(trans, false);
+      var emptr = !tra(state._recursiveShift, true);
       if (empt && emptr) {
         et++;
       }
@@ -618,7 +620,7 @@ export class ParseTable {
 
     }
 
-    function tra(trans: GrammarParsingLeafStateTransitions) {
+    function tra(trans: GrammarParsingLeafStateTransitions, reqShift: boolean) {
       var mapln = Object.keys(trans.map).length;
       if (mapln) {
         var buf = [];
@@ -632,6 +634,7 @@ export class ParseTable {
         if (trans0) {
           trans.index = trans0.index;
         } else {
+          if (reqShift) trans.index = adtnlti++;
           Analysis.serializedTransitions[encoded] = trans;
         }
       } else {
@@ -643,7 +646,6 @@ export class ParseTable {
     function red(rr: GrammarParsingLeafStateReduces) {
       var rlen = rr.reducedNodes.length;
       if (rlen) {
-        rr.index = redidx++;
         var buf = [];
         rr.alreadySerialized = null;
         rr.ser(buf);
@@ -654,6 +656,7 @@ export class ParseTable {
         if (rr0) {
           rr.index = rr0.index;
         } else {
+          rr.index = redidx++;
           Analysis.serializedReduces[encred] = rr;
         }
       } else {
