@@ -287,7 +287,8 @@ class Context {
     this.current = this.current.parent;
     return generatedNode;
   }
-  generateAction(target: PLogicNode, argumentsOwner: PNode, kind: PActionKind, node) {
+  generateAction(_target: PNode, argumentsOwner: PNode, kind: PActionKind, node) {
+    var target = _target as PValueNode;
     var action: PFunction = {
       kind, ownerRule: ctx.rule, target,
       nodeIdx: this.nodeIdxs++, index: ctx.functionIndices++,
@@ -314,10 +315,10 @@ class Context {
 
     if (argumentsOwner.kind === PNodeKind.SEQUENCE || argumentsOwner.kind === PNodeKind.CHOICE) {
       argumentsOwner.children.forEach(chch => {
-        addlabels(chch);
+        addlabels(chch as PValueNode);
       });
     } else {
-      addlabels(argumentsOwner);
+      addlabels(argumentsOwner as PValueNode);
     }
     return action;
   }

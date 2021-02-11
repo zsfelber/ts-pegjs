@@ -400,7 +400,7 @@ function generateTS(ast, ...args) {
       '  }',
       '',
       '  run(silent: boolean, startRuleIndex: RuleId = 0): IFailure {',
-      '    var entry = peg$rulesPackrat[startRuleIndex];',
+      '    var entry = peg$ruleInterpreters[startRuleIndex];',
       '    this.peg$result = this.runner.run(entry);',
       '    ',
       '    // TODO failure',
@@ -594,6 +594,10 @@ function pushc(cache: any, item: any): any {
 
     parseTbl.push("");
     parseTbl.push("const peg$PrsTbls = {" + allstarts.map(r => ruleMap[r] + ": peg$decodePrsTbl(" + ruleMap[r] + ", peg$PrsTbl" + r + ")").join(", ") + "};");
+    parseTbl.push([
+      'JumpTables.parseTables = peg$PrsTbls;',
+      "",
+    ].join('\n'));
 
     if (Analysis.ERRORS) {
       console.error("Errors. Not generating (but for debugging only).");
@@ -657,15 +661,15 @@ function pushc(cache: any, item: any): any {
       '      i = R.lastIndex;',
       '      break;',
       '    case "X":',
-      '      code.push(HTOD[char1]<<12 + HTOD[s.charAt(i+1)]<<8 + HTOD[s.charAt(i+2)]<<4 + HTOD[s.charAt(i+3)]);',
+      '      code.push((HTOD[char1]<<12) + (HTOD[s.charAt(i+1)]<<8) + (HTOD[s.charAt(i+2)]<<4) + HTOD[s.charAt(i+3)]);',
       '      i += 4;',
       '      break;',
       '    case "x":',
-      '      code.push(HTOD[char1]<<8 + HTOD[s.charAt(i+1)]<<4 + HTOD[s.charAt(i+2)]);',
+      '      code.push((HTOD[char1]<<8) + (HTOD[s.charAt(i+1)]<<4) + HTOD[s.charAt(i+2)]);',
       '      i += 3;',
       '      break;',
       '    default:',
-      '      code.push(HTOD[char1]<<4 + HTOD[s.charAt(i+1)]);',
+      '      code.push((HTOD[char1]<<4) + HTOD[s.charAt(i+1)]);',
       '      i += 2;',
       '      break;',
       '    }',
@@ -710,7 +714,11 @@ function pushc(cache: any, item: any): any {
         }).join(", "),
         "];"
       ].join('\n'));
-
+    tables.push([
+      'SerDeser.functionTable = peg$functions;',
+      "",
+    ].join('\n'));
+  
     SerDeser.cnt = grammar.nodeIdx + 1;
     // peg$rules
     tables.push(
@@ -722,27 +730,28 @@ function pushc(cache: any, item: any): any {
         ).join(", "),
         "];"
       ].join('\n'));
+    tables.push([
+      'SerDeser.ruleTable = peg$rules;',
+      "",
+    ].join('\n'));
     var ri = 0;
     tables.push(
-      ['const peg$rulesPackrat = [',
+      ['const peg$ruleInterpreters = [',
         "    " + grammar.rules.map(rule =>
           'new EntryPointInterpreter(peg$rules[' + (ri++) + '])'
         ).join(", "),
         "];"
       ].join('\n'));
-
+    tables.push([
+      'Interpreters.ruleTable = peg$ruleInterpreters;',
+      "",
+    ].join('\n'));
+  
     tables.push("");
     tables.push("");
     tables = tables.concat(generateParseTable());
     tables.push("");
 
-    tables.push([
-      "",
-      'SerDeser.functionTable = peg$functions;',
-      'SerDeser.ruleTable = peg$rules;',
-      'Interpreters.ruleTable = peg$rulesPackrat;',
-      'JumpTables.parseTables = peg$PrsTbls;',
-    ].join('\n'));
     //TODO
     /*
     if (options.optimize === 'size') {

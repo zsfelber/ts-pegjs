@@ -343,7 +343,7 @@ function generateTS(ast) {
             '  }',
             '',
             '  run(silent: boolean, startRuleIndex: RuleId = 0): IFailure {',
-            '    var entry = peg$rulesPackrat[startRuleIndex];',
+            '    var entry = peg$ruleInterpreters[startRuleIndex];',
             '    this.peg$result = this.runner.run(entry);',
             '    ',
             '    // TODO failure',
@@ -489,6 +489,10 @@ function generateTS(ast) {
         });
         parseTbl.push("");
         parseTbl.push("const peg$PrsTbls = {" + allstarts.map(function (r) { return ruleMap[r] + ": peg$decodePrsTbl(" + ruleMap[r] + ", peg$PrsTbl" + r + ")"; }).join(", ") + "};");
+        parseTbl.push([
+            'JumpTables.parseTables = peg$PrsTbls;',
+            "",
+        ].join('\n'));
         if (lib_2.Analysis.ERRORS) {
             console.error("Errors. Not generating (but for debugging only).");
         }
@@ -548,15 +552,15 @@ function generateTS(ast) {
             '      i = R.lastIndex;',
             '      break;',
             '    case "X":',
-            '      code.push(HTOD[char1]<<12 + HTOD[s.charAt(i+1)]<<8 + HTOD[s.charAt(i+2)]<<4 + HTOD[s.charAt(i+3)]);',
+            '      code.push((HTOD[char1]<<12) + (HTOD[s.charAt(i+1)]<<8) + (HTOD[s.charAt(i+2)]<<4) + HTOD[s.charAt(i+3)]);',
             '      i += 4;',
             '      break;',
             '    case "x":',
-            '      code.push(HTOD[char1]<<8 + HTOD[s.charAt(i+1)]<<4 + HTOD[s.charAt(i+2)]);',
+            '      code.push((HTOD[char1]<<8) + (HTOD[s.charAt(i+1)]<<4) + HTOD[s.charAt(i+2)]);',
             '      i += 3;',
             '      break;',
             '    default:',
-            '      code.push(HTOD[char1]<<4 + HTOD[s.charAt(i+1)]);',
+            '      code.push((HTOD[char1]<<4) + HTOD[s.charAt(i+1)]);',
             '      i += 2;',
             '      break;',
             '    }',
@@ -593,6 +597,10 @@ function generateTS(ast) {
                 name += "$" + action.index;
                 return "PegCannonParser.prototype." + name;
             }).join(", "), "];"].join('\n'));
+        tables.push([
+            'SerDeser.functionTable = peg$functions;',
+            "",
+        ].join('\n'));
         lib_1.SerDeser.cnt = grammar.nodeIdx + 1;
         // peg$rules
         tables.push(['const peg$rules = [', "    " + grammar.rules.map(function (rule) {
@@ -600,21 +608,22 @@ function generateTS(ast) {
                     lib_1.CodeTblToHex(rule.ser()).join('') +
                     '")';
             }).join(", "), "];"].join('\n'));
+        tables.push([
+            'SerDeser.ruleTable = peg$rules;',
+            "",
+        ].join('\n'));
         var ri = 0;
-        tables.push(['const peg$rulesPackrat = [', "    " + grammar.rules.map(function (rule) {
+        tables.push(['const peg$ruleInterpreters = [', "    " + grammar.rules.map(function (rule) {
                 return 'new EntryPointInterpreter(peg$rules[' + (ri++) + '])';
             }).join(", "), "];"].join('\n'));
+        tables.push([
+            'Interpreters.ruleTable = peg$ruleInterpreters;',
+            "",
+        ].join('\n'));
         tables.push("");
         tables.push("");
         tables = tables.concat(generateParseTable());
         tables.push("");
-        tables.push([
-            "",
-            'SerDeser.functionTable = peg$functions;',
-            'SerDeser.ruleTable = peg$rules;',
-            'Interpreters.ruleTable = peg$rulesPackrat;',
-            'JumpTables.parseTables = peg$PrsTbls;',
-        ].join('\n'));
         //TODO
         /*
         if (options.optimize === 'size') {

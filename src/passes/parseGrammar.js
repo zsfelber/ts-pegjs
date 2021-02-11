@@ -240,7 +240,8 @@ var Context = /** @class */ (function () {
         this.current = this.current.parent;
         return generatedNode;
     };
-    Context.prototype.generateAction = function (target, argumentsOwner, kind, node) {
+    Context.prototype.generateAction = function (_target, argumentsOwner, kind, node) {
+        var target = _target;
         var action = {
             kind: kind,
             ownerRule: ctx.rule,

@@ -75,7 +75,7 @@ export namespace SerDeser {
 
   export var ruleTable: PRule[];
 
-  export var nodeTable: PNode[];
+  export var nodeTable: PNode[] = [];
 }
 
 export abstract class PNode {
@@ -84,6 +84,10 @@ export abstract class PNode {
   children: PNode[] = [];
   nodeIdx: number;
   label?: string;
+
+  get action(): PFunction {
+    return undefined;
+  }
 
   static xkind = PNodeKind.GRAMMAR;
 
@@ -225,8 +229,24 @@ export class PTerminal extends PActContainer {
 }
 
 export class PLogicNode extends PNode {
-  action?: PFunction;
+  private _action?: PFunction;
+  private actidx?:number;
+  private actid?:number;
 
+  get action() {
+    if (!this._action) {
+      if (this.actidx !== -1 && this.actidx !== undefined) {
+        var fun = SerDeser.functionTable[this.actidx];
+        this.action = new PFunction();
+        this.action.fun = fun;
+        this.action.nodeIdx = this.actid;
+      }
+    }
+    return this._action;
+  }
+  set action(a: PFunction) {
+    this._action = a;
+  }
   ser(): number[] {
     var result = super.ser().concat([this.action?this.action.index+1:0]);
     if (this.action) {
@@ -240,12 +260,9 @@ export class PLogicNode extends PNode {
   }
   deser(arr: number[], pos: number): number {
     pos = super.deser(arr, pos);
-    var actidx = arr[pos++] - 1;
-    if (actidx !== -1) {
-      var fun = SerDeser.functionTable[actidx];
-      this.action = new PFunction();
-      this.action.fun = fun;
-      this.action.nodeIdx = SerDeser.cnt++;
+    this.actidx = arr[pos++] - 1;
+    if (this.actidx !== -1) {
+      this.actid = SerDeser.cnt++;
     }
     return pos;
   }
@@ -274,11 +291,19 @@ export class PRef extends PValueNode {
 
 export class PRuleRef extends PRef {
   kind = PNodeKind.RULE_REF;
-  rule?: string;
+  _rule?: string;
   ruleIndex?: number;
 
   get symbol() {
     return this.rule;
+  }
+
+  get rule() {
+    if (!this._rule) this._rule = SerDeser.ruleTable[this.ruleIndex].rule;
+    return this._rule;
+  }
+  set rule(r: string) {
+    this._rule = r;
   }
 
   ser(): number[] {
@@ -287,7 +312,6 @@ export class PRuleRef extends PRef {
   deser(arr: number[], pos: number): number {
     pos = super.deser(arr, pos);
     this.ruleIndex = arr[pos++];
-    this.rule = SerDeser.ruleTable[this.ruleIndex].rule;
     return pos;
   }
 }

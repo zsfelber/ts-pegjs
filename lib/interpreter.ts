@@ -1,4 +1,4 @@
-import { ICached, IToken, PNodeKind, PRule, PRuleRef, PTerminalRef, PValueNode, SerDeser } from '.';
+import { PNode, ICached, IToken, PNodeKind, PRule, PRuleRef, PTerminalRef, PValueNode, SerDeser } from '.';
 import { PFunction } from './parsers';
 import { Packrat } from './packrat';
 
@@ -15,23 +15,23 @@ export namespace Interpreters {
 // NOTE The only exported Parser is EntryPointParser
 namespace Factory {
 
-  export function createParser(node: PValueNode) {
+  export function createParser(node: PNode) {
     switch (node.kind) {
       case PNodeKind.CHOICE:
-        return new ChoiceInterpreter(node);
+        return new ChoiceInterpreter(node as PValueNode);
       case PNodeKind.SEQUENCE:
       case PNodeKind.SINGLE:
-        return new SequenceInterpreter(node);
+        return new SequenceInterpreter(node as PValueNode);
       case PNodeKind.OPTIONAL:
-        return new OptionalInterpreter(node);
+        return new OptionalInterpreter(node as PValueNode);
       case PNodeKind.SEMANTIC_AND:
-        return new SemanticAndInterpreter(node);
+        return new SemanticAndInterpreter(node as PValueNode);
       case PNodeKind.SEMANTIC_NOT:
-        return new SemanticNotInterpreter(node);
+        return new SemanticNotInterpreter(node as PValueNode);
       case PNodeKind.ZERO_OR_MORE:
-        return new ZeroOrMoreInterpreter(node);
+        return new ZeroOrMoreInterpreter(node as PValueNode);
       case PNodeKind.ONE_OR_MORE:
-        return new OneOrMoreInterpreter(node);
+        return new OneOrMoreInterpreter(node as PValueNode);
       case PNodeKind.RULE_REF:
         return new RuleRefInterpreter(node as PRuleRef);
       case PNodeKind.TERMINAL_REF:
@@ -122,10 +122,10 @@ export class DeferredReduce {
 abstract class RuleElementInterpreter {
 
   readonly parent: RuleElementInterpreter;
-  readonly node: PValueNode;
+  readonly node: PNode;
   readonly children: RuleElementInterpreter[] = [];
 
-  constructor(node: PValueNode) {
+  constructor(node: PNode) {
     this.node = node;
     this.node.children.forEach(n => {
       this.children.push(Factory.createParser(n));
@@ -405,14 +405,16 @@ class SemanticNotInterpreter extends SingleInterpreter {
 //   ..   A   R   S   E   R
 //   !!
 //
-export class EntryPointInterpreter extends SingleInterpreter {
+export class EntryPointInterpreter extends RuleElementInterpreter {
 
   node: PRule;
   index: number;
+  child: RuleElementInterpreter;
 
   constructor(node: PRule) {
     super(node);
     this.index = node.index;
+    this.child = this.children[0];
   }
 
   parseImpl(stack: RuleProcessStack) {
