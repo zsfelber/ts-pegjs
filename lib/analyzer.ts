@@ -1,6 +1,17 @@
 import { EntryPointTraverser, Factory, PNodeKind, RefTraverser, RuleElementTraverser, RuleRefTraverser, TerminalRefTraverser } from '.';
 import { PRule, PRuleRef, PTerminalRef, PValueNode, SerDeser, PNode, PRef } from './parsers';
 
+export const FAIL_STATE = 0;
+
+export const START_STATE = 1;
+
+export const CNT_HUB_LEVELS = 5;
+
+export const LEV_CNT_LN_RULE = 300;
+
+export const LEV_CNT_BRANCH_NODES = 500;
+
+
 export interface StrMapLike<V> {
   [index: number]: V;
 }
@@ -79,12 +90,6 @@ export namespace Traversing {
     item = recursionCacheStack.item;
   }
 }
-
-export const FAIL_STATE = 0;
-
-export const START_STATE = 1;
-
-export const MAX_CNT_BRANCH_NODES = 500;
 
 function hex3(c) {
   if (c < 16) return '00' + c.toString(16).toUpperCase();

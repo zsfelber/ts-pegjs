@@ -1,4 +1,5 @@
-import { StrMapLike, ParseTableGenerator, PNode, PNodeKind, PRuleRef, PTerminalRef, PValueNode, PRef, PRule, Analysis, MAX_CNT_BRANCH_NODES, LinearTraversion, TraversionControl, TraversionItemKind, TraversionCache, TraversionItemActionKind, TraversionPurpose, JumpIntoSubroutineLeafStateNode, LeafStateNode, ShiftReduceKind, Traversing, TraversedLeafStateNode } from ".";
+import { StrMapLike, ParseTableGenerator, PNode, PNodeKind, PRuleRef, PTerminalRef, PValueNode, PRef, PRule, Analysis, LEV_CNT_BRANCH_NODES, LinearTraversion, TraversionControl, TraversionItemKind, TraversionCache, TraversionItemActionKind, TraversionPurpose, JumpIntoSubroutineLeafStateNode, LeafStateNode, ShiftReduceKind, Traversing, TraversedLeafStateNode } from ".";
+import { CNT_HUB_LEVELS, LEV_CNT_LN_RULE } from './analyzer';
 
 
 export namespace Factory {
@@ -465,11 +466,11 @@ export class RuleRefTraverser extends RefTraverser {
 
       this.lazyLinkRule();
       var cntNodesL1 = this.linkedRuleEntry.hubSize(1);
-      var cntNodesL2 = this.linkedRuleEntry.hubSize(2);
+      var cntNodesLN = this.linkedRuleEntry.hubSize(CNT_HUB_LEVELS);
       var estCntNodes = Traversing.recursionCacheStack.parent.upwardBranchCnt * 
           cntNodesL1;
-      if (cntNodesL2>=50 && estCntNodes>=MAX_CNT_BRANCH_NODES) {
-        /*console.warn("Auto defer rule hub : " + this + " in " + inTraversion + "  its size L1:" + cntNodesL1+"   L2:" + cntNodesL2+"  est.tot:"+estCntNodes);
+      if (cntNodesLN>=LEV_CNT_LN_RULE && estCntNodes>=LEV_CNT_BRANCH_NODES) {
+        /*console.warn("Auto defer rule hub : " + this + " in " + inTraversion + "  its size L1:" + cntNodesL1+"   LN("+MAX_CNT_HUB_LEVELS+"):" + cntNodesLN+"  est.tot:"+estCntNodes);
         if (!Analysis["consideredManualDefer"]) {
           Analysis["consideredManualDefer"] = true;
           console.warn(
@@ -702,7 +703,10 @@ export class EntryPointTraverser extends RuleTraverser {
     if (maxLev>0) this.allRuleReferences.forEach(rr=>{
       rr.lazyLinkRule();
       if (rr.linkedRuleEntry!==this) {
-        result += rr.linkedRuleEntry.hubSize(maxLev - 1);
+        var deferred = Analysis.deferredRules.indexOf(rr.targetRule.rule) !== -1;
+        if (!deferred) {
+          result += rr.linkedRuleEntry.hubSize(maxLev - 1);
+        }
       }
     });
 
