@@ -29,7 +29,18 @@ export namespace Analysis {
   }
 }
 
+
+interface TraversionMakerCache extends StrMapLike<RuleElementTraverser> {
+  depth: number;
+  indent: string;
+  parent?: TraversionMakerCache;
+  top?: TraversionMakerCache;
+  item?: RuleElementTraverser;
+}
+
 namespace Traversing {
+
+  export var active: boolean;
 
   export var inTraversion: LinearTraversion;
 
@@ -37,15 +48,29 @@ namespace Traversing {
   
   export var item: RuleElementTraverser;
 
+  var maxdepth = 0;
+
   export function start(_inTraversion: LinearTraversion, _item: RuleElementTraverser) {
     inTraversion = _inTraversion;
-    recursionCacheStack = { indent: "", item:_item };
+    recursionCacheStack = { depth:0, indent: "", item:_item };
+    recursionCacheStack.top = recursionCacheStack;
     item = recursionCacheStack.item;
+    maxdepth = 0;
+    active = true;
+  }
+  export function finish() {
+    active = false;
   }
 
   export function push(child: RuleElementTraverser) {
     var oldRecursionCacheStack = recursionCacheStack;
-    recursionCacheStack = { indent: oldRecursionCacheStack.indent + "  ", parent:oldRecursionCacheStack, item:child };
+    recursionCacheStack = { depth:oldRecursionCacheStack.depth+1, indent: oldRecursionCacheStack.indent + "  ", parent:oldRecursionCacheStack, top:oldRecursionCacheStack.top, item:child };
+    if (recursionCacheStack.depth > maxdepth) {
+      maxdepth = recursionCacheStack.depth;
+      if (!(maxdepth%10)) {
+        console.log("Traversal depth:"+recursionCacheStack.depth);
+      }
+    }
     item = recursionCacheStack.item;
     Object.setPrototypeOf(recursionCacheStack, oldRecursionCacheStack);
   }
@@ -827,12 +852,6 @@ class TraversionCache {
 }
 
 
-interface TraversionMakerCache extends StrMapLike<RuleElementTraverser> {
-  indent: string;
-  parent?: TraversionMakerCache;
-  item?: RuleElementTraverser;
-}
-
 class LinearTraversion {
 
   readonly parser: ParseTableGenerator;
@@ -858,15 +877,17 @@ class LinearTraversion {
 
     Traversing.start(this, rule);
     this.createRecursively();
+    Traversing.finish();
   }
 
   private createRecursively() {
 
     const item = Traversing.item;
 
-    // only which located beneath start rule and copied EntryPointTraversers ,
-    // are traversable,
-    // the rest which created for linked rules, and/or in parser.getReferencedRule, is not
+    // each one located beneath start rule and its copied CopiedRuleTraverser s,
+    // is traversable,
+    // the rest which created for linked rules, and/or in parser.getReferencedRule, 
+    // is not traversable
     if (!item.top.parent && item.top !== this.parser.startingStateNode.rule) {
       throw new Error("This how : " + item + "  in:" + this);
     }
@@ -1072,11 +1093,6 @@ export abstract class RuleElementTraverser {
     if (this.importPoint) {
       if (this.importPoint.allNodes) {
         this.importPoint.allNodes[this.nodeTravId] = this;
-        var cntNodes = Object.keys(this.importPoint.allNodes).length;
-        if (cntNodes >= MAX_CNT_BRANCH_NODES) {
-          throw {"anApple":MAX_CNT_BRANCH_NODES,"anOrange":1};
-        }
-  
       }
     } else {
       this.parser.allNodes[this.nodeTravId] = this;
@@ -1089,6 +1105,14 @@ export abstract class RuleElementTraverser {
       //  throw new Error("Ast construction failed.");
     }
     this.optionalBranch = this.node.optionalNode;
+  }
+
+  get branchSize(): number {
+    var result = 0;
+    this.children.forEach(child=>{
+      result += child.branchSize;
+    });
+    return result;
   }
 
   get isReducable() {
@@ -1419,6 +1443,28 @@ class RuleRefTraverser extends RefTraverser {
     }
   }
 
+  get branchSize(): number {
+    if (!Traversing.active) {
+      throw new Error("Not supported calling outside traversion (infinite loop detection required).");
+    }
+    var deferred = Analysis.deferredRules.indexOf(this.targetRule.rule) !== -1;
+    var recursiveRule = Traversing.recursionCacheStack["rule_ref#" + this.targetRule.nodeIdx];
+    if (deferred || recursiveRule) {
+      return 1;
+    } else if (this.linkedRuleEntry) {
+      var result = Traversing.recursionCacheStack.top["cnt_rule_ref#" + this.targetRule.nodeIdx];
+      if (result === undefined) {
+        Traversing.recursionCacheStack["rule_ref#" + this.targetRule.nodeIdx] = this;
+        result = this.linkedRuleEntry.branchSize;
+        delete Traversing.recursionCacheStack["rule_ref#" + this.targetRule.nodeIdx];
+        Traversing.recursionCacheStack.top["cnt_rule_ref#" + this.targetRule.nodeIdx] = result;
+      }
+      return result;
+    } else {
+      return 0;
+    }
+  }
+
   checkConstructFailed() {
 
     var dirty = super.checkConstructFailed();
@@ -1459,11 +1505,8 @@ class RuleRefTraverser extends RefTraverser {
 
     if (this.traverserStep) throw new Error("There is a traverserStep already : " + this + "  traverserStep:" + this.traverserStep);
 
-    var ruledup: CopiedRuleTraverser;
 
     if (!this.isDeferred) {
-
-      Traversing.recursionCacheStack["rule_ref#" + this.targetRule.nodeIdx] = this;
 
       //console.log("rule#" + this.targetRule.nodeIdx +"->"+ recursionCacheStack.indent+" "+this);
 
@@ -1474,30 +1517,26 @@ class RuleRefTraverser extends RefTraverser {
       //       Though, recommended defining these manually in ellegant hotspots
       //       which not autodetectable but this safeguard is definitely required:
 
-      try {
-        ruledup = new CopiedRuleTraverser(this.parser, this, this.targetRule);
-        var cntNodes = Object.keys(ruledup.allNodes).length;
-        if (cntNodes>=20) {
-          console.log("Copied rule branch : " + ruledup+" cntNodes:"+cntNodes);
-        }
-
-      } catch (somethg) {
-        if (somethg.anApple===MAX_CNT_BRANCH_NODES && somethg.anOrange) {
-          console.warn("Auto defer, rule is too big : " + this + " in " + inTraversion + "  number of its nodes:" + MAX_CNT_BRANCH_NODES);
+      var cntNodes = this.linkedRuleEntry.branchSize;
+      if (cntNodes>=MAX_CNT_BRANCH_NODES) {
+        console.warn("Auto defer, rule is too big : " + this + " in " + inTraversion + "  recursive cycle points:" + cntNodes);
+        if (!Traversing.recursionCacheStack.top["consideredManualDefer"]) {
+          Traversing.recursionCacheStack.top["consideredManualDefer"] = true;
           console.warn(
-          "  Consider configuring deferred rules manually for your code esthetics.\n"+
-          "  This rule reference is made deferred automatically due to its large extent.\n"+
-          "  Analyzer could not simply generate everything to beneath one root, because\n"+
-          "  it may add an unexpected rapid growth effect to analyzing time and parsing\n"+
-          "  table output size at some point due to its exponential nature.\n");
-
-          Analysis.deferredRules.push(this.targetRule.rule);
-          this.isDeferred = true;
-          delete Traversing.recursionCacheStack["rule_ref#" + this.targetRule.nodeIdx];
-        } else {
-          throw somethg;
+            "  Consider configuring deferred rules manually for your code esthetics.\n"+
+            "  This rule reference is made deferred automatically due to its large extent.\n"+
+            "  Analyzer could not simply generate everything to beneath one root, because\n"+
+            "  it may add an unexpected rapid growth effect to analyzing time and parsing\n"+
+            "  table output size at some point due to its exponential nature.\n");
         }
+
+        Analysis.deferredRules.push(this.targetRule.rule);
+        this.isDeferred = true;
+        delete Traversing.recursionCacheStack["rule_ref#" + this.targetRule.nodeIdx];
+      } else if (cntNodes>=20) {
+        console.log("Copied rule branch : " + ruledup+" cntNodes:"+cntNodes);
       }
+
     }
 
     if (this.isDeferred) {
@@ -1515,6 +1554,10 @@ class RuleRefTraverser extends RefTraverser {
       return false;
 
     } else {
+
+      Traversing.recursionCacheStack["rule_ref#" + this.targetRule.nodeIdx] = this;
+
+      var ruledup = new CopiedRuleTraverser(this.parser, this, this.targetRule);
 
       Object.assign(this.parser.allNodes, ruledup.allNodes);
 
@@ -1584,6 +1627,9 @@ class TerminalRefTraverser extends RefTraverser {
 
   get isReducable() {
     return true;
+  }
+  get branchSize(): number {
+    return 1;
   }
 
   checkConstructFailed() {
@@ -1681,7 +1727,6 @@ export class CopiedRuleTraverser extends RuleTraverser {
 
 export class EntryPointTraverser extends RuleTraverser {
 
-
   constructor(parser: ParseTableGenerator, parent: RuleRefTraverser, node: PRule) {
     super(parser, parent, node);
     if (parent) throw new Error();
@@ -1691,7 +1736,7 @@ export class EntryPointTraverser extends RuleTraverser {
     return this;
   }
   get importPoint(): CopiedRuleTraverser {
-    return this.parent ? this.parent.importPoint : null;
+    return null;
   }
 
   traversionGeneratorEnter(inTraversion: LinearTraversion) {
