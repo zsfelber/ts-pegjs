@@ -166,8 +166,8 @@ function generate(ast, ...args) {
   parseGrammarAst(null, ast);
 
   // must be circle-free :
-  var T = (node: PNode)=>{
-    if (node["$$"]) throw new Error("Circle:"+node);
+  var T = (node: PNode) => {
+    if (node["$$"]) throw new Error("Circle:" + node);
     node["$$"] = 1;
     node.children.forEach(child => {
       T(child);
@@ -226,7 +226,7 @@ function generate(ast, ...args) {
     });
   }
 
-  var def0 = 0;
+  var def0 = 0, ldef0 = 0;
   if (options.deferredRules) {
     def0 = options.deferredRules.length;
     console.log("deferredRules:" + options.deferredRules.join(", "));
@@ -235,14 +235,21 @@ function generate(ast, ...args) {
     if (def0 < Analysis.deferredRules.length) {
       console.log("indirect deferredRules:" + Analysis.deferredRules.slice(def0).join(", "));
     }
+    if (ldef0 < Analysis.localDeferredRules.length) {
+      console.log("indirect deferredRules(local):" + Analysis.localDeferredRules.slice(ldef0).join(", "));
+    }
     def0 = Analysis.deferredRules.length;
+    ldef0 = Analysis.localDeferredRules.length;
     Analysis.deferredRules.forEach(r => {
       if (doit(r)) allstarts.push(r);
     });
-  } while (Analysis.deferredRules.length > def0);
+    Analysis.localDeferredRules.forEach(r => {
+      if (doit(r)) allstarts.push(r);
+    });
+  } while (Analysis.deferredRules.length > def0 || Analysis.localDeferredRules.length > ldef0);
 
   allstarts.sort();
-  allstarts.splice(allstarts.indexOf(options.allowedStartRules[0]),1);
+  allstarts.splice(allstarts.indexOf(options.allowedStartRules[0]), 1);
   allstarts.unshift(options.allowedStartRules[0]);
   ast.allstarts = allstarts;
 

@@ -189,7 +189,7 @@ function generate(ast) {
                 allstarts.push(r);
         });
     }
-    var def0 = 0;
+    var def0 = 0, ldef0 = 0;
     if (options.deferredRules) {
         def0 = options.deferredRules.length;
         console.log("deferredRules:" + options.deferredRules.join(", "));
@@ -198,12 +198,20 @@ function generate(ast) {
         if (def0 < analyzer_1.Analysis.deferredRules.length) {
             console.log("indirect deferredRules:" + analyzer_1.Analysis.deferredRules.slice(def0).join(", "));
         }
+        if (ldef0 < analyzer_1.Analysis.localDeferredRules.length) {
+            console.log("indirect deferredRules(local):" + analyzer_1.Analysis.localDeferredRules.slice(ldef0).join(", "));
+        }
         def0 = analyzer_1.Analysis.deferredRules.length;
+        ldef0 = analyzer_1.Analysis.localDeferredRules.length;
         analyzer_1.Analysis.deferredRules.forEach(function (r) {
             if (doit(r))
                 allstarts.push(r);
         });
-    } while (analyzer_1.Analysis.deferredRules.length > def0);
+        analyzer_1.Analysis.localDeferredRules.forEach(function (r) {
+            if (doit(r))
+                allstarts.push(r);
+        });
+    } while (analyzer_1.Analysis.deferredRules.length > def0 || analyzer_1.Analysis.localDeferredRules.length > ldef0);
     allstarts.sort();
     allstarts.splice(allstarts.indexOf(options.allowedStartRules[0]), 1);
     allstarts.unshift(options.allowedStartRules[0]);

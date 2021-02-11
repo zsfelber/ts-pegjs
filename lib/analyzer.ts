@@ -27,6 +27,8 @@ export namespace Analysis {
 
   export var deferredRules = [];
 
+  export var localDeferredRules = [];
+
   export var leafStates: GrammarParsingLeafState[] = [];
 
   export function leafState(index: number) {

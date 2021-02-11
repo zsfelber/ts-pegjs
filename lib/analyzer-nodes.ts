@@ -439,6 +439,8 @@ export class RuleRefTraverser extends RefTraverser {
       this.isDeferred = true;
     } else if (recursiveRule) {
 
+      Analysis.localDeferredRules.push(this.targetRule.rule);
+
       //console.log("Auto defer recursive rule : " + this + " in " + inTraversion);
       //
       // NOTE  auto-defer mode here
