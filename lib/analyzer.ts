@@ -562,14 +562,15 @@ export class ParseTable {
     // !
     Analysis.leafStates = [];
 
-    // 1 based
-    // 0 means empty
-    var redidx = 1;
     var et = 0;
     var er = 0;
     var ee = 0;
 
-    var adtnlti = this.allStates.length + 1;
+    // indexes
+    // 1 based
+    // 0 means empty
+    var transidx = 1;
+    var redidx = 1;
 
     prstate(this.startingState);
     this.allStates.forEach(state=>{
@@ -583,14 +584,9 @@ export class ParseTable {
     console.log(this.rule.rule+"   states:"+(1+this.allStates.length)+"  is empty "+et+"+"+er+" e+e:"+ee+"     Total: [ distinct transitions:"+(t)+"     distinct reduces:"+(r)+"      distinct states:"+(tp)+" ]");
 
     function prstate(state: GrammarParsingLeafState) {
-      var trans = state.transitions;
 
-      // 1 based
-      // 0 means empty
-      trans.index = state.index + 1;
-
-      var empt = !tra(trans, false);
-      var emptr = !tra(state._recursiveShift, true);
+      var empt = !tra(state.transitions);
+      var emptr = !tra(state._recursiveShift);
       if (empt && emptr) {
         et++;
       }
@@ -606,12 +602,12 @@ export class ParseTable {
 
       var spidx = state.startingPoint ? state.startingPoint.nodeIdx : 0;
   
-      var tuple:[number,number,number,number,number] = [spidx, trans.index, state.reduceActions.index, state.epsilonReduceActions.index, state._recursiveShift.index];
+      var tuple:[number,number,number,number,number] = [spidx, state.transitions.index, state.reduceActions.index, state.epsilonReduceActions.index, state._recursiveShift.index];
       var tkey = CodeTblToHex(tuple).join("");
 
       var tuple0 = Analysis.serializedTuples[tkey];
       if (tuple0) {
-        state.serializedTupleIndex = tuple[0];
+        state.serializedTupleIndex = tuple0[0];
       } else {
         var tpli = Object.keys(Analysis.serializedTuples).length;
         Analysis.serializedTuples[tkey] = [tpli, tuple[0], tuple[1], tuple[2], tuple[3], tuple[4]];
@@ -620,7 +616,7 @@ export class ParseTable {
 
     }
 
-    function tra(trans: GrammarParsingLeafStateTransitions, reqShift: boolean) {
+    function tra(trans: GrammarParsingLeafStateTransitions) {
       var mapln = Object.keys(trans.map).length;
       if (mapln) {
         var buf = [];
@@ -634,7 +630,7 @@ export class ParseTable {
         if (trans0) {
           trans.index = trans0.index;
         } else {
-          if (reqShift) trans.index = adtnlti++;
+          trans.index = transidx++;
           Analysis.serializedTransitions[encoded] = trans;
         }
       } else {

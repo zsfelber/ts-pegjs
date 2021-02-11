@@ -206,7 +206,7 @@ function generate(ast) {
         return result;
     }
     var genclss = [];
-    genclss.push("import { IFilePosition, IFileRange, IAnyExpectation, IEndExpectation, IOtherExpectation, Expectation, SyntaxError, ITraceEvent, DefaultTracer, ICached, PegCannonParseStream, IToken } from 'ts-pegjs/lib';");
+    genclss.push("import { IFilePosition, IFileRange, IAnyExpectation, IEndExpectation, IOtherExpectation, Expectation, SyntaxError, ITraceEvent, DefaultTracer, ICached, HyperGParseStream, IToken } from 'ts-pegjs/lib';");
     if (options.tspegjs.customHeader) {
         genclss.push(options.tspegjs.customHeader.length ? options.tspegjs.customHeader.join("\n") : options.tspegjs.customHeader + "");
     }
@@ -218,7 +218,7 @@ function generate(ast) {
     genclss.push("class UselessClassJustToResolveTypes<T extends " + baseTokenType + "> {");
     genclss.push([
         "",
-        '  input: PegCannonParseStream<T>;',
+        '  input: HyperGParseStream<T>;',
         "",
         "  peg$maxFailPos = 0;",
         "  peg$maxFailExpected: Expectation[] = [];",
