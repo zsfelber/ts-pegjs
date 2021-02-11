@@ -367,10 +367,6 @@ export class ParseTableGenerator {
   startingStateNode: RootStateNode;
   maxTokenId: number = 0;
 
-  allNodes: RuleElementTraverser[] = [];
-  allRuleReferences: RuleRefTraverser[] = [];
-  allTerminalReferences: TerminalRefTraverser[] = [];
-
   newRuleReferences: RuleRefTraverser[] = [];
 
   // the state nodes 
@@ -399,11 +395,15 @@ export class ParseTableGenerator {
     var mainEntryPoint = new EntryPointTraverser(this, null, rule);
     this.entryPoints[rule.rule] = mainEntryPoint;
 
-    // loads all :)
-    do {
+    // loads all
+    var cntrules = 0;
+    while (this.newRuleReferences.length) {
+      cntrules += this.newRuleReferences.length;
       var newRefs = this.newRuleReferences;
       this.newRuleReferences = [];
-    } while (newRefs.some(ruleRef => ruleRef.lazyCouldGenerateNew()));
+      newRefs.forEach(ruleRef => ruleRef.lazyCouldGenerateNew());
+    }
+    console.log("Loaded "+cntrules+" rules.");
 
     this.startingStateNode = new RootStateNode(mainEntryPoint);
 
@@ -431,7 +431,7 @@ export class ParseTableGenerator {
 
     //var result = new ParseTable(rule, step0, Factory.allTerminals, Factory.maxTokenId);
     //, startingState : GrammarAnalysisState, allTerminals: TerminalRefTraverser[], maxTokenId: number
-    console.log("Parse table for   starting rule:" + rule.rule + "  nonterminals:" + Object.getOwnPropertyNames(this.entryPoints).length + "  all nodes:" + this.allNodes.length + "  rule refs:" + this.allRuleReferences.length + "  terminal refs:" + this.allTerminalReferences.length + "  tokens:" + this.maxTokenId + "   states:" + this.allLeafStateNodes.length);
+    console.log("Parse table for   starting rule:" + rule.rule + "  entry points(nonterminals):" + Object.keys(this.entryPoints).length + "  all nodes:" + mainEntryPoint.allNodes.length + "  rule refs:" + mainEntryPoint.allRuleReferences.length + "  terminal refs:" + mainEntryPoint.allTerminalReferences.length + "  tokens:" + this.maxTokenId + "   states:" + this.allLeafStateNodes.length);
 
   }
 
