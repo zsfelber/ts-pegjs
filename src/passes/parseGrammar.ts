@@ -219,18 +219,27 @@ function generate(ast, ...args) {
     }
   };
 
-  if (options.deferredRules) {
-    console.log("deferredRules:" + options.deferredRules.join(", "));
-    options.deferredRules.forEach(r => {
-      if (doit(r)) allstarts.push(r);
-    });
-  }
   if (options.allowedStartRules) {
     console.log("allowedStartRules:" + options.allowedStartRules.join(", "));
     options.allowedStartRules.forEach(r => {
       if (doit(r)) allstarts.push(r);
     });
   }
+
+  var def0 = 0;
+  if (options.deferredRules) {
+    def0 = options.deferredRules.length;
+    console.log("deferredRules:" + options.deferredRules.join(", "));
+  }
+  do {
+    if (def0 < Analysis.deferredRules.length) {
+      console.log("indirect deferredRules:" + Analysis.deferredRules.slice(def0).join(", "));
+    }
+    def0 = Analysis.deferredRules.length;
+    Analysis.deferredRules.forEach(r => {
+      if (doit(r)) allstarts.push(r);
+    });
+  } while (Analysis.deferredRules.length > def0);
 
   allstarts.sort();
   allstarts.splice(allstarts.indexOf(options.allowedStartRules[0]),1);

@@ -451,6 +451,7 @@ function hex(ch) {
 
 export * from "./parsers";
 export * from "./analyzer";
+export * from "./analyzer-nodes";
 export * from "./interpreter";
 export * from "./packrat";
 export * from "./jmptblrunner";

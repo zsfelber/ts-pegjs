@@ -1,4 +1,5 @@
 import * as fs from "fs";
+import * as glob from "glob";
 import { Analysis, ParseTableGenerator } from "../../lib";
 import { PGrammar, PRule, PNode, PRuleRef, PNodeKind } from '../../lib/parsers';
 import { RuleElementTraverser, StrMapLike } from '../../lib/analyzer';
@@ -21,6 +22,14 @@ function generateTT(ast, ...args) {
 
   Analysis.ruleTable = grammar.rules;
   Analysis.deferredRules = options.deferredRules ? options.deferredRules : [];
+
+
+  console.log("Generate visualizer trees...");
+
+  glob.sync("../www/ast/pnodes-graph*.json").forEach(f => {
+    console.log("Remove old :"+f);
+    fs.unlinkSync(f);
+  });
 
   const doit = (r: string) => {
     ri = ruleMap[r];

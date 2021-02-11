@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 var fs = require("fs");
+var glob = require("glob");
 var lib_1 = require("../../lib");
 var parsers_1 = require("../../lib/parsers");
 // Generates parser JavaScript code.
@@ -21,6 +22,11 @@ function generateTT(ast) {
     ast.rules.forEach(function (r) { ruleMap[r.name] = ri++; });
     lib_1.Analysis.ruleTable = grammar.rules;
     lib_1.Analysis.deferredRules = options.deferredRules ? options.deferredRules : [];
+    console.log("Generate visualizer trees...");
+    glob.sync("../www/ast/pnodes-graph*.json").forEach(function (f) {
+        console.log("Remove old :" + f);
+        fs.unlinkSync(f);
+    });
     var doit = function (r) {
         ri = ruleMap[r];
         var rule = grammar.children[ri];
