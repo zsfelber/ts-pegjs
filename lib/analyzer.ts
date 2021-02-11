@@ -492,7 +492,7 @@ export class ParseTableGenerator {
 
     //var result = new ParseTable(rule, step0, Factory.allTerminals, Factory.maxTokenId);
     //, startingState : GrammarAnalysisState, allTerminals: TerminalRefTraverser[], maxTokenId: number
-    console.log("Parse table for   starting rule:" + rule.rule + "  entry points(nonterminals):" + Object.keys(this.entryPoints).length + "  all nodes:" + mainEntryPoint.allNodes.length +"  all rule refs:"+cntrules+ "  L1 rule refs:" + mainEntryPoint.allRuleReferences.length + "  L1 terminal refs:" + mainEntryPoint.allTerminalReferences.length + "  tokens:" + Analysis.maxTokenId + "   states:" + this.allLeafStateNodes.length);
+    console.log("Parse table for   starting rule:" + rule.rule + "  entry points(nonterminals):" + Object.keys(this.entryPoints).length + "  all nodes:" + mainEntryPoint.allNodes.length +"  all rule refs:"+cntrules+ "  L1 rule refs:" + mainEntryPoint.allRuleReferences.length + "  L1 terminal refs:" + mainEntryPoint.allTerminalReferences.length + "  tokens:" + Analysis.maxTokenId + "   states:" + (1+this.allLeafStateNodes.length));
 
   }
 
@@ -540,7 +540,9 @@ export class ParseTable {
     }
 
     var redidx = 0;
-    var e = 0;
+    var et = 0;
+    var er = 0;
+    var ee = 0;
 
     prstate(this.startingState);
     this.allStates.forEach(state=>{
@@ -550,15 +552,14 @@ export class ParseTable {
     var t = Object.keys(Analysis.serializedTransitions).length;
     var r = Object.keys(Analysis.serializedReduces).length;
 
-    console.log("Now     transitions:"+(t)+"     reduces:"+(r)+"   of states here:1+"+this.allStates.length+"  is empty:"+e);
+    console.log(this.rule.rule+"   states:"+(1+this.allStates.length)+"  is empty et:"+et+" er:"+er+" e+e:"+ee+"     Total: [ distinct transitions:"+(t)+"     distinct reduces:"+(r)+" ]");
 
     function prstate(state: GrammarParsingLeafState) {
       var trans = state.transitions;
       trans.index = state.index;
 
-      //var empty = !Object.keys(trans.map).length;
-      var empty = !state.startStateNode.shiftsAndReduces.length;
-      if (empty) e++;
+      var empt = !state.startStateNode.shiftsAndReduces.length;
+      if (empt) et++;
 
       var buf = [];
       trans.alreadySerialized = null;
@@ -574,8 +575,14 @@ export class ParseTable {
         Analysis.serializedTransitions[encoded] = trans;
       }
   
-      red(state.reduceActions);
-      red(state.epsilonReduceActions);
+      var empr = !red(state.reduceActions);
+      var empre = !red(state.epsilonReduceActions);
+      if (empr && empre) {
+        er++;
+        if (empt) {
+          ee++;
+        }
+      }
     }
 
     function red(rr: GrammarParsingLeafStateReduces) {
@@ -592,6 +599,7 @@ export class ParseTable {
       } else {
         Analysis.serializedReduces[encred] = rr;
       }
+      return rr.reducedNodes.length;
     }
   }
 
@@ -1064,6 +1072,8 @@ export class LinearTraversion {
 
     if (startPosition >= this.traversionControls.length) {
       this.stopped = true;
+    } else {
+      this.stopped = false;
     }
     for (this.position = startPosition; !this.stopped;) {
       this.positionBeforeStep = this.position;
