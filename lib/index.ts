@@ -7,7 +7,7 @@ export const MATCH_TOKEN = 40;
 export const ACCEPT_TOKEN = 41;
 
 export enum HyperGEnvType {
-  ANALYZING, RUNTIME, INTEGRITY_CHECK
+  NONE, ANALYZING, RUNTIME, INTEGRITY_CHECK, INTEGRITY_CHECK_VERBOSE
 }
 
 export namespace HyperG {
@@ -21,6 +21,7 @@ export namespace HyperG {
     ruleInterpreters: EntryPointInterpreter[];
     nodeTable: PNode[] = [];
     parseTables: { [index: number]: ParseTable };
+    indent = "";
 
     load() {
       this.Env = Env;
@@ -31,6 +32,7 @@ export namespace HyperG {
       this.ruleInterpreters = ruleInterpreters;
       this.nodeTable = nodeTable;
       this.parseTables = parseTables;
+      this.indent = indent;
     }
 
     save() {
@@ -42,6 +44,7 @@ export namespace HyperG {
       ruleInterpreters = this.ruleInterpreters;
       nodeTable = this.nodeTable;
       parseTables = this.parseTables;
+      indent = this.indent;
     }
   }
 
@@ -60,6 +63,8 @@ export namespace HyperG {
   export var nodeTable: PNode[] = [];
 
   export var parseTables: { [index: number]: ParseTable };
+
+  export var indent = "";
 
   export function backup() {
     var backup = new Backup();
@@ -556,14 +561,14 @@ export function verySimplePackMany0(raw: string) {
   return result;
 }
 
-export function checkRuleNodesIntegrity(items:[PRule, string][]) {
+export function checkRuleNodesIntegrity(items:[PRule, string][], mode?: HyperGEnvType) {
   HyperG.serializerCnt = HyperG.serializerStartingIdx;
   items.forEach(([ruleNode, serializedForm])=>{
-    checkRuleNodeIntegrity(ruleNode, serializedForm);
+    checkRuleNodeIntegrity(ruleNode, serializedForm, mode);
   });
 }
 
-function checkRuleNodeIntegrity(ruleNode: PRule, serializedForm: string) {
+function checkRuleNodeIntegrity(ruleNode: PRule, serializedForm: string, mode: HyperGEnvType) {
   const code = ruleNode.ser();
   const hex = CodeTblToHex(code).join('');
   if (hex !== serializedForm) {
@@ -575,10 +580,12 @@ function checkRuleNodeIntegrity(ruleNode: PRule, serializedForm: string) {
   HyperG.totallyReinitializableTransaction(()=>{
 
     HyperG.serializerCnt = ruleNode.nodeIdx;
+    HyperG.indent = "";
+    HyperG.Env = mode ? mode : HyperGEnvType.INTEGRITY_CHECK;
 
-    var ruleNode2 = new PRule(null, ruleNode.index);
+    var node = PNode.deserialize(code);
+    var ruleNode2 = node as PRule;
     ruleNode2.rule = ruleNode.rule;
-    ruleNode2.deser(code, 0);
     if (!ruleNode.diagnosticEqualityCheck(ruleNode2)) {
       console.error("Rule node integrity error pass 2 : "+ruleNode2);
     } else {
@@ -587,16 +594,16 @@ function checkRuleNodeIntegrity(ruleNode: PRule, serializedForm: string) {
   });
 }
 
-export function checkParseTablesIntegrity(serializedConstTable: string, items:[ParseTable, string][]) {
+export function checkParseTablesIntegrity(serializedConstTable: string, items:[ParseTable, string][], mode: HyperGEnvType) {
 
   HyperG.totallyReinitializableTransaction(()=>{
     
     Analysis.init();
-    HyperG.Env = HyperGEnvType.INTEGRITY_CHECK;
+    HyperG.Env = mode ? mode : HyperGEnvType.INTEGRITY_CHECK;
     HyperG.serializerCnt = HyperG.serializerStartingIdx;
 
     items.forEach(([parseTable, serializedForm])=>{
-      checkParseTableIntegrity(parseTable, serializedForm);
+      checkParseTableIntegrity(parseTable, serializedForm, mode);
     });
   
     var ttbuf: number[] = [];
@@ -611,7 +618,7 @@ export function checkParseTablesIntegrity(serializedConstTable: string, items:[P
   });
 }
 
-function checkParseTableIntegrity(parseTable: ParseTable, serializedForm: string) {
+function checkParseTableIntegrity(parseTable: ParseTable, serializedForm: string, mode: HyperGEnvType) {
   var code = parseTable.ser();
   var hex = encodeVsimPck(code);
   if (hex !== serializedForm) {

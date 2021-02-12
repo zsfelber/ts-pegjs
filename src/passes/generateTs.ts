@@ -602,12 +602,12 @@ function pushc(cache: any, item: any): any {
     parseTbl.push("const peg$PrsTbls = {" + allstarts.map(r => ruleMap[r] + ": peg$decodePrsTbl(" + ruleMap[r] + ", peg$PrsTbl" + r + ")").join(", ") + "};");
     var ri = 0;
     parseTbl.push(
-      ['const peg$checkParseTablesIntegrity = function() {',
+      ['const peg$checkParseTablesIntegrity = function(mode: HyperGEnvType) {',
         "    checkParseTablesIntegrity(peg$PrsTblBuf, [" + 
           allstarts.map(r =>
             '[ peg$PrsTbls[' + ruleMap[r] + '], peg$PrsTbl' + r + ' ]'
           ).join(", "),
-        "    ]);",
+        "    ], mode);",
         "};"
       ].join('\n'));
       parseTbl.push([
@@ -615,9 +615,9 @@ function pushc(cache: any, item: any): any {
       "",
     ].join('\n'));
     parseTbl.push(
-      ['HyperGParser.checkAllDataIntegrity = function() {',
-      "    peg$checkRuleNodesIntegrity();",
-      "    peg$checkParseTablesIntegrity();",
+      ['HyperGParser.checkAllDataIntegrity = function(mode?: HyperGEnvType) {',
+      "    peg$checkRuleNodesIntegrity(mode);",
+      "    peg$checkParseTablesIntegrity(mode);",
       "};"
       ].join('\n'));
 
@@ -699,7 +699,6 @@ function pushc(cache: any, item: any): any {
       '  var code = peg$decode(s);',
       '  var node = PNode.deserialize(code);',
       '  var rule = node as PRule;',
-      '  rule = node as PRule;',
       '  rule.rule = name;',
       '  return rule;',
       '}',
@@ -774,12 +773,12 @@ function pushc(cache: any, item: any): any {
       ].join('\n'));
     var ri = 0;
     tables.push(
-      ['const peg$checkRuleNodesIntegrity = function() {',
+      ['const peg$checkRuleNodesIntegrity = function(mode: HyperGEnvType) {',
         "    checkRuleNodesIntegrity([" + 
           grammar.rules.map(rule =>
             '[ peg$rules[' + (ri) + '], peg$ruleCodes[' + (ri++) + '] ]'
           ).join(", "),
-        "    ]);",
+        "    ], mode);",
         "};"
       ].join('\n'));
     tables.push([

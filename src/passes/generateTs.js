@@ -496,18 +496,18 @@ function generateTS(ast) {
         parseTbl.push("");
         parseTbl.push("const peg$PrsTbls = {" + allstarts.map(function (r) { return ruleMap[r] + ": peg$decodePrsTbl(" + ruleMap[r] + ", peg$PrsTbl" + r + ")"; }).join(", ") + "};");
         var ri = 0;
-        parseTbl.push(['const peg$checkParseTablesIntegrity = function() {', "    checkParseTablesIntegrity(peg$PrsTblBuf, [" +
+        parseTbl.push(['const peg$checkParseTablesIntegrity = function(mode: HyperGEnvType) {', "    checkParseTablesIntegrity(peg$PrsTblBuf, [" +
                 allstarts.map(function (r) {
                     return '[ peg$PrsTbls[' + ruleMap[r] + '], peg$PrsTbl' + r + ' ]';
-                }).join(", "), "    ]);",
+                }).join(", "), "    ], mode);",
             "};"].join('\n'));
         parseTbl.push([
             'HyperG.parseTables = peg$PrsTbls;',
             "",
         ].join('\n'));
-        parseTbl.push(['HyperGParser.checkAllDataIntegrity = function() {',
-            "    peg$checkRuleNodesIntegrity();",
-            "    peg$checkParseTablesIntegrity();",
+        parseTbl.push(['HyperGParser.checkAllDataIntegrity = function(mode?: HyperGEnvType) {',
+            "    peg$checkRuleNodesIntegrity(mode);",
+            "    peg$checkParseTablesIntegrity(mode);",
             "};"
         ].join('\n'));
         if (lib_1.Analysis.ERRORS) {
@@ -585,7 +585,6 @@ function generateTS(ast) {
             '  var code = peg$decode(s);',
             '  var node = PNode.deserialize(code);',
             '  var rule = node as PRule;',
-            '  rule = node as PRule;',
             '  rule.rule = name;',
             '  return rule;',
             '}',
@@ -638,10 +637,10 @@ function generateTS(ast) {
                 return 'new EntryPointInterpreter(peg$rules[' + (ri++) + '])';
             }).join(", "), "];"].join('\n'));
         var ri = 0;
-        tables.push(['const peg$checkRuleNodesIntegrity = function() {', "    checkRuleNodesIntegrity([" +
+        tables.push(['const peg$checkRuleNodesIntegrity = function(mode: HyperGEnvType) {', "    checkRuleNodesIntegrity([" +
                 grammar.rules.map(function (rule) {
                     return '[ peg$rules[' + (ri) + '], peg$ruleCodes[' + (ri++) + '] ]';
-                }).join(", "), "    ]);",
+                }).join(", "), "    ], mode);",
             "};"].join('\n'));
         tables.push([
             'HyperG.ruleInterpreters = peg$ruleInterpreters;',

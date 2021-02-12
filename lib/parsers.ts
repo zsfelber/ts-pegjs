@@ -1,4 +1,5 @@
 import { HyperG } from ".";
+import { HyperGEnvType } from './index';
 
 const Codes = [], Strings = [];
 
@@ -110,8 +111,17 @@ export abstract class PNode {
     return [Codes[this.kind]].concat(this.serchildren());
   }
   deser(arr: number[], pos: number): number {
+
     this.nodeIdx = HyperG.serializerCnt++;
+    var h = HyperG.indent;
+    if (HyperG.Env === HyperGEnvType.INTEGRITY_CHECK_VERBOSE) {
+      console.log("deser "+h+this.kind+" "+this.nodeIdx);
+    }
+
+    HyperG.indent += "  ";
     pos = this.deschildren(arr, pos);
+    HyperG.indent = h;
+
     HyperG.nodeTable[this.nodeIdx] = this;
     return pos;
   }
@@ -240,6 +250,9 @@ export class PActContainer extends PNode {
   deser(arr: number[], pos: number): number {
     pos = super.deser(arr, pos);
     this.index = arr[pos++];
+    if (HyperG.Env === HyperGEnvType.INTEGRITY_CHECK_VERBOSE) {
+      console.log("deser "+HyperG.indent+this.kind+" "+this.nodeIdx+" index:"+this.index);
+    }
     return pos;
   }
 
@@ -310,6 +323,9 @@ export class PLogicNode extends PNode {
     this.actidx = arr[pos++] - 1;
     if (this.actidx !== -1) {
       this.actid = HyperG.serializerCnt++;
+      if (HyperG.Env === HyperGEnvType.INTEGRITY_CHECK_VERBOSE) {
+        console.log("deser "+HyperG.indent+this.kind+" "+this.nodeIdx+" actidx:"+this.actidx);
+      }
     }
     return pos;
   }
@@ -375,6 +391,9 @@ export class PRuleRef extends PRef {
   deser(arr: number[], pos: number): number {
     pos = super.deser(arr, pos);
     this.ruleIndex = arr[pos++];
+    if (HyperG.Env === HyperGEnvType.INTEGRITY_CHECK_VERBOSE) {
+      console.log("deser "+HyperG.indent+this.kind+" "+this.nodeIdx+" ruleIndex:"+this.ruleIndex);
+    }
     return pos;
   }
 }
@@ -394,6 +413,9 @@ export class PTerminalRef extends PRef {
   deser(arr: number[], pos: number): number {
     pos = super.deser(arr, pos);
     this.value = arr[pos++];
+    if (HyperG.Env === HyperGEnvType.INTEGRITY_CHECK_VERBOSE) {
+      console.log("deser "+HyperG.indent+this.kind+" "+this.nodeIdx+" value:"+this.value);
+    }
     return pos;
   }
 
