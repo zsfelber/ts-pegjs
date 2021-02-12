@@ -1,16 +1,10 @@
-import { PNode, ICached, IToken, PNodeKind, PRule, PRuleRef, PTerminalRef, PValueNode, SerDeser } from '.';
+import { PNode, ICached, IToken, PNodeKind, PRule, PRuleRef, PTerminalRef, PValueNode, HyperG } from '.';
 import { PFunction } from './parsers';
 import { Packrat } from './packrat';
 
 export const peg$FAILED: Readonly<any> = {};
 
 export const peg$SUCCESS: Readonly<any> = {};
-
-export namespace Interpreters {
-
-  export var ruleTable: EntryPointInterpreter[];
-
-}
 
 // NOTE The only exported Parser is EntryPointParser
 namespace Factory {
@@ -305,7 +299,7 @@ class RuleRefInterpreter extends EmptyInterpreter {
   }
   get ruleEntryParser() {
     if (!this._ruleEntryParser) {
-      this._ruleEntryParser = Interpreters.ruleTable[this.node.ruleIndex];
+      this._ruleEntryParser = HyperG.ruleInterpreters[this.node.ruleIndex];
       if (!this._ruleEntryParser) {
         console.error("no this.ruleEntryParser  " + this.node);
       }

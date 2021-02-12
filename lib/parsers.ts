@@ -1,4 +1,4 @@
-import { IToken } from ".";
+import { HyperG } from ".";
 
 const Codes = [], Strings = [];
 
@@ -67,16 +67,6 @@ export enum PActionKind {
   PREDICATE = "PREDICATE"
 }
 
-export namespace SerDeser {
-
-  export var cnt = 0;
-
-  export var functionTable: ((...etc)=>any)[];
-
-  export var ruleTable: PRule[];
-
-  export var nodeTable: PNode[] = [];
-}
 
 export abstract class PNode {
   parent: PNode;
@@ -104,18 +94,18 @@ export abstract class PNode {
   }
 
   ser(): number[] {
-    if (this.nodeIdx !== SerDeser.cnt) {
-      console.warn("Invalid nodeIdx : "+this+"  this.nodeIdx:"+this.nodeIdx+" != "+SerDeser.cnt);
-      this.nodeIdx = SerDeser.cnt;
+    if (this.nodeIdx !== HyperG.serializerCnt) {
+      console.warn("Invalid nodeIdx : "+this+"  this.nodeIdx:"+this.nodeIdx+" != "+HyperG.serializerCnt);
+      this.nodeIdx = HyperG.serializerCnt;
     }
-    SerDeser.cnt++;
+    HyperG.serializerCnt++;
 
     return [Codes[this.kind]].concat(this.serchildren());
   }
   deser(arr: number[], pos: number): number {
-    this.nodeIdx = SerDeser.cnt++;
+    this.nodeIdx = HyperG.serializerCnt++;
     pos = this.deschildren(arr, pos);
-    SerDeser.nodeTable[this.nodeIdx] = this;
+    HyperG.nodeTable[this.nodeIdx] = this;
     return pos;
   }
 
@@ -144,6 +134,7 @@ export abstract class PNode {
     var ekind = Strings[kind];
     var cons = PConss[ekind] as new (parent:PNode, ...etc)=>PNode;
     var node = new cons(null);
+    node.kind = ekind;
     res[0] = node;
     pos = node.deser(arr, pos+1);
     return pos;
@@ -235,7 +226,7 @@ export class PLogicNode extends PNode {
   get action() {
     if (!this._action) {
       if (this.actidx !== -1 && this.actidx !== undefined) {
-        var fun = SerDeser.functionTable[this.actidx];
+        var fun = HyperG.functionTable[this.actidx];
         this.action = new PFunction();
         this.action.fun = fun;
         this.action.nodeIdx = this.actid;
@@ -249,11 +240,11 @@ export class PLogicNode extends PNode {
   ser(): number[] {
     var result = super.ser().concat([this.action?this.action.index+1:0]);
     if (this.action) {
-      if (this.action.nodeIdx != SerDeser.cnt) {
-        console.warn("Invalid nodeIdx : "+this+"  .action "+this.action+"  this.action.nodeIdx:"+this.action.nodeIdx+" != "+SerDeser.cnt);
-        this.action.nodeIdx = SerDeser.cnt;
+      if (this.action.nodeIdx != HyperG.serializerCnt) {
+        console.warn("Invalid nodeIdx : "+this+"  .action "+this.action+"  this.action.nodeIdx:"+this.action.nodeIdx+" != "+HyperG.serializerCnt);
+        this.action.nodeIdx = HyperG.serializerCnt;
       }
-      SerDeser.cnt++;
+      HyperG.serializerCnt++;
     }
     return result;
   }
@@ -261,7 +252,7 @@ export class PLogicNode extends PNode {
     pos = super.deser(arr, pos);
     this.actidx = arr[pos++] - 1;
     if (this.actidx !== -1) {
-      this.actid = SerDeser.cnt++;
+      this.actid = HyperG.serializerCnt++;
     }
     return pos;
   }
@@ -298,7 +289,7 @@ export class PRuleRef extends PRef {
   }
 
   get rule() {
-    if (!this._rule) this._rule = SerDeser.ruleTable[this.ruleIndex].rule;
+    if (!this._rule) this._rule = HyperG.ruleTable[this.ruleIndex].rule;
     return this._rule;
   }
   set rule(r: string) {

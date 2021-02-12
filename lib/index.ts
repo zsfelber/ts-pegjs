@@ -1,15 +1,36 @@
 import { ParseTable } from './analyzer';
-import { PRule } from './parsers';
+import { PRule, PNode } from './parsers';
 import { Analysis } from '../lib';
+import { EntryPointInterpreter } from './interpreter';
 
 export const MATCH_TOKEN = 40;
 export const ACCEPT_TOKEN = 41;
+
+
+export namespace HyperG {
+
+  export var serializerStartingIdx = 0;
+
+  export var serializerCnt = 0;
+
+  export var functionTable: ((...etc)=>any)[];
+
+  export var ruleTable: PRule[];
+
+  export var ruleInterpreters: EntryPointInterpreter[];
+
+  export var nodeTable: PNode[] = [];
+
+  export var parseTables: { [index: number]: ParseTable };
+
+}
 
 export interface IFailure {
   maxFailPos: number;
   maxFailExpected: Expectation[];
   found?: Expectation;
 }
+
 
 export function mergeFailures(into: IFailure, other: IFailure) {
   if (other.maxFailPos < into.maxFailPos) { return; }
@@ -470,11 +491,13 @@ export function verySimplePackMany0(raw: string) {
   return result;
 }
 export function checkRuleNodesIntegrity(items:[PRule, string][]) {
+  HyperG.serializerCnt = HyperG.serializerStartingIdx;
   items.forEach(([ruleNode, serializedForm])=>{
     checkRuleNodeIntegrity(ruleNode, serializedForm);
   });
 }
 export function checkRuleNodeIntegrity(ruleNode: PRule, serializedForm: string) {
+  HyperG.serializerCnt = HyperG.serializerStartingIdx;
   const code = ruleNode.ser();
   const hex = CodeTblToHex(code).join('');
   if (hex !== serializedForm) {
@@ -484,6 +507,7 @@ export function checkRuleNodeIntegrity(ruleNode: PRule, serializedForm: string) 
   }
 }
 export function checkConstTableIntegrity(serializedConstTable: string) {
+  HyperG.serializerCnt = HyperG.serializerStartingIdx;
   var ttbuf: number[] = [];
   Analysis.writeAllSerializedTables(ttbuf);
   var hex = encodeVsimPck(ttbuf);
@@ -494,6 +518,7 @@ export function checkConstTableIntegrity(serializedConstTable: string) {
   }
 }
 export function checkParseTablesIntegrity(items:[ParseTable, string][]) {
+  HyperG.serializerCnt = HyperG.serializerStartingIdx;
   items.forEach(([parseTable, serializedForm])=>{
     checkParseTableIntegrity(parseTable, serializedForm);
   });

@@ -1,17 +1,10 @@
-import { ParseTable, GrammarParsingLeafState, Analysis } from '.';
-import { IToken } from '.';
-import { SerDeser } from '../lib';
+import { ParseTable, GrammarParsingLeafState, Analysis,
+  IToken, HyperG } from '.';
 import { RTShift, GrammarParsingLeafStateTransitions } from './analyzer';
 import { IBaseParserProgram, DeferredReduce } from './interpreter';
 import { PRuleRef, PValueNode } from './parsers';
 import { Packrat } from './packrat';
 import { peg$FAILED } from '../lib';
-
-export namespace JumpTables {
-
-  export var parseTables: { [index: number]: ParseTable };
-
-}
 
 export interface IJumpTableProgram extends IBaseParserProgram {
 
@@ -100,7 +93,7 @@ export class JumpTableRunner {
         var reqstate = rsh.toState;
         var rr = reqstate.startingPoint as PRuleRef;
 
-        const cached = This.packrat.readCacheEntry(SerDeser.ruleTable[rr.ruleIndex]);
+        const cached = This.packrat.readCacheEntry(HyperG.ruleTable[rr.ruleIndex]);
 
         if (cached.nextPos !== undefined) {
           if (cached.result === peg$FAILED) {
@@ -113,7 +106,7 @@ export class JumpTableRunner {
             return true;
           }
         } else {
-          var ruleRefTbl = JumpTables.parseTables[rr.ruleIndex];
+          var ruleRefTbl = HyperG.parseTables[rr.ruleIndex];
           var childRunner = new JumpTableRunner(owner, ruleRefTbl, This.packrat);
 
           // TODO deferred( with {} parser) / immedate ( with regular parser )

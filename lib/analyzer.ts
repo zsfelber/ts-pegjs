@@ -1,6 +1,6 @@
 import { EntryPointTraverser, Factory, PNodeKind, RefTraverser, RuleElementTraverser, RuleRefTraverser, TerminalRefTraverser } from '.';
-import { PRule, PRuleRef, PTerminalRef, PValueNode, SerDeser, PNode, PRef } from './parsers';
-import { CodeTblToHex } from './index';
+import { PRule, PRuleRef, PTerminalRef, PValueNode, PNode, PRef } from './parsers';
+import { CodeTblToHex, HyperG } from './index';
 
 export const FAIL_STATE = 0;
 
@@ -863,7 +863,7 @@ export class GrammarParsingLeafStateReduces {
   deser(buf: number[], pos: number): number {
     var rlen = buf[pos++];
     for (var i = 0; i < rlen; i++) {
-      var node = SerDeser.nodeTable[buf[pos++]];
+      var node = HyperG.nodeTable[buf[pos++]];
       this.reducedNodes.push(node);
     }
     return pos;
@@ -982,7 +982,7 @@ export class GrammarParsingLeafState {
 
     this.index = index;
 
-    this.startingPoint = spx ? SerDeser.nodeTable[spx] as PRef : null;
+    this.startingPoint = spx ? HyperG.nodeTable[spx] as PRef : null;
     this.serialStateMap = Analysis.leafStateTransitionTables[trind];
     this.reduceActions = Analysis.leafStateReduceTables[rdind];
     this.epsilonReduceActions = Analysis.leafStateReduceTables[emprdind];
