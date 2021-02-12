@@ -540,7 +540,33 @@ export class ParseTableGenerator {
 
 }
 
+class IncVariator {
+  
+  K:number = 0;
+  n:number = 0;
+  Ex:number = 0;
+  Ex2:number = 0;
+  
+  add(x: number) {
+    if (this.n === 0) this.K = x;
+    this.n ++;
+    this.Ex += x - this.K;
+    this.Ex2 += (x - this.K) * (x - this.K);
+  }
 
+  get mean() {
+    return this.K + this.Ex / this.n;
+  }
+
+  get variance() {
+    return (this.Ex2 - (this.Ex * this.Ex) / this.n) / (this.n - 1);
+  }
+
+  get sqrtVariance() {
+    return Math.sqrt(this.variance);
+  }
+
+}
 
 export class ParseTable {
 
@@ -567,7 +593,7 @@ export class ParseTable {
     // !
     Analysis.leafStates = [];
 
-    var et = 0;
+    var totShifts = 0;
     var er = 0;
     var ee = 0;
 
@@ -577,33 +603,32 @@ export class ParseTable {
     var transidx = 1;
     var redidx = 1;
 
+
     prstate(this.startingState);
     this.allStates.forEach(state=>{
       prstate(state);
     });
 
+    var varShs = new IncVariator();
+    var varRds = new IncVariator();
+
     var t = Object.keys(Analysis.serializedTransitions).length;
     var r = Object.keys(Analysis.serializedReduces).length;
     var tp = Object.keys(Analysis.serializedTuples).length;
 
-    console.log(this.rule.rule+"   states:"+(1+this.allStates.length)+"  is empty "+et+"+"+er+" e+e:"+ee+"     Total: [ distinct transitions:"+(t)+"     distinct reduces:"+(r)+"      distinct states:"+(tp)+" ]");
+    console.log(this.rule.rule+"   states:"+(1+this.allStates.length)+"  x  shifts:"+varShs.mean+"+-"+varShs.sqrtVariance +"  reduces:"+varRds.mean+"+-"+varRds.sqrtVariance+"     Total: [ distinct transitions:"+(t)+"     distinct reduces:"+(r)+"      distinct states:"+(tp)+" ]");
 
     function prstate(state: GrammarParsingLeafState) {
 
-      var empt = !tra(state.transitions);
-      var emptr = !tra(state.recursiveShifts);
-      if (empt && emptr) {
-        et++;
-      }
+      var trsh1 = tra(state.transitions);
+      var trsh2 = tra(state.recursiveShifts);
+      varShs.add(trsh1);
+      varShs.add(trsh2);
 
-      var empr = !red(state.reduceActions);
-      var empre = !red(state.epsilonReduceActions);
-      if (empr && empre) {
-        er++;
-        if (empt && emptr) {
-          ee++;
-        }
-      }
+      var rs1 = red(state.reduceActions);
+      var rs2 = red(state.epsilonReduceActions);
+      varRds.add(rs1);
+      varRds.add(rs2);
 
       var spidx = state.startingPoint ? state.startingPoint.nodeIdx : 0;
   
