@@ -1,4 +1,4 @@
-import { PNode, ICached, IToken, PNodeKind, PRule, PRuleRef, PTerminalRef, PValueNode, HyperG } from '.';
+import { PNode, ICached, IToken, PNodeKind, PRule, PRuleRef, PTerminalRef, PValueNode, HyperG, HyperGEnvType } from '.';
 import { PFunction } from './parsers';
 import { Packrat } from './packrat';
 
@@ -297,6 +297,14 @@ class RuleRefInterpreter extends EmptyInterpreter {
   constructor(node: PRuleRef) {
     super(node);
   }
+  checkConstructFailed() {
+    var dirty = super.checkConstructFailed();
+    if (!this.node.rule) {
+      console.error("no this.node.rule  " + this.node);
+      dirty = 1;
+    }
+    return dirty;
+  }
   get ruleEntryParser() {
     if (!this._ruleEntryParser) {
       this._ruleEntryParser = HyperG.ruleInterpreters[this.node.ruleIndex];
@@ -321,9 +329,11 @@ class TerminalRefInterpreter extends EmptyInterpreter {
 
   checkConstructFailed() {
     var dirty = super.checkConstructFailed();
-    if (!this.node.terminal) {
-      console.error("no this.node.terminal  " + this.node);
-      dirty = 1;
+    if (HyperG.Env === HyperGEnvType.ANALYZING) {
+      if (!this.node.terminal) {
+        console.error("no this.node.terminal  " + this.node);
+        dirty = 1;
+      }
     }
     return dirty;
   }

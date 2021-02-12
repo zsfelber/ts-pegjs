@@ -6,8 +6,13 @@ import { EntryPointInterpreter } from './interpreter';
 export const MATCH_TOKEN = 40;
 export const ACCEPT_TOKEN = 41;
 
+export enum HyperGEnvType {
+  ANALYZING, RUNTIME
+}
 
 export namespace HyperG {
+
+  export var Env = HyperGEnvType.ANALYZING;
 
   export var serializerStartingIdx = 0;
 
