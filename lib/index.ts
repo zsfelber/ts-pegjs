@@ -622,9 +622,9 @@ function checkParseTableIntegrity(parseTable: ParseTable, serializedForm: string
   var code = parseTable.ser();
   var hex = encodeVsimPck(code);
   if (hex !== serializedForm) {
-    console.error("Parse table integrity error : "+parseTable);
+    console.error("Parse table integrity error pass 1 : "+parseTable);
   } else {
-    console.log("Parse table integrity check successful : "+parseTable);
+    console.log("Parse table integrity check successful pass 1 : "+parseTable);
   }
 
   var parseTable2 = new ParseTable(parseTable.rule, null, []);

@@ -713,7 +713,7 @@ export class ParseTable {
     }
 
     function tra(trans: GrammarParsingLeafStateTransitions, maplen:[number,number,number,number]) {
-      var shiftses:[string,Shift[]][] = Object.entries(trans.map);
+      var shiftses:[string,RTShift[]][] = Object.entries(trans.map);
       if (shiftses.length) {
         var nonreq = 0;
         var nonreqtot = 0;
@@ -1050,77 +1050,102 @@ export class GrammarParsingLeafState {
 
   get transitions(): GrammarParsingLeafStateTransitions {
     if (!this._transitions) {
-      this._transitions = new GrammarParsingLeafStateTransitions();
-      this.recursiveShifts = new GrammarParsingLeafStateTransitions();
-      this.serialStateMap = new GrammarParsingLeafStateTransitions();
-      this._transitions.startingStateMinus1 = this.index - 1;
-      this.recursiveShifts.startingStateMinus1 = this.index - 1;
-      this.serialStateMap.startingStateMinus1 = this.index - 1;
-      
+
+      if (this.serialStateMap) {
+
+        this._transitions = new GrammarParsingLeafStateTransitions();
+        this.recursiveShifts = new GrammarParsingLeafStateTransitions();
+
+        this._transitions.startingStateMinus1 = this.index - 1;
+        this.recursiveShifts.startingStateMinus1 = this.index - 1;
+
+        var shiftses:[string,RTShift[]][] = Object.entries(this.serialStateMap.map);
+
+        shiftses.forEach(([key,shs])=>{
+          var tki = Number(key);
+          if (tki) {
+            // nonreq
+            this._transitions.map[tki] = shs;
+          } else {
+            // req
+            this.recursiveShifts.map[tki] = shs;
+          }
+        });
 
 
-      this.startStateNode.regularReduces.forEach(nextTerm => {
-        switch (nextTerm.kind) {
-          case ShiftReduceKind.REDUCE:
-          case ShiftReduceKind.REDUCE_RECURSIVE:
-            var r = nextTerm as Reduce;
-            if (r.isEpsilonReduce)
-              throw new Error();
-            else
-              this.reduceActions.reducedNodes.push(r.item.node);
-            break;
-          default:
-            throw new Error("111  " + nextTerm);
-        }
+      } else {
 
-      });
+        this._transitions = new GrammarParsingLeafStateTransitions();
+        this.recursiveShifts = new GrammarParsingLeafStateTransitions();
+        this.serialStateMap = new GrammarParsingLeafStateTransitions();
+        this._transitions.startingStateMinus1 = this.index - 1;
+        this.recursiveShifts.startingStateMinus1 = this.index - 1;
+        this.serialStateMap.startingStateMinus1 = this.index - 1;
+        
 
-      const pushToMap = (s: Shifts, tokenId: number, map: GrammarParsingLeafStateTransitions)=>{
-        var ts = map.map[tokenId];
-        if (!ts) {
-          map.map[tokenId] = ts = [];
-        }
-        var shift = new RTShift(shiftIndex, s.item.stateNode.generateState());
-        ts.push(shift)
-      };
 
-      var shiftIndex = 0;
-      this.startStateNode.shiftsAndReduces.forEach(nextTerm => {
+        this.startStateNode.regularReduces.forEach(nextTerm => {
+          switch (nextTerm.kind) {
+            case ShiftReduceKind.REDUCE:
+            case ShiftReduceKind.REDUCE_RECURSIVE:
+              var r = nextTerm as Reduce;
+              if (r.isEpsilonReduce)
+                throw new Error();
+              else
+                this.reduceActions.reducedNodes.push(r.item.node);
+              break;
+            default:
+              throw new Error("111  " + nextTerm);
+          }
 
-        switch (nextTerm.kind) {
-          case ShiftReduceKind.SHIFT:
+        });
 
-            var s = nextTerm as Shift;
-            pushToMap(s, s.item.node.value, this._transitions)
-            pushToMap(s, s.item.node.value, this.serialStateMap)
-            shiftIndex++;
-            break;
+        const pushToMap = (s: Shifts, tokenId: number, map: GrammarParsingLeafStateTransitions)=>{
+          var ts = map.map[tokenId];
+          if (!ts) {
+            map.map[tokenId] = ts = [];
+          }
+          var shift = new RTShift(shiftIndex, s.item.stateNode.generateState());
+          ts.push(shift)
+        };
 
-          // these are the rule-ref recursive states
-          // these have unknown jumping-in tokens, so 
-          // we should handle more complex states in runtime 
-          case ShiftReduceKind.SHIFT_RECURSIVE:
+        var shiftIndex = 0;
+        this.startStateNode.shiftsAndReduces.forEach(nextTerm => {
 
-            var sr = nextTerm as ShiftRecursive;
-            pushToMap(sr, 0, this.recursiveShifts)
-            pushToMap(sr, 0, this.serialStateMap)
-            shiftIndex++;
+          switch (nextTerm.kind) {
+            case ShiftReduceKind.SHIFT:
 
-            break;
+              var s = nextTerm as Shift;
+              pushToMap(s, s.item.node.value, this._transitions)
+              pushToMap(s, s.item.node.value, this.serialStateMap)
+              shiftIndex++;
+              break;
 
-          case ShiftReduceKind.REDUCE:
-          case ShiftReduceKind.REDUCE_RECURSIVE:
-            var r = nextTerm as Reduce;
-            if (r.isEpsilonReduce)
-              this.epsilonReduceActions.reducedNodes.push(r.item.node);
-            else
-              throw new Error("222  " + nextTerm);
-            break;
-          default:
-            throw new Error("222b  " + nextTerm);
-        }
-      });
+            // these are the rule-ref recursive states
+            // these have unknown jumping-in tokens, so 
+            // we should handle more complex states in runtime 
+            case ShiftReduceKind.SHIFT_RECURSIVE:
 
+              var sr = nextTerm as ShiftRecursive;
+              pushToMap(sr, 0, this.recursiveShifts)
+              pushToMap(sr, 0, this.serialStateMap)
+              shiftIndex++;
+
+              break;
+
+            case ShiftReduceKind.REDUCE:
+            case ShiftReduceKind.REDUCE_RECURSIVE:
+              var r = nextTerm as Reduce;
+              if (r.isEpsilonReduce)
+                this.epsilonReduceActions.reducedNodes.push(r.item.node);
+              else
+                throw new Error("222  " + nextTerm);
+              break;
+            default:
+              throw new Error("222b  " + nextTerm);
+          }
+        });
+      }
     }
     return this._transitions;
   }
