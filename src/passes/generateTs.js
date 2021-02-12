@@ -509,7 +509,7 @@ function generateTS(ast) {
             'JumpTables.parseTables = peg$PrsTbls;',
             "",
         ].join('\n'));
-        parseTbl.push(['$y.checkAllDataIntegrity = function() {',
+        parseTbl.push(['HyperGParser.checkAllDataIntegrity = function() {',
             "    peg$checkRuleNodesIntegrity();",
             "    peg$checkConstTableIntegrity();",
             "    peg$checkParseTablesIntegrity();",
