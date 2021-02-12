@@ -286,6 +286,7 @@ export class PLogicNode extends PNode {
         this.action = new PFunction();
         this.action.fun = fun;
         this.action.nodeIdx = this.actid;
+        this.action.index = this.actidx;
       }
     }
     return this._action;
