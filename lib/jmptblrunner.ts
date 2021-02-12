@@ -1,7 +1,7 @@
 import { ParseTable, GrammarParsingLeafState, Analysis } from '.';
 import { IToken } from '.';
 import { SerDeser } from '../lib';
-import { RTShift } from './analyzer';
+import { RTShift, GrammarParsingLeafStateTransitions } from './analyzer';
 import { IBaseParserProgram, DeferredReduce } from './interpreter';
 import { PRuleRef, PValueNode } from './parsers';
 import { Packrat } from './packrat';
@@ -25,6 +25,8 @@ interface StackAction {
 
   args: any[];
 }
+
+type StackTuple = [GrammarParsingLeafState[], IToken, number, number, StackAction];
 
 export class JumpTableRunner {
 
@@ -81,13 +83,13 @@ export class JumpTableRunner {
     var ruleMaxFailPos = 0;
 
     var currentStates: GrammarParsingLeafState[] = [parseTable.startingState];
-    var stack: [GrammarParsingLeafState[], IToken, number, number, StackAction][] = [];
+    var stack: StackTuple[] = [];
     var i = 0;
 
     // NOTE to avoid recursion for each stepping forward one single step  
     maincyc: while (token) {
 
-      const pushShift = (newShifts: RTShift[], action?: StackAction) => {
+      const pushShift = (newShifts: RTShift[], stack: StackTuple[], action?: StackAction) => {
         stack.push([currentStates, token, i + 1, owner.inputPos, action]);
         currentStates = newShifts.map(shift => shift.toState);
         token = owner.next();
@@ -133,31 +135,12 @@ export class JumpTableRunner {
         return false;
       }
 
-      const conditionalRecursion = (rsh: RTShift, statesAfterReq: RTShift[]) => {
+      const conditionalRecursion = (rsh: RTShift, stack: StackTuple[]) => {
         if (hasRecursionSucceeded(rsh)) {
-          pushShift([rsh]);
+          pushShift([rsh], stack);
+          return true;
         } else {
-          pushShift(statesAfterReq);
-        }
-        return true;
-      }
-
-      const pushConditionalRecursion = (rsh: RTShift, statesBeforeReq: RTShift[], statesAfterReq: RTShift[]) => {
-        if (rsh) {
-          if (statesBeforeReq.length) {
-            pushShift([], { fun: conditionalRecursion, args: [rsh, statesAfterReq] });
-            pushShift(statesBeforeReq);
-          } else {
-            if (!statesAfterReq.length) {
-              throw new Error();
-            }
-            conditionalRecursion(rsh, statesAfterReq);
-          }
-        } else {
-          if (!statesBeforeReq.length || statesAfterReq.length) {
-            throw new Error();
-          }
-          pushShift(statesBeforeReq);
+          return false;
         }
       }
 
@@ -168,44 +151,61 @@ export class JumpTableRunner {
         this.reduceBefore(currentState);
 
         var newShifts = currentState.transitions.map[token.tokenId];
-        var rsh = currentState.recursiveShift;
+        // TODO now multiple
+        var rshs = currentState.recursiveShifts;
 
         if (newShifts) {
-          var statesBeforeReq: RTShift[];
+          if (!rshs) rshs = new GrammarParsingLeafStateTransitions();
+
+          var reverseSubStack: StackTuple[] = [];
           var statesAfterReq: RTShift[];
-          // if recursiveShift split to 2 parts:
-          // before and after recursiveShift :
-          if (rsh) {
+          statesAfterReq = [];
+
+          var nscur = 0;
+          const Lj = rshs[0].length - 1;
+          for (var j = 0; j <= Lj; j++) {
+            var rsh = rshs[0][j];
+            
+            var statesBeforeReq: RTShift[];
+            // if recursiveShift split to 2 parts:
+            // before and after recursiveShift :
             statesBeforeReq = [];
-            statesAfterReq = [];
-            newShifts.forEach(shift => {
+            for (; nscur < newShifts.length; nscur++) {
+              var shift = newShifts[nscur];
               if (shift.shiftIndex < rsh.shiftIndex) {
                 statesBeforeReq.push(shift);
-              } else {
+              } else if (j === Lj) {
                 statesAfterReq.push(shift);
+              } else {
+                break;
               }
-            });
-          } else {
-            statesBeforeReq = newShifts;
+            }
+
+            // Then:
+            // First   statesBeforeReq
+            // Second  recursive state
+            // Third   shift to recursive if succeeded / statesAfterReq if recursion failed
+
+            pushShift(statesBeforeReq, reverseSubStack);
+            pushShift([], reverseSubStack, {fun: conditionalRecursion, args:[rsh, stack]});
+            if (j === Lj) {
+              pushShift(statesAfterReq, reverseSubStack);
+            }
           }
 
-          // Then:
-          // First   statesBeforeReq
-          // Second  recursive state
-          // Third   shift to recursive if succeeded / statesAfterReq if recursion failed
+          reverseSubStack.reverse();
+          stack = stack.concat(reverseSubStack);
 
-          pushConditionalRecursion(rsh, statesBeforeReq, statesAfterReq);
+          // pop
 
-          continue maincyc;
+        } else if (rshs) {
 
-        } else if (rsh = currentState.recursiveShift) {
+          if (!conditionalRecursion(rsh, stack)) {
 
-          if (hasRecursionSucceeded(rsh)) {
-
-            pushShift([rsh]);
-
+            // fail
             continue maincyc;
-          } // else ???   ok to fall down ?
+
+          } // else pop
         }
       }
 

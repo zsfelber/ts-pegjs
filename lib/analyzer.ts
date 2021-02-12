@@ -591,7 +591,7 @@ export class ParseTable {
     function prstate(state: GrammarParsingLeafState) {
 
       var empt = !tra(state.transitions);
-      var emptr = !tra(state._recursiveShift);
+      var emptr = !tra(state.recursiveShifts);
       if (empt && emptr) {
         et++;
       }
@@ -607,7 +607,7 @@ export class ParseTable {
 
       var spidx = state.startingPoint ? state.startingPoint.nodeIdx : 0;
   
-      var tuple:[number,number,number,number,number] = [spidx, state.transitions.index, state.reduceActions.index, state.epsilonReduceActions.index, state._recursiveShift.index];
+      var tuple:[number,number,number,number,number] = [spidx, state.transitions.index, state.reduceActions.index, state.epsilonReduceActions.index, state.recursiveShifts.index];
       var tkey = CodeTblToHex(tuple).join("");
 
       var tuple0 = Analysis.serializedTuples[tkey];
@@ -815,8 +815,7 @@ export class GrammarParsingLeafState {
   private _transitions: GrammarParsingLeafStateTransitions;
   reduceActions: GrammarParsingLeafStateReduces;
   epsilonReduceActions: GrammarParsingLeafStateReduces;
-  recursiveShift: RTShift;
-  _recursiveShift: GrammarParsingLeafStateTransitions;
+  recursiveShifts: GrammarParsingLeafStateTransitions;
   serializedTupleIndex: number;
 
   constructor(startStateNode?: StateNode, startingPoint?: PRef) {
@@ -833,8 +832,8 @@ export class GrammarParsingLeafState {
     if (!this._transitions) {
       this._transitions = new GrammarParsingLeafStateTransitions();
       this._transitions.startingStateMinus1 = this.index - 1;
-      this._recursiveShift = new GrammarParsingLeafStateTransitions();
-      this._recursiveShift.startingStateMinus1 = this.index - 1;
+      this.recursiveShifts = new GrammarParsingLeafStateTransitions();
+      this.recursiveShifts.startingStateMinus1 = this.index - 1;
 
       this.startStateNode.regularReduces.forEach(nextTerm => {
         switch (nextTerm.kind) {
@@ -875,8 +874,12 @@ export class GrammarParsingLeafState {
           case ShiftReduceKind.SHIFT_RECURSIVE:
 
             var sr = nextTerm as ShiftRecursive;
-            this.recursiveShift = new RTShift(shiftIndex, sr.item.stateNode.generateState());
-            this._recursiveShift.map[0] = [this.recursiveShift];
+            var recursiveShift = new RTShift(shiftIndex, sr.item.stateNode.generateState());
+            var itms = this.recursiveShifts.map[0];
+            if (!itms) {
+              this.recursiveShifts.map[0] = itms = [];
+            }
+            itms.push(recursiveShift);
 
             shiftIndex++;
             break;
@@ -914,12 +917,7 @@ export class GrammarParsingLeafState {
     this._transitions = Analysis.leafStateTransitionTables[trind];
     this.reduceActions = Analysis.leafStateReduceTables[rdind];
     this.epsilonReduceActions = Analysis.leafStateReduceTables[emprdind];
-    this._recursiveShift = Analysis.leafStateTransitionTables[rsi];
-
-    var s = this._recursiveShift.map[0];
-    if (s) {
-      this.recursiveShift = s[0];
-    }
+    this.recursiveShifts = Analysis.leafStateTransitionTables[rsi];
 
     return pos;
   }
