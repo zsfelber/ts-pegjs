@@ -333,7 +333,8 @@ class Context {
     var action: PFunction = {
       kind, ownerRule: ctx.rule, target,
       nodeIdx: this.nodeIdxs++, index: ctx.functionIndices++,
-      code: gencode(node.code), args: [], fun: null
+      code: gencode(node.code), args: [], fun: null,
+      diagnosticEqualityCheck: null
     };
 
     target.action = action;

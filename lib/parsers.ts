@@ -67,6 +67,13 @@ export enum PActionKind {
   PREDICATE = "PREDICATE"
 }
 
+function slen(arr: any[]) {
+  return arr ? arr.length : undefined;
+}
+
+function debuggerTrap<T>(value:T):T {
+  return value;
+}
 
 export abstract class PNode {
   parent: PNode;
@@ -107,6 +114,25 @@ export abstract class PNode {
     pos = this.deschildren(arr, pos);
     HyperG.nodeTable[this.nodeIdx] = this;
     return pos;
+  }
+  diagnosticEqualityCheck(node: PNode) {
+    if (this.kind !== node.kind) {
+      return debuggerTrap(false);
+    } else if (this.nodeIdx !== node.nodeIdx) {
+      return debuggerTrap(false);
+    } else if (this.children.length !== node.children.length) {
+      return debuggerTrap(false);
+    } else {
+      for (var i = 0; i<this.children.length; i++) {
+        var a = this.children[i];
+        var b = node.children[i];
+        var c = a.diagnosticEqualityCheck(b);
+        if (!c) {
+          return debuggerTrap(false);
+        }
+      }
+    }
+    return debuggerTrap(true);
   }
 
   serchildren(): number[] {
@@ -176,6 +202,36 @@ export class PActContainer extends PNode {
 
   toString() {
     return this.kind + " " + this.symbol;
+  }
+
+  diagnosticEqualityCheck(node: PActContainer) {
+    var dirty = super.diagnosticEqualityCheck(node);
+    if (this.index !== node.index) {
+      return debuggerTrap(false);
+    } else if (slen(this.actions) !== slen(node.actions)) {
+      return debuggerTrap(false);
+    } else if (slen(this.ruleActions) !== slen(node.ruleActions)) {
+      return debuggerTrap(false);
+    } else if (this.actions) {
+      for (var i = 0; i<this.actions.length; i++) {
+        var a = this.actions[i];
+        var b = node.actions[i];
+        var c = a.diagnosticEqualityCheck(b);
+        if (!c) {
+          return debuggerTrap(false);
+        }
+      }
+    } else if (this.ruleActions) {
+      for (var i = 0; i<this.ruleActions.length; i++) {
+        var a = this.ruleActions[i];
+        var b = node.ruleActions[i];
+        var c = a.diagnosticEqualityCheck(b);
+        if (!c) {
+          return debuggerTrap(false);
+        }
+      }
+    }
+    return debuggerTrap(dirty);
   }
 
   ser(): number[] {
@@ -256,6 +312,14 @@ export class PLogicNode extends PNode {
     }
     return pos;
   }
+
+  diagnosticEqualityCheck(node: PLogicNode) {
+    var dirty = super.diagnosticEqualityCheck(node);
+    if (this.actidx !== node.actidx) {
+      return debuggerTrap(false);
+    }
+    return debuggerTrap(dirty);
+  }
 }
 
 export class PValueNode extends PLogicNode {
@@ -296,6 +360,14 @@ export class PRuleRef extends PRef {
     this._rule = r;
   }
 
+  diagnosticEqualityCheck(node: PRuleRef) {
+    var dirty = super.diagnosticEqualityCheck(node);
+    if (this.ruleIndex !== node.ruleIndex) {
+      return debuggerTrap(false);
+    }
+    return debuggerTrap(dirty);
+  }
+
   ser(): number[] {
     return super.ser().concat([this.ruleIndex]);
   }
@@ -322,6 +394,14 @@ export class PTerminalRef extends PRef {
     pos = super.deser(arr, pos);
     this.value = arr[pos++];
     return pos;
+  }
+
+  diagnosticEqualityCheck(node: PTerminalRef) {
+    var dirty = super.diagnosticEqualityCheck(node);
+    if (this.value !== node.value) {
+      return debuggerTrap(false);
+    }
+    return debuggerTrap(dirty);
   }
 }
 
@@ -350,6 +430,13 @@ export class PFunction {
   kind: PActionKind;
 
   fun: (...etc) => any;
+
+  diagnosticEqualityCheck(node: PFunction) {
+    if (this.index !== node.index) {
+      return debuggerTrap(false);
+    }
+    return debuggerTrap(true);
+  }
 }
 
 export class PCallArg {

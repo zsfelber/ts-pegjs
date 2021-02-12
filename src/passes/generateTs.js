@@ -584,7 +584,7 @@ function generateTS(ast) {
             '',
             'const GNidx = ' + (grammar.nodeIdx + 1) + ";",
             'HyperG.Env = HyperGEnvType.RUNTIME;',
-            'HyperG.serializerStartingIdx = GNidx;',
+            'HyperG.serializerStartingIdx = HyperG.serializerCnt = GNidx;',
             '',
             'function peg$decodeRule(name: string, s: string): PRule {',
             '  var code = peg$decode(s);',

@@ -28,6 +28,15 @@ export namespace HyperG {
 
   export var parseTables: { [index: number]: ParseTable };
 
+  export function serializerTransaction(tmpSerializerIdx: number, fun:Function) {
+    var olds = serializerCnt;
+    try {
+      serializerCnt = tmpSerializerIdx;
+      fun();
+    } finally {
+      serializerCnt = olds;
+    }
+  }
 }
 
 export interface IFailure {
@@ -502,11 +511,18 @@ export function checkRuleNodesIntegrity(items:[PRule, string][]) {
   });
 }
 export function checkRuleNodeIntegrity(ruleNode: PRule, serializedForm: string) {
-  HyperG.serializerCnt = HyperG.serializerStartingIdx;
   const code = ruleNode.ser();
   const hex = CodeTblToHex(code).join('');
   if (hex !== serializedForm) {
-    console.error("Rule node integrity error : "+ruleNode);
+    console.error("Rule node integrity error pass 1 : "+ruleNode);
+    HyperG.serializerTransaction(ruleNode.nodeIdx, ()=>{
+      var ruleNode2 = new PRule(null, ruleNode.index);
+      ruleNode2.rule = ruleNode.rule;
+      ruleNode2.deser(code, 0);
+      if (!ruleNode.diagnosticEqualityCheck(ruleNode2)) {
+        console.error("Rule node integrity error pass 2 : "+ruleNode2);
+      }
+    });
   } else {
     console.log("Rule node integrity check successful : "+ruleNode);
   }
