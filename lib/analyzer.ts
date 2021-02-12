@@ -869,8 +869,7 @@ export class GrammarParsingLeafState {
 
           // these are the rule-ref recursive states
           // these have unknown jumping-in tokens, so 
-          // we should check at runtime whether it is over-traversed, if so,
-          // stop processing and opening its sub-rule automaton
+          // we should handle more complex states in runtime 
           case ShiftReduceKind.SHIFT_RECURSIVE:
 
             var sr = nextTerm as ShiftRecursive;
