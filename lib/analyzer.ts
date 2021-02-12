@@ -604,19 +604,19 @@ export class ParseTable {
     var redidx = 1;
 
 
+    var varShs = new IncVariator();
+    var varRds = new IncVariator();
+
     prstate(this.startingState);
     this.allStates.forEach(state=>{
       prstate(state);
     });
 
-    var varShs = new IncVariator();
-    var varRds = new IncVariator();
-
     var t = Object.keys(Analysis.serializedTransitions).length;
     var r = Object.keys(Analysis.serializedReduces).length;
     var tp = Object.keys(Analysis.serializedTuples).length;
 
-    console.log(this.rule.rule+"   states:"+(1+this.allStates.length)+"  x  shifts:"+varShs.mean+"+-"+varShs.sqrtVariance +"  reduces:"+varRds.mean+"+-"+varRds.sqrtVariance+"     Total: [ distinct transitions:"+(t)+"     distinct reduces:"+(r)+"      distinct states:"+(tp)+" ]");
+    console.log(this.rule.rule+"   states:"+(1+this.allStates.length)+"  x  shifts:"+varShs.mean.toFixed(1)+"+-"+varShs.sqrtVariance.toFixed(1) +"  reduces:"+varRds.mean.toFixed(1)+"+-"+varRds.sqrtVariance.toFixed(1)+"     Total: [ distinct transitions:"+(t)+"     distinct reduces:"+(r)+"      distinct states:"+(tp)+" ]");
 
     function prstate(state: GrammarParsingLeafState) {
 
