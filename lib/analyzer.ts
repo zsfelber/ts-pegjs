@@ -34,6 +34,52 @@ export interface NumMapLike<V> {
 
 export namespace Analysis {
 
+  class Backup {
+
+    ERRORS = 0;
+    deferredRules = [];
+    localDeferredRules = [];
+    leafStates: GrammarParsingLeafState[] = [];
+    leafStateTransitionTables: GrammarParsingLeafStateTransitions[] = [];
+    leafStateReduceTables: GrammarParsingLeafStateReduces[] = [];
+    maxTokenId: number;
+    totalStates = 0;
+    serializedTransitions: {[index: string]:GrammarParsingLeafStateTransitions} = {};
+    serializedReduces: {[index: string]:GrammarParsingLeafStateReduces} = {};
+    serializedTuples: {[index: string]:[number,number,number,number]} = {};
+  
+    load() {
+      this.ERRORS = ERRORS;
+      this.deferredRules = deferredRules;
+      this.localDeferredRules = localDeferredRules;
+      this.leafStates = leafStates;
+      this.leafStateTransitionTables = leafStateTransitionTables;
+      this.leafStateReduceTables = leafStateReduceTables;
+      this.maxTokenId = maxTokenId;
+      this.totalStates = totalStates;
+      this.serializedTransitions = serializedTransitions;
+      this.serializedReduces = serializedReduces;
+      this.serializedTuples = serializedTuples;
+  
+    }
+    save() {
+      ERRORS = this.ERRORS;
+      deferredRules = this.deferredRules;
+      localDeferredRules = this.localDeferredRules;
+      leafStates = this.leafStates;
+      leafStateTransitionTables = this.leafStateTransitionTables;
+      leafStateReduceTables = this.leafStateReduceTables;
+      maxTokenId = this.maxTokenId;
+      totalStates = this.totalStates;
+      serializedTransitions = this.serializedTransitions;
+      serializedReduces = this.serializedReduces;
+      serializedTuples = this.serializedTuples;
+  
+    }
+  }
+  
+
+
   export var ERRORS = 0;
 
   export var deferredRules = [];
@@ -58,18 +104,16 @@ export namespace Analysis {
 
   export var serializedTuples: {[index: string]:[number,number,number,number]} = {};
 
+  export function backup() {
+    var backup = new Backup();
+    backup.load();
+    return backup;
+  }
+
   export function init() {
-    ERRORS = 0;
-    deferredRules = [];
-    localDeferredRules = [];
-    leafStates = [];
-    leafStateTransitionTables = [];
-    leafStateReduceTables = [];
-    maxTokenId = 0;
-    totalStates = 0;
-    serializedTransitions = {};
-    serializedReduces = {};
-    serializedTuples = {};
+    var emptyBackup = new Backup();
+    emptyBackup.save();
+    return emptyBackup;
   }
 
   export function leafState(index: number) {

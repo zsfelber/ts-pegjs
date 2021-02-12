@@ -7,10 +7,43 @@ export const MATCH_TOKEN = 40;
 export const ACCEPT_TOKEN = 41;
 
 export enum HyperGEnvType {
-  ANALYZING, RUNTIME
+  ANALYZING, RUNTIME, INTEGRITY_CHECK
 }
 
 export namespace HyperG {
+  class Backup {
+
+    Env = HyperGEnvType.ANALYZING;
+    serializerStartingIdx = 0;
+    serializerCnt = 0;
+    functionTable: ((...etc)=>any)[];
+    ruleTable: PRule[];
+    ruleInterpreters: EntryPointInterpreter[];
+    nodeTable: PNode[] = [];
+    parseTables: { [index: number]: ParseTable };
+
+    load() {
+      this.Env = Env;
+      this.serializerStartingIdx = serializerStartingIdx;
+      this.serializerCnt = serializerCnt;
+      this.functionTable = functionTable;
+      this.ruleTable = ruleTable;
+      this.ruleInterpreters = ruleInterpreters;
+      this.nodeTable = nodeTable;
+      this.parseTables = parseTables;
+    }
+
+    save() {
+      Env = this.Env;
+      serializerStartingIdx = this.serializerStartingIdx;
+      serializerCnt = this.serializerCnt;
+      functionTable = this.functionTable;
+      ruleTable = this.ruleTable;
+      ruleInterpreters = this.ruleInterpreters;
+      nodeTable = this.nodeTable;
+      parseTables = this.parseTables;
+    }
+  }
 
   export var Env = HyperGEnvType.ANALYZING;
 
@@ -28,15 +61,31 @@ export namespace HyperG {
 
   export var parseTables: { [index: number]: ParseTable };
 
-  export function serializerTransaction(tmpSerializerIdx: number, fun:Function) {
-    var olds = serializerCnt;
+  export function backup() {
+    var backup = new Backup();
+    backup.load();
+    return backup;
+  }
+
+  export function init() {
+    var emptyBackup = new Backup();
+    emptyBackup.save();
+    return emptyBackup;
+  }
+
+  export function totallyReinitializableTransaction(fun:Function) {
+
+    const bak = Analysis.backup();
+    const e = backup();
+
     try {
-      serializerCnt = tmpSerializerIdx;
       fun();
     } finally {
-      serializerCnt = olds;
+      bak.save();
+      e.save();
     }
   }
+
 }
 
 export interface IFailure {
@@ -522,7 +571,11 @@ function checkRuleNodeIntegrity(ruleNode: PRule, serializedForm: string) {
   } else {
     console.log("Rule node integrity check successful pass 1 : "+ruleNode);
   }
-  HyperG.serializerTransaction(ruleNode.nodeIdx, ()=>{
+
+  HyperG.totallyReinitializableTransaction(()=>{
+
+    HyperG.serializerCnt = ruleNode.nodeIdx;
+
     var ruleNode2 = new PRule(null, ruleNode.index);
     ruleNode2.rule = ruleNode.rule;
     ruleNode2.deser(code, 0);
@@ -536,21 +589,26 @@ function checkRuleNodeIntegrity(ruleNode: PRule, serializedForm: string) {
 
 export function checkParseTablesIntegrity(serializedConstTable: string, items:[ParseTable, string][]) {
 
-  Analysis.init();
+  HyperG.totallyReinitializableTransaction(()=>{
+    
+    Analysis.init();
+    HyperG.Env = HyperGEnvType.INTEGRITY_CHECK;
+    HyperG.serializerCnt = HyperG.serializerStartingIdx;
 
-  HyperG.serializerCnt = HyperG.serializerStartingIdx;
-  items.forEach(([parseTable, serializedForm])=>{
-    checkParseTableIntegrity(parseTable, serializedForm);
+    items.forEach(([parseTable, serializedForm])=>{
+      checkParseTableIntegrity(parseTable, serializedForm);
+    });
+  
+    var ttbuf: number[] = [];
+    Analysis.writeAllSerializedTables(ttbuf);
+    var hex = encodeVsimPck(ttbuf);
+    if (hex !== serializedConstTable) {
+      console.error("Const table integrity error.");
+    } else {
+      console.log("Const table integrity check successful.");
+    }
+  
   });
-
-  var ttbuf: number[] = [];
-  Analysis.writeAllSerializedTables(ttbuf);
-  var hex = encodeVsimPck(ttbuf);
-  if (hex !== serializedConstTable) {
-    console.error("Const table integrity error.");
-  } else {
-    console.log("Const table integrity check successful.");
-  }
 }
 
 function checkParseTableIntegrity(parseTable: ParseTable, serializedForm: string) {
@@ -562,15 +620,13 @@ function checkParseTableIntegrity(parseTable: ParseTable, serializedForm: string
     console.log("Parse table integrity check successful : "+parseTable);
   }
 
-  HyperG.serializerTransaction(0, ()=>{
-    var parseTable2 = new ParseTable(parseTable.rule, null, []);
-    parseTable2.deser(code);
-    if (!parseTable.diagnosticEqualityCheck(parseTable2)) {
-      console.error("Parse table integrity error pass 2 : "+parseTable2);
-    } else {
-      console.log("Parse table integrity check successful pass 2: "+parseTable);
-    }
-  });
+  var parseTable2 = new ParseTable(parseTable.rule, null, []);
+  parseTable2.deser(code);
+  if (!parseTable.diagnosticEqualityCheck(parseTable2)) {
+    console.error("Parse table integrity error pass 2 : "+parseTable2);
+  } else {
+    console.log("Parse table integrity check successful pass 2: "+parseTable);
+  }
 
 }
 
