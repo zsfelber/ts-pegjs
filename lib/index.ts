@@ -1,3 +1,6 @@
+import { ParseTable } from './analyzer';
+import { PRule } from './parsers';
+import { Analysis } from '../lib';
 
 export const MATCH_TOKEN = 40;
 export const ACCEPT_TOKEN = 41;
@@ -57,9 +60,6 @@ export class HyperGParseErrorInfo<T extends IToken> {
 
   private static buildMessage<T extends IToken>(input: HyperGParseStream<T>, expected: Expectation[], found: Expectation) {
 
-    function hex(ch: string): string {
-      return ch.charCodeAt(0).toString(16).toUpperCase();
-    }
 
     function literalEscape(s: string): string {
       return s
@@ -430,6 +430,10 @@ export function JSstringEscape(s) {
     .replace(/[\u1000-\uFFFF]/g,      function(ch) { return '\\u'  + hex(ch); });
 }
 
+function hex(ch: string): string {
+  return ch.charCodeAt(0).toString(16).toUpperCase();
+}
+
 export function CodeTblToHex(s: number[]) {
   var r = s.map(c=>{
     if (!c) return "00";
@@ -442,11 +446,67 @@ export function CodeTblToHex(s: number[]) {
   return r;
 }
 
-function hex(ch) {
-  return ch.charCodeAt(0).toString(16).toUpperCase();
+export function encodePrsTbl(parseTable: ParseTable): string {
+  var code = parseTable.ser();
+  var enc = encodeVsimPck(code);
+  return enc;
 }
+export function encodeVsimPck(code: number[]): string {
+  var hex = CodeTblToHex(code).join('');
+  var enc = verySimplePackMany0(hex);
+  return enc;
+}
+export function verySimplePackMany0(raw: string) {
+  var result = "";
+  var R = /(x...|X....)?(0{10,})/g;
+  var li = 0;
+  for (var ra: RegExpExecArray; ra = R.exec(raw);) {
+    result += raw.substring(li, ra.index);
+    result += (ra[1] ? ra[1] : "") + "{" + ra[2].length.toString(16).toUpperCase() + "}";
+    li = R.lastIndex;
+  }
+  result += raw.substring(li);
 
-
+  return result;
+}
+export function checkRuleNodesIntegrity(items:[PRule, string][]) {
+  items.forEach(([ruleNode, serializedForm])=>{
+    checkRuleNodeIntegrity(ruleNode, serializedForm);
+  });
+}
+export function checkRuleNodeIntegrity(ruleNode: PRule, serializedForm: string) {
+  const code = ruleNode.ser();
+  const hex = CodeTblToHex(code).join('');
+  if (hex !== serializedForm) {
+    console.error("Rule node integrity error : "+ruleNode);
+  } else {
+    console.log("Rule node integrity check successful : "+ruleNode);
+  }
+}
+export function checkConstTableIntegrity(serializedConstTable: string) {
+  var ttbuf: number[] = [];
+  Analysis.writeAllSerializedTables(ttbuf);
+  var hex = encodeVsimPck(ttbuf);
+  if (hex !== serializedConstTable) {
+    console.error("Const table integrity error.");
+  } else {
+    console.log("Const table integrity check successful.");
+  }
+}
+export function checkParseTablesIntegrity(items:[ParseTable, string][]) {
+  items.forEach(([parseTable, serializedForm])=>{
+    checkParseTableIntegrity(parseTable, serializedForm);
+  });
+}
+export function checkParseTableIntegrity(parseTable: ParseTable, serializedForm: string) {
+  var code = parseTable.ser();
+  var hex = encodeVsimPck(code);
+  if (hex !== serializedForm) {
+    console.error("Parse table integrity error : "+parseTable);
+  } else {
+    console.log("Parse table integrity check successful : "+parseTable);
+  }
+}
 
 export * from "./parsers";
 export * from "./analyzer";

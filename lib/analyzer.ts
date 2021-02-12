@@ -753,6 +753,9 @@ export class ParseTable {
     return pos;
   }
 
+  toString() {
+    return "ParseTable/"+this.rule.rule+"/"+(1+this.allStates.length)+" states";
+  }
 }
 
 export class RTShift {
