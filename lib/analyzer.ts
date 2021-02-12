@@ -36,9 +36,9 @@ export namespace Analysis {
 
   export var leafStateReduceTables: GrammarParsingLeafStateReduces[] = [];
 
-  export var tuples: [number,number,number,number,number][] = [];
-
   export var maxTokenId: number;
+
+  export var totalStates = 0;
 
   export const uniformMaxStateId = 0xe000;
 
@@ -46,7 +46,7 @@ export namespace Analysis {
 
   export var serializedReduces: {[index: string]:GrammarParsingLeafStateReduces} = {};
 
-  export var serializedTuples: {[index: string]:[number,number,number,number,number,number]} = {};
+  export var serializedTuples: {[index: string]:[number,number,number,number]} = {};
 
   export function leafState(index: number) {
     var ls = leafStates[index];
@@ -60,20 +60,15 @@ export namespace Analysis {
   export function writeAllSerializedTables(buf: number[]) {
     var strans = Object.values(serializedTransitions);
     var sreds = Object.values(serializedReduces);
-    var stpls = Object.values(serializedTuples);
     strans.sort((a,b)=>{
       return a.index-b.index;
     });
     sreds.sort((a,b)=>{
       return a.index-b.index;
     });
-    stpls.sort((a,b)=>{
-      return a[0]-b[0];
-    });
 
     buf.push(strans.length);
     buf.push(sreds.length);
-    buf.push(stpls.length);
 
     strans.forEach(s=>{
       s.alreadySerialized.forEach(num=>buf.push(num));
@@ -81,20 +76,18 @@ export namespace Analysis {
     sreds.forEach(s=>{
       s.alreadySerialized.forEach(num=>buf.push(num));
     });
-    stpls.forEach(s=>{
-      buf.push(s[1], s[2], s[3], s[4], s[5]);
-    });
   }
 
   export function readAllSerializedTables(buf: number[], pos: number): number {
 
-    var [stransln,sredsln,stplsln] = buf;
+    var [stransln,sredsln] = buf;
     pos = 3;
 
     for (var i=0; i<stransln; i++) {
       var trans = new GrammarParsingLeafStateTransitions();
       trans.index = i;
-      pos = trans.deser(buf, pos);
+      // TODO Not working now just testing Gener~.pack()
+      pos = trans.deser(0, buf, pos);
       leafStateTransitionTables.push(trans);
     }
     for (var i=0; i<sredsln; i++) {
@@ -102,11 +95,6 @@ export namespace Analysis {
       red.index = i;
       pos = red.deser(buf, pos);
       leafStateReduceTables.push(red);
-    }
-    for (var i=0; i<stplsln; i++) {
-      var [t0, t1, t2, t3, t4] = [buf[pos++],buf[pos++],buf[pos++],buf[pos++],buf[pos++]];
-      var tuple:[number,number,number,number,number] = [t0, t1, t2, t3, t4];
-      tuples.push(tuple);
     }
     if (pos !== buf.length) {
       throw new Error("pos !== buf.length  "+pos+" !== "+buf.length);
@@ -270,6 +258,15 @@ export abstract class LeafStateNode extends StateNode {
     parser.cntStates++;
   }
 
+  generateState() {
+    var state = Analysis.leafState(this.index);
+    if (!state.startStateNode) {
+      state.startStateNode = this;
+      state.startingPoint = this.ref.node;
+      state.index = this.index;
+    }
+    return state;
+  }
 }
 
 export class TraversedLeafStateNode extends LeafStateNode {
@@ -284,15 +281,6 @@ export class TraversedLeafStateNode extends LeafStateNode {
     return false;
   }
 
-  generateState() {
-    var state = Analysis.leafState(this.index);
-    if (!state.startStateNode) {
-      state.startStateNode = this;
-      state.startingPoint = this.ref.node;
-      state.index = this.index;
-    }
-    return state;
-  }
 
 }
 
@@ -308,11 +296,6 @@ export class JumpIntoSubroutineLeafStateNode extends LeafStateNode {
     return true;
   }
 
-  generateState() {
-    var result: GrammarParsingLeafState = new GrammarParsingLeafState(this, this.ref.node);
-    return result;
-  }
-
 }
 
 
@@ -325,14 +308,18 @@ export class ShiftReduce {
   intoRule?: JumpIntoSubroutineLeafStateNode;
 }
 
-export class Shift extends ShiftReduce {
+export class Shifts extends ShiftReduce {
+  item: RefTraverser;
+}
+
+export class Shift extends Shifts {
 
   kind = ShiftReduceKind.SHIFT;
 
   item: TerminalRefTraverser;
 }
 
-export class ShiftRecursive extends ShiftReduce {
+export class ShiftRecursive extends Shifts {
 
   kind = ShiftReduceKind.SHIFT_RECURSIVE;
 
@@ -568,6 +555,11 @@ class IncVariator {
 
 }
 
+var varShs = new IncVariator();
+var varShReqs = new IncVariator();
+var varTkns = new IncVariator();
+var varRds = new IncVariator();
+
 export class ParseTable {
 
   readonly rule: PRule;
@@ -593,19 +585,12 @@ export class ParseTable {
     // !
     Analysis.leafStates = [];
 
-    var totShifts = 0;
-    var er = 0;
-    var ee = 0;
-
     // indexes
     // 1 based
     // 0 means empty
     var transidx = 1;
     var redidx = 1;
 
-
-    var varShs = new IncVariator();
-    var varRds = new IncVariator();
 
     prstate(this.startingState);
     this.allStates.forEach(state=>{
@@ -616,14 +601,29 @@ export class ParseTable {
     var r = Object.keys(Analysis.serializedReduces).length;
     var tp = Object.keys(Analysis.serializedTuples).length;
 
-    console.log(this.rule.rule+"   states:"+(1+this.allStates.length)+"  x  shifts:"+varShs.mean.toFixed(1)+"+-"+varShs.sqrtVariance.toFixed(1) +"  reduces:"+varRds.mean.toFixed(1)+"+-"+varRds.sqrtVariance.toFixed(1)+"     Total: [ distinct transitions:"+(t)+"     distinct reduces:"+(r)+"      distinct states:"+(tp)+" ]");
+    const sts = 1+this.allStates.length;
+    Analysis.totalStates += sts;
+    console.log(this.rule.rule+"   states:"+(sts) +"     Total: [ totalStates:"+Analysis.totalStates+"   distinct transitions:"+(t)+"     distinct reduces:"+(r)+"      distinct states:"+(tp)+"   jmp.tokens:"+varTkns.mean.toFixed(1)+"+-"+varTkns.sqrtVariance.toFixed(1)+"   shift/tkns:"+varShs.mean.toFixed(1)+"+-"+varShs.sqrtVariance.toFixed(1)+"   rec.shift:"+varShReqs.mean.toFixed(1)+"+-"+varShReqs.sqrtVariance.toFixed(1) +"  reduces:"+varRds.mean.toFixed(1)+"+-"+varRds.sqrtVariance.toFixed(1)+" ]");
 
     function prstate(state: GrammarParsingLeafState) {
+      // lazy
+      state.transitions;
 
-      var trsh1 = tra(state.transitions);
-      var trsh2 = tra(state.recursiveShifts);
-      varShs.add(trsh1);
-      varShs.add(trsh2);
+      var tots:[number,number,number,number]=[0,0,0,0];
+
+      tra(state.serialStateMap, tots);
+      var [nonreq,nonreqtot,req,reqtot]=tots;
+
+      if (nonreq) {
+        varTkns.add(nonreq);
+        varShs.add(nonreqtot/nonreq);
+      }
+      if (req) {
+        if (req !== 1) {
+          throw new Error("req !== 1  "+req+" !== "+1);
+        }
+      }
+      varShReqs.add(reqtot);
 
       var rs1 = red(state.reduceActions);
       var rs2 = red(state.epsilonReduceActions);
@@ -632,23 +632,41 @@ export class ParseTable {
 
       var spidx = state.startingPoint ? state.startingPoint.nodeIdx : 0;
   
-      var tuple:[number,number,number,number,number] = [spidx, state.transitions.index, state.reduceActions.index, state.epsilonReduceActions.index, state.recursiveShifts.index];
+      var tuple:[number,number,number,number] = [spidx, state.serialStateMap.index, state.reduceActions.index, state.epsilonReduceActions.index];
       var tkey = CodeTblToHex(tuple).join("");
 
       var tuple0 = Analysis.serializedTuples[tkey];
       if (tuple0) {
-        state.serializedTupleIndex = tuple0[0];
+        state.serializedTuple = tuple0;
       } else {
-        var tpli = Object.keys(Analysis.serializedTuples).length;
-        Analysis.serializedTuples[tkey] = [tpli, tuple[0], tuple[1], tuple[2], tuple[3], tuple[4]];
-        state.serializedTupleIndex = tpli;
+        state.serializedTuple = tuple;
+        Analysis.serializedTuples[tkey] = tuple;
       }
 
     }
 
-    function tra(trans: GrammarParsingLeafStateTransitions) {
-      var mapln = Object.keys(trans.map).length;
-      if (mapln) {
+    function tra(trans: GrammarParsingLeafStateTransitions, maplen:[number,number,number,number]) {
+      var shiftses:[string,Shift[]][] = Object.entries(trans.map);
+      if (shiftses.length) {
+        var nonreq = 0;
+        var nonreqtot = 0;
+        var req = 0;
+        var reqtot = 0;
+        shiftses.forEach(([key,shs])=>{
+          var tki = Number(key);
+          if (tki) {
+            nonreq++;
+            nonreqtot+=shs.length;
+          } else {
+            req++;
+            reqtot+=shs.length;
+          }
+        });
+        maplen[0] = nonreq;
+        maplen[1] = nonreqtot;
+        maplen[2] = req;
+        maplen[3] = reqtot;
+
         var buf = [];
         trans.alreadySerialized = null;
         trans.ser(buf);
@@ -666,7 +684,7 @@ export class ParseTable {
       } else {
         trans.index = 0;
       }
-      return mapln;
+      return shiftses.length;
     }
 
     function red(rr: GrammarParsingLeafStateReduces) {
@@ -763,40 +781,60 @@ export class GrammarParsingLeafStateTransitions {
 
   ser(buf: number[]): void {
 
+    var ord:[number,number,number][] = [];
     var es = Object.entries(this.map);
-
-    buf.push(es.length);
-
     es.forEach(([key, shifts]: [string, RTShift[]]) => {
-
       var tokenId = Number(key);
-      buf.push(tokenId)
-      buf.push(shifts.length)
       shifts.forEach(shift => {
-        buf.push(this.delta(shift.toState.index));
-        buf.push(shift.shiftIndex);
+        var dti = this.delta(shift.toState.index);
+        ord.push([shift.shiftIndex, dti, tokenId]);
       });
+    });
+    ord.sort((a,b)=>{
+      var r0 = a[0] - b[0];
+      if (r0) return r0;
+      throw new Error();
+      //var r1 = a[1] - b[1];
+      //if (r1) return r1;
+      //var r2 = a[2] - b[2];
+      //return r2;
+    });
+
+    //buf.push(es.length);
+    buf.push(ord.length);
+
+    var idx = 0;
+
+    ord.forEach(([shi, dti, tki]) => {
+      if (shi !== idx) {
+        throw new Error("shi !== idx   "+shi+" !== "+idx);
+      }
+
+      buf.push(dti);
+      buf.push(tki);
+      idx++;
     });
 
   }
 
-  deser(buf: number[], pos: number): number {
-    var [eslen] = buf;
+  deser(startingStateMinus1: number, buf: number[], pos: number): number {
+    var [ordlen] = buf;
  
+    var idx = 0;
     pos = 1;
-    for (var i = 0; i < eslen; i++) {
-      var tokenId = buf[pos++];
-      var shlen = buf[pos++];
+    for (var i = 0; i < ordlen; i++, idx++) {
+      var dti = buf[pos++];
+      var tki = buf[pos++];
 
-      var shs = [];
-      this[tokenId] = shs;
-      for (var j = 0; j < shlen; j++) {
-        var stind = buf[pos++];
-        var shind = buf[pos++];
-
-        var state = Analysis.leafState(stind);
-        shs.push(new RTShift(shind, state));
+      var shs = this.map[tki];
+      if (!shs) {
+        this.map[tki] = shs = [];
       }
+
+      var sti = startingStateMinus1 + dti;
+      var state = Analysis.leafState(sti);
+      var shift = new RTShift(idx, state)
+      shs.push(shift);
     }
     return pos;
   }
@@ -841,7 +879,8 @@ export class GrammarParsingLeafState {
   reduceActions: GrammarParsingLeafStateReduces;
   epsilonReduceActions: GrammarParsingLeafStateReduces;
   recursiveShifts: GrammarParsingLeafStateTransitions;
-  serializedTupleIndex: number;
+  serialStateMap: GrammarParsingLeafStateTransitions;
+  serializedTuple: [number,number,number,number];
 
   constructor(startStateNode?: StateNode, startingPoint?: PRef) {
     if (startStateNode) {
@@ -856,9 +895,13 @@ export class GrammarParsingLeafState {
   get transitions(): GrammarParsingLeafStateTransitions {
     if (!this._transitions) {
       this._transitions = new GrammarParsingLeafStateTransitions();
-      this._transitions.startingStateMinus1 = this.index - 1;
       this.recursiveShifts = new GrammarParsingLeafStateTransitions();
+      this.serialStateMap = new GrammarParsingLeafStateTransitions();
+      this._transitions.startingStateMinus1 = this.index - 1;
       this.recursiveShifts.startingStateMinus1 = this.index - 1;
+      this.serialStateMap.startingStateMinus1 = this.index - 1;
+      
+
 
       this.startStateNode.regularReduces.forEach(nextTerm => {
         switch (nextTerm.kind) {
@@ -876,19 +919,24 @@ export class GrammarParsingLeafState {
 
       });
 
+      const pushToMap = (s: Shifts, tokenId: number, map: GrammarParsingLeafStateTransitions)=>{
+        var ts = map.map[tokenId];
+        if (!ts) {
+          map.map[tokenId] = ts = [];
+        }
+        var shift = new RTShift(shiftIndex, s.item.stateNode.generateState());
+        ts.push(shift)
+      };
+
       var shiftIndex = 0;
       this.startStateNode.shiftsAndReduces.forEach(nextTerm => {
 
         switch (nextTerm.kind) {
           case ShiftReduceKind.SHIFT:
-            var s = nextTerm as Shift;
-            var ts = this._transitions.map[s.item.node.value];
-            if (!ts) {
-              this._transitions.map[s.item.node.value] = ts = [];
-            }
-            var tshift = new RTShift(shiftIndex, s.item.stateNode.generateState());
-            ts.push(tshift)
 
+            var s = nextTerm as Shift;
+            pushToMap(s, s.item.node.value, this._transitions)
+            pushToMap(s, s.item.node.value, this.serialStateMap)
             shiftIndex++;
             break;
 
@@ -898,14 +946,10 @@ export class GrammarParsingLeafState {
           case ShiftReduceKind.SHIFT_RECURSIVE:
 
             var sr = nextTerm as ShiftRecursive;
-            var recursiveShift = new RTShift(shiftIndex, sr.item.stateNode.generateState());
-            var itms = this.recursiveShifts.map[0];
-            if (!itms) {
-              this.recursiveShifts.map[0] = itms = [];
-            }
-            itms.push(recursiveShift);
-
+            pushToMap(sr, 0, this.recursiveShifts)
+            pushToMap(sr, 0, this.serialStateMap)
             shiftIndex++;
+
             break;
 
           case ShiftReduceKind.REDUCE:
@@ -926,22 +970,20 @@ export class GrammarParsingLeafState {
   }
 
   ser(buf: number[]): void {
-    buf.push(this.serializedTupleIndex);
+    [].push.apply(buf, this.serializedTuple);
   }
 
   deser(index: number, buf: number[], pos: number): number {
 
-    var [tpl] = buf;
-    var [spx, trind, rdind, emprdind, rsi] = Analysis.tuples[tpl];
-    pos++;
+    var [spx, trind, rdind, emprdind] = [buf[pos++],buf[pos++],buf[pos++],buf[pos++]];
 
     this.index = index;
 
     this.startingPoint = spx ? SerDeser.nodeTable[spx] as PRef : null;
-    this._transitions = Analysis.leafStateTransitionTables[trind];
+    this.serialStateMap = Analysis.leafStateTransitionTables[trind];
     this.reduceActions = Analysis.leafStateReduceTables[rdind];
     this.epsilonReduceActions = Analysis.leafStateReduceTables[emprdind];
-    this.recursiveShifts = Analysis.leafStateTransitionTables[rsi];
+    // TODO separate _transitions and recursiveShifts
 
     return pos;
   }
