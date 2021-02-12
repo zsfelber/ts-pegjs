@@ -78,10 +78,10 @@ export namespace Analysis {
     });
   }
 
-  export function readAllSerializedTables(buf: number[], pos: number): number {
+  export function readAllSerializedTables(buf: number[]): number {
 
-    var [stransln,sredsln] = buf;
-    pos = 3;
+    var pos = 0;
+    var [stransln,sredsln] = [buf[pos++], buf[pos++]];
 
     for (var i=0; i<stransln; i++) {
       var trans = new GrammarParsingLeafStateTransitions();
@@ -573,7 +573,6 @@ export class ParseTable {
     this.startingState = startingState;
     this.allStates = allStates;
 
-    this.pack();
   }
 
   pack() {
@@ -718,6 +717,9 @@ export class ParseTable {
   }
 
   ser(): number[] {
+
+    this.pack();
+    
     var serStates: number[] = [];
 
     this.startingState.ser(serStates);
@@ -818,10 +820,9 @@ export class GrammarParsingLeafStateTransitions {
   }
 
   deser(startingStateMinus1: number, buf: number[], pos: number): number {
-    var [ordlen] = buf;
+    var ordlen = buf[pos++];
  
     var idx = 0;
-    pos = 1;
     for (var i = 0; i < ordlen; i++, idx++) {
       var dti = buf[pos++];
       var tki = buf[pos++];
@@ -857,8 +858,7 @@ export class GrammarParsingLeafStateReduces {
   }
 
   deser(buf: number[], pos: number): number {
-    var [rlen] = buf;
-    pos = 1;
+    var rlen = buf[pos++];
     for (var i = 0; i < rlen; i++) {
       var node = SerDeser.nodeTable[buf[pos++]];
       this.reducedNodes.push(node);

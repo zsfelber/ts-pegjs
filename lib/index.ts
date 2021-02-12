@@ -436,7 +436,8 @@ export function CodeTblToHex(s: number[]) {
     else if (c <= 0xf) return '0' + c.toString(16).toUpperCase();
     else if (c <= 0xff) return '' + c.toString(16).toUpperCase();
     else if (c <= 0xfff) return 'x' + c.toString(16).toUpperCase();
-    else return "X" + c.toString(16).toUpperCase();
+    else if (c <= 0xffff) return "X" + c.toString(16).toUpperCase();
+    else return "(" + c.toString(16).toUpperCase() + ")";
   });
   return r;
 }

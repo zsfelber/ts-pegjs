@@ -97,7 +97,6 @@ export abstract class PNode {
   }
 
   static deserialize(arr: number[]): PNode {
-    SerDeser.cnt = 0;
     var res = [null];
     var pos = PNode.desone(arr, res, 0);
     if (pos !== arr.length) throw new Error("pos:"+pos+" !== "+arr.length);
