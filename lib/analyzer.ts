@@ -855,10 +855,6 @@ export class GrammarParsingLeafState {
       var shiftIndex = 0;
       this.startStateNode.shiftsAndReduces.forEach(nextTerm => {
 
-        if (this.recursiveShift) {
-          throw new Error("Recursive shift already found, error : "+this.recursiveShift+"  while generating state:"+this.startStateNode+" shiftIndex:"+shiftIndex+" unexpected:"+nextTerm.item);
-        }
-
         switch (nextTerm.kind) {
           case ShiftReduceKind.SHIFT:
             var s = nextTerm as Shift;

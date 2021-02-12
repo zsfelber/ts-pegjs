@@ -540,7 +540,6 @@ export class RuleRefTraverser extends RefTraverser {
           case TraversionPurpose.FIND_NEXT_TOKENS:
 
             cache.intoState.shiftsAndReduces.push({ kind: ShiftReduceKind.SHIFT_RECURSIVE, item: this });
-            inTraversion.execute(TraversionItemActionKind.STOP, step);
 
             break;
           case TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN:
