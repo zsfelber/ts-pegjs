@@ -1,6 +1,7 @@
 import * as fs from "fs";
 import { visitor } from "pegjs/lib/compiler";
 import { Analysis, ParseTableGenerator } from '../../lib/analyzer';
+import { HyperG } from '../../lib';
 import {
   PActContainer, PActionKind, PFunction,
   PGrammar, PLogicNode, PNode, PNodeKind, PRule,
@@ -210,7 +211,7 @@ function generate(ast, ...args) {
 
   var grammar: PGrammar = ctx.grammar;
 
-  Analysis.ruleTable = grammar.rules;
+  HyperG.ruleTable = grammar.rules;
   Analysis.deferredRules = options.deferredRules ? options.deferredRules : [];
 
   const doit = (r: string) => {

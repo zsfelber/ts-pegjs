@@ -4,6 +4,7 @@ import { Analysis, ParseTableGenerator } from "../../lib";
 import { PGrammar, PRule, PNode, PRuleRef, PNodeKind } from '../../lib/parsers';
 import {  StrMapLike } from '../../lib/analyzer';
 import { RuleElementTraverser } from '../../lib/analyzer-nodes';
+import { HyperG } from '../../lib';
 
 
 // Generates parser JavaScript code.
@@ -21,7 +22,7 @@ function generateTT(ast, ...args) {
   var ri = 0;
   ast.rules.forEach(r => { ruleMap[r.name] = ri++; });
 
-  Analysis.ruleTable = grammar.rules;
+  HyperG.ruleTable = grammar.rules;
   Analysis.deferredRules = options.deferredRules ? options.deferredRules : [];
 
   var allstarts = ast.allstarts;

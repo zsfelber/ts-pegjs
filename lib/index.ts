@@ -486,11 +486,13 @@ export function encodePrsTbl(parseTable: ParseTable): string {
   var enc = encodeVsimPck(code);
   return enc;
 }
+
 export function encodeVsimPck(code: number[]): string {
   var hex = CodeTblToHex(code).join('');
   var enc = verySimplePackMany0(hex);
   return enc;
 }
+
 export function verySimplePackMany0(raw: string) {
   var result = "";
   var R = /(x...|X....)?(0{10,})/g;
@@ -504,31 +506,43 @@ export function verySimplePackMany0(raw: string) {
 
   return result;
 }
+
 export function checkRuleNodesIntegrity(items:[PRule, string][]) {
   HyperG.serializerCnt = HyperG.serializerStartingIdx;
   items.forEach(([ruleNode, serializedForm])=>{
     checkRuleNodeIntegrity(ruleNode, serializedForm);
   });
 }
-export function checkRuleNodeIntegrity(ruleNode: PRule, serializedForm: string) {
+
+function checkRuleNodeIntegrity(ruleNode: PRule, serializedForm: string) {
   const code = ruleNode.ser();
   const hex = CodeTblToHex(code).join('');
   if (hex !== serializedForm) {
     console.error("Rule node integrity error pass 1 : "+ruleNode);
-    HyperG.serializerTransaction(ruleNode.nodeIdx, ()=>{
-      var ruleNode2 = new PRule(null, ruleNode.index);
-      ruleNode2.rule = ruleNode.rule;
-      ruleNode2.deser(code, 0);
-      if (!ruleNode.diagnosticEqualityCheck(ruleNode2)) {
-        console.error("Rule node integrity error pass 2 : "+ruleNode2);
-      }
-    });
   } else {
-    console.log("Rule node integrity check successful : "+ruleNode);
+    console.log("Rule node integrity check successful pass 1 : "+ruleNode);
   }
+  HyperG.serializerTransaction(ruleNode.nodeIdx, ()=>{
+    var ruleNode2 = new PRule(null, ruleNode.index);
+    ruleNode2.rule = ruleNode.rule;
+    ruleNode2.deser(code, 0);
+    if (!ruleNode.diagnosticEqualityCheck(ruleNode2)) {
+      console.error("Rule node integrity error pass 2 : "+ruleNode2);
+    } else {
+      console.log("Rule node integrity check successful pass 2: "+ruleNode);
+    }
+  });
 }
-export function checkConstTableIntegrity(serializedConstTable: string) {
+
+export function checkParseTablesIntegrity(serializedConstTable: string, items:[ParseTable, string][]) {
+
+  Analysis.init();
+
   HyperG.serializerCnt = HyperG.serializerStartingIdx;
+  items.forEach(([parseTable, serializedForm])=>{
+    checkParseTableIntegrity(parseTable, serializedForm);
+  });
+
   var ttbuf: number[] = [];
   Analysis.writeAllSerializedTables(ttbuf);
   var hex = encodeVsimPck(ttbuf);
@@ -538,15 +552,9 @@ export function checkConstTableIntegrity(serializedConstTable: string) {
     console.log("Const table integrity check successful.");
   }
 }
-export function checkParseTablesIntegrity(items:[ParseTable, string][]) {
-  HyperG.serializerCnt = HyperG.serializerStartingIdx;
-  items.forEach(([parseTable, serializedForm])=>{
-    checkParseTableIntegrity(parseTable, serializedForm);
-  });
-}
-export function checkParseTableIntegrity(parseTable: ParseTable, serializedForm: string) {
-  var code = parseTable.ser();
-  var hex = encodeVsimPck(code);
+
+function checkParseTableIntegrity(parseTable: ParseTable, serializedForm: string) {
+  var hex = encodePrsTbl(parseTable);
   if (hex !== serializedForm) {
     console.error("Parse table integrity error : "+parseTable);
   } else {

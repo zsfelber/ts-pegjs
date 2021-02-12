@@ -4,6 +4,7 @@ var fs = require("fs");
 var glob = require("glob");
 var lib_1 = require("../../lib");
 var parsers_1 = require("../../lib/parsers");
+var lib_2 = require("../../lib");
 // Generates parser JavaScript code.
 function generateTT(ast) {
     var args = [];
@@ -20,7 +21,7 @@ function generateTT(ast) {
     var ruleMap = {};
     var ri = 0;
     ast.rules.forEach(function (r) { ruleMap[r.name] = ri++; });
-    lib_1.Analysis.ruleTable = grammar.rules;
+    lib_2.HyperG.ruleTable = grammar.rules;
     lib_1.Analysis.deferredRules = options.deferredRules ? options.deferredRules : [];
     var allstarts = ast.allstarts;
     console.log("Generate visualizer trees...");

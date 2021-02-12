@@ -2,6 +2,18 @@ import { EntryPointTraverser, Factory, PNodeKind, RefTraverser, RuleElementTrave
 import { PRule, PRuleRef, PTerminalRef, PValueNode, PNode, PRef } from './parsers';
 import { CodeTblToHex, HyperG } from './index';
 
+function slen(arr: any[]) {
+  return arr ? arr.length : undefined;
+}
+
+function smlen(arr: any) {
+  return arr ? Object.keys(arr).length : undefined;
+}
+
+function debuggerTrap<T>(value:T):T {
+  return value;
+}
+
 export const FAIL_STATE = 0;
 
 export const START_STATE = 1;
@@ -24,8 +36,6 @@ export namespace Analysis {
 
   export var ERRORS = 0;
 
-  export var ruleTable: PRule[];
-
   export var deferredRules = [];
 
   export var localDeferredRules = [];
@@ -47,6 +57,20 @@ export namespace Analysis {
   export var serializedReduces: {[index: string]:GrammarParsingLeafStateReduces} = {};
 
   export var serializedTuples: {[index: string]:[number,number,number,number]} = {};
+
+  export function init() {
+    ERRORS = 0;
+    deferredRules = [];
+    localDeferredRules = [];
+    leafStates = [];
+    leafStateTransitionTables = [];
+    leafStateReduceTables = [];
+    maxTokenId = 0;
+    totalStates = 0;
+    serializedTransitions = {};
+    serializedReduces = {};
+    serializedTuples = {};
+  }
 
   export function leafState(index: number) {
     var ls = leafStates[index];
@@ -753,6 +777,27 @@ export class ParseTable {
     return pos;
   }
 
+  diagnosticEqualityCheck(table: ParseTable) {
+
+    if (this.rule !== table.rule) {
+      return debuggerTrap(false);
+    } else if (slen(this.allStates) !== slen(table.allStates)) {
+      return debuggerTrap(false);
+    } else if (!this.startingState.diagnosticEqualityCheck(table.startingState)) {
+      return debuggerTrap(false);
+    } else {
+      for (var i = 0; i < this.allStates.length; i++) {
+        var a = this.allStates[i];
+        var b = table.allStates[i];
+        var c = a.diagnosticEqualityCheck(b);
+        if (!c) {
+          return debuggerTrap(false);
+        }
+      }
+    }
+    return debuggerTrap(true);
+  }
+
   toString() {
     return "ParseTable/"+this.rule.rule+"/"+(1+this.allStates.length)+" states";
   }
@@ -767,6 +812,15 @@ export class RTShift {
   constructor(shiftIndex: number, toState: GrammarParsingLeafState) {
     this.shiftIndex = shiftIndex;
     this.toState = toState;
+  }
+
+  diagnosticEqualityCheck(table: RTShift) {
+    if (this.shiftIndex !== table.shiftIndex) {
+      return debuggerTrap(false);
+    } else if (this.toState !== table.toState) {
+      return debuggerTrap(false);
+    }
+    return debuggerTrap(true);
   }
 }
 
@@ -842,6 +896,44 @@ export class GrammarParsingLeafStateTransitions {
     }
     return pos;
   }
+
+
+  diagnosticEqualityCheck(table: GrammarParsingLeafStateTransitions) {
+    if (this.index !== table.index) {
+      return debuggerTrap(false);
+    } else if (this.startingStateMinus1 !== table.startingStateMinus1) {
+        return debuggerTrap(false);
+    } else {
+      const keys1 = Object.keys(this.map);
+      const keys2 = Object.keys(table.map);
+      if (keys1.length!==keys2.length) {
+        return debuggerTrap(false);
+      }
+      keys1.sort();
+      keys2.sort();
+      for (var i = 0; i < keys1.length; i++) {
+        var k1 = keys1[i];
+        var k2 = keys2[i];
+        if (k1 !== k2) {
+          return debuggerTrap(false);
+        }
+        var shs1 = this.map[Number(k1)];
+        var shs2 = table.map[Number(k1)];
+        if (slen(shs1) !== slen(shs2)) {
+          return debuggerTrap(false);
+        }
+        for (var j = 0; j < shs1.length; j++) {
+          var a = shs1[j];
+          var b = shs2[j];
+          var c = a.diagnosticEqualityCheck(b);
+          if (!c) {
+            return debuggerTrap(false);
+          }
+        }
+      }
+    }
+    return debuggerTrap(true);
+  }
 }
 
 export class GrammarParsingLeafStateReduces {
@@ -867,6 +959,23 @@ export class GrammarParsingLeafStateReduces {
       this.reducedNodes.push(node);
     }
     return pos;
+  }
+
+  diagnosticEqualityCheck(table: GrammarParsingLeafStateReduces) {
+    if (this.index !== table.index) {
+      return debuggerTrap(false);
+    } else if (slen(this.reducedNodes) !== slen(table.reducedNodes)) {
+      return debuggerTrap(false);
+    } else {
+      for (var i = 0; i < this.reducedNodes.length; i++) {
+        var a = this.reducedNodes[i];
+        var b = table.reducedNodes[i];
+        if (a !== b) {
+          return debuggerTrap(false);
+        }
+      }
+    }
+    return debuggerTrap(true);
   }
 }
 
@@ -990,6 +1099,26 @@ export class GrammarParsingLeafState {
 
     return pos;
   }
+
+  diagnosticEqualityCheck(table: GrammarParsingLeafState) {
+    if (this.index !== table.index) {
+      return debuggerTrap(false);
+    } else if (this.startingPoint !== table.startingPoint) {
+      return debuggerTrap(false);
+    } else if (!this.reduceActions.diagnosticEqualityCheck(table.reduceActions)) {
+      return debuggerTrap(false);
+    } else if (!this.epsilonReduceActions.diagnosticEqualityCheck(table.epsilonReduceActions)) {
+      return debuggerTrap(false);
+    } else if (!this.serialStateMap.diagnosticEqualityCheck(table.serialStateMap)) {
+      return debuggerTrap(false);
+    } else if (!this.recursiveShifts.diagnosticEqualityCheck(table.recursiveShifts)) {
+      return debuggerTrap(false);
+    } else if (!this._transitions.diagnosticEqualityCheck(table._transitions)) {
+      return debuggerTrap(false);
+    }
+    return debuggerTrap(true);
+  }
+
 
 }
 

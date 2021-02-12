@@ -1,4 +1,4 @@
-import { StrMapLike, ParseTableGenerator, PNode, PNodeKind, PRuleRef, PTerminalRef, PValueNode, PRef, PRule, Analysis, LEV_CNT_BRANCH_NODES, LinearTraversion, TraversionControl, TraversionItemKind, TraversionCache, TraversionItemActionKind, TraversionPurpose, JumpIntoSubroutineLeafStateNode, LeafStateNode, ShiftReduceKind, Traversing, TraversedLeafStateNode } from ".";
+import { StrMapLike, ParseTableGenerator, PNode, PNodeKind, PRuleRef, PTerminalRef, PValueNode, PRef, PRule, Analysis, LEV_CNT_BRANCH_NODES, LinearTraversion, TraversionControl, TraversionItemKind, TraversionCache, TraversionItemActionKind, TraversionPurpose, JumpIntoSubroutineLeafStateNode, LeafStateNode, ShiftReduceKind, Traversing, TraversedLeafStateNode, HyperG } from '.';
 import { CNT_HUB_LEVELS, LEV_CNT_LN_RULE } from './analyzer';
 
 
@@ -394,7 +394,7 @@ export class RuleRefTraverser extends RefTraverser {
     this.topRule.allRuleReferences.push(this);
     this.parser.newRuleReferences.push(this);
 
-    this.targetRule = Analysis.ruleTable[this.node.ruleIndex];
+    this.targetRule = HyperG.ruleTable[this.node.ruleIndex];
   }
 
   get isReducable() {
@@ -415,7 +415,7 @@ export class RuleRefTraverser extends RefTraverser {
   checkConstructFailed() {
 
     var dirty = super.checkConstructFailed();
-    this.targetRule = Analysis.ruleTable[this.node.ruleIndex];
+    this.targetRule = HyperG.ruleTable[this.node.ruleIndex];
     if (!this.targetRule) {
       console.error("no this.targetRule  " + this.node);
       dirty = 1;

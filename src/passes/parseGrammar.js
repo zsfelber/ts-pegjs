@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 var compiler_1 = require("pegjs/lib/compiler");
 var analyzer_1 = require("../../lib/analyzer");
 var lib_1 = require("../../lib");
+var lib_2 = require("../../lib");
 var stringifySafe = require('json-stringify-safe');
 var options;
 var terminals = [];
@@ -41,8 +42,8 @@ function generate(ast) {
     function parseGrammarAst(parent, node) {
         var child;
         switch (node.type) {
-            case lib_1.PNodeKind.GRAMMAR:
-                ctx.grammar = node.grammar = ctx.pushNode(lib_1.PGrammar);
+            case lib_2.PNodeKind.GRAMMAR:
+                ctx.grammar = node.grammar = ctx.pushNode(lib_2.PGrammar);
                 ctx.grammar.actions = [];
                 ctx.grammar.ruleActions = [];
                 ctx.grammar.rules = [];
@@ -50,16 +51,16 @@ function generate(ast) {
                     parseGrammarAst(node, rule);
                 });
                 return ctx.popNode();
-            case lib_1.PNodeKind.RULE:
+            case lib_2.PNodeKind.RULE:
                 // terminal/nonterminal 
                 if (/^Ł/.exec(node.name)) {
-                    var t = ctx.pushNode(lib_1.PTerminal);
+                    var t = ctx.pushNode(lib_2.PTerminal);
                     t.terminal = node.name.substring(1);
                     ctx.rule = t;
                     ctx.terminals.set(t.terminal, t);
                 }
                 else {
-                    var r = ctx.pushIdxNode(lib_1.PRule, ctx.ruleIndices++);
+                    var r = ctx.pushIdxNode(lib_2.PRule, ctx.ruleIndices++);
                     r.rule = node.name;
                     ctx.rule = r;
                     ctx.rules.set(r.rule, r);
@@ -71,24 +72,24 @@ function generate(ast) {
                 return ctx.popNode();
             case "action":
                 child = parseGrammarAst(node, node.expression);
-                ctx.generateAction(child, child, lib_1.PActionKind.RULE, node);
+                ctx.generateAction(child, child, lib_2.PActionKind.RULE, node);
                 break;
-            case lib_1.PNodeKind.CHOICE:
-                var choice = ctx.pushNode(lib_1.PValueNode, lib_1.PNodeKind.CHOICE);
+            case lib_2.PNodeKind.CHOICE:
+                var choice = ctx.pushNode(lib_2.PValueNode, lib_2.PNodeKind.CHOICE);
                 node.alternatives.forEach(function (elem) {
                     parseGrammarAst(node, elem);
                 });
                 return ctx.popNode();
-            case lib_1.PNodeKind.SEQUENCE:
-                var sequence = ctx.pushNode(lib_1.PValueNode, lib_1.PNodeKind.SEQUENCE);
+            case lib_2.PNodeKind.SEQUENCE:
+                var sequence = ctx.pushNode(lib_2.PValueNode, lib_2.PNodeKind.SEQUENCE);
                 node.elements.forEach(function (elem) {
                     parseGrammarAst(node, elem);
                 });
                 if (sequence.children.length === 0) {
-                    sequence.kind = lib_1.PNodeKind.EMPTY;
+                    sequence.kind = lib_2.PNodeKind.EMPTY;
                 }
                 else if (sequence.children.length === 0) {
-                    sequence.kind = lib_1.PNodeKind.SINGLE;
+                    sequence.kind = lib_2.PNodeKind.SINGLE;
                 }
                 return ctx.popNode();
             case "labeled":
@@ -96,38 +97,38 @@ function generate(ast) {
                 v.label = node.label;
                 child = v;
                 break;
-            case lib_1.PNodeKind.OPTIONAL:
-            case lib_1.PNodeKind.ZERO_OR_MORE:
-            case lib_1.PNodeKind.ONE_OR_MORE:
-            case lib_1.PNodeKind.PREDICATE_AND:
-            case lib_1.PNodeKind.PREDICATE_NOT:
-                ctx.pushNode(lib_1.PConss[node.type], node.type);
+            case lib_2.PNodeKind.OPTIONAL:
+            case lib_2.PNodeKind.ZERO_OR_MORE:
+            case lib_2.PNodeKind.ONE_OR_MORE:
+            case lib_2.PNodeKind.PREDICATE_AND:
+            case lib_2.PNodeKind.PREDICATE_NOT:
+                ctx.pushNode(lib_2.PConss[node.type], node.type);
                 parseGrammarAst(node, node.expression);
                 return ctx.popNode();
-            case lib_1.PNodeKind.SEMANTIC_AND:
-            case lib_1.PNodeKind.SEMANTIC_NOT:
+            case lib_2.PNodeKind.SEMANTIC_AND:
+            case lib_2.PNodeKind.SEMANTIC_NOT:
                 var current = ctx.current;
-                child = ctx.pushNode(lib_1.PConss[node.type], node.type);
+                child = ctx.pushNode(lib_2.PConss[node.type], node.type);
                 // this generates the function arguments from preceeding nodes, as expected 
-                var action = ctx.generateAction(child, current, lib_1.PActionKind.PREDICATE, node);
+                var action = ctx.generateAction(child, current, lib_2.PActionKind.PREDICATE, node);
                 return ctx.popNode();
-            case lib_1.PNodeKind.RULE_REF:
+            case lib_2.PNodeKind.RULE_REF:
                 // terminal rule
                 if (/^Ł/.exec(node.name)) {
-                    var tr = ctx.pushNode(lib_1.PTerminalRef);
+                    var tr = ctx.pushNode(lib_2.PTerminalRef);
                     tr.terminal = node.name.substring(1);
                     tr.value = terminalConsts.get(tr.terminal);
                     ctx.terminalRefs.push(tr);
                 }
                 else {
-                    var rr = ctx.pushNode(lib_1.PRuleRef);
+                    var rr = ctx.pushNode(lib_2.PRuleRef);
                     rr.rule = node.name;
                     ctx.ruleRefs.push(rr);
                 }
                 return ctx.popNode();
-            case lib_1.PNodeKind.LITERAL:
-            case lib_1.PNodeKind.TEXT:
-                ctx.pushNode(lib_1.PValueNode, lib_1.PNodeKind.EMPTY);
+            case lib_2.PNodeKind.LITERAL:
+            case lib_2.PNodeKind.TEXT:
+                ctx.pushNode(lib_2.PValueNode, lib_2.PNodeKind.EMPTY);
                 return ctx.popNode();
         }
         return child;
@@ -176,7 +177,7 @@ function generate(ast) {
     var ri = 0;
     ast.rules.forEach(function (r) { ruleMap[r.name] = ri++; });
     var grammar = ctx.grammar;
-    analyzer_1.Analysis.ruleTable = grammar.rules;
+    lib_1.HyperG.ruleTable = grammar.rules;
     analyzer_1.Analysis.deferredRules = options.deferredRules ? options.deferredRules : [];
     var doit = function (r) {
         if (!created[r]) {
@@ -292,7 +293,7 @@ var Context = /** @class */ (function () {
         target.action = action;
         this.grammar.actions.push(action);
         this.rule.actions.push(action);
-        if (kind === lib_1.PActionKind.RULE) {
+        if (kind === lib_2.PActionKind.RULE) {
             this.grammar.ruleActions.push(action);
             this.rule.ruleActions.push(action);
         }
@@ -307,7 +308,7 @@ var Context = /** @class */ (function () {
             }
             i++;
         };
-        if (argumentsOwner.kind === lib_1.PNodeKind.SEQUENCE || argumentsOwner.kind === lib_1.PNodeKind.CHOICE) {
+        if (argumentsOwner.kind === lib_2.PNodeKind.SEQUENCE || argumentsOwner.kind === lib_2.PNodeKind.CHOICE) {
             argumentsOwner.children.forEach(function (chch) {
                 addlabels(chch);
             });
