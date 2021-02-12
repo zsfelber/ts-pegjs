@@ -554,12 +554,24 @@ export function checkParseTablesIntegrity(serializedConstTable: string, items:[P
 }
 
 function checkParseTableIntegrity(parseTable: ParseTable, serializedForm: string) {
-  var hex = encodePrsTbl(parseTable);
+  var code = parseTable.ser();
+  var hex = encodeVsimPck(code);
   if (hex !== serializedForm) {
     console.error("Parse table integrity error : "+parseTable);
   } else {
     console.log("Parse table integrity check successful : "+parseTable);
   }
+
+  HyperG.serializerTransaction(0, ()=>{
+    var parseTable2 = new ParseTable(parseTable.rule, null, []);
+    parseTable2.deser(code);
+    if (!parseTable.diagnosticEqualityCheck(parseTable2)) {
+      console.error("Parse table integrity error pass 2 : "+parseTable2);
+    } else {
+      console.log("Parse table integrity check successful pass 2: "+parseTable);
+    }
+  });
+
 }
 
 export * from "./parsers";
