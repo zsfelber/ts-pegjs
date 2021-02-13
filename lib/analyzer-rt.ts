@@ -1,4 +1,5 @@
-import { PRule, Analysis, CodeTblToHex, PLogicNode, NumMapLike, HyperG, PRef, Shifts, ShiftReduceKind, Shift, ShiftRecursive, Reduce, RuleElementTraverser, RuleRefTraverser, TerminalRefTraverser, ParseTableGenerator, EntryPointTraverser, Traversing, StateNode } from ".";
+import { PRule, Analysis, CodeTblToHex, PLogicNode, NumMapLike, HyperG, PRef, Shifts, ShiftReduceKind, Shift, ShiftRecursive, Reduce, RuleElementTraverser, RuleRefTraverser, TerminalRefTraverser, ParseTableGenerator, EntryPointTraverser, Traversing, StateNodeCommon } from ".";
+import { StateNodeWithPrefix } from './analyzer';
 
 function slen(arr: any[]) {
   return arr ? arr.length : undefined;
@@ -36,6 +37,11 @@ export class ParseTable {
     // !
     Analysis.leafStates = [];
 
+    // We need 2 serializedTuples
+    if (!Analysis.stack[0]) {
+      Analysis.stack[0] = Analysis.empty();
+    }
+
     // indexes
     // 1 based
     // 0 means empty
@@ -51,47 +57,73 @@ export class ParseTable {
     var t = Object.keys(Analysis.serializedTransitions).length;
     var r = Object.keys(Analysis.serializedReduces).length;
     var tp = Object.keys(Analysis.serializedTuples).length;
+    var tp2 = Object.keys(Analysis.stack[0].serializedTuples).length;
 
     const sts = 1+this.allStates.length;
     Analysis.totalStates += sts;
-    console.log(this.rule.rule+"   states:"+(sts) +"     Total: [ totalStates:"+Analysis.totalStates+"   distinct transitions:"+(t)+"     distinct reduces:"+(r)+"      distinct states:"+(tp)+"   jmp.tokens:"+varTkns.mean.toFixed(1)+"+-"+varTkns.sqrtVariance.toFixed(1)+"   shift/tkns:"+varShs.mean.toFixed(1)+"+-"+varShs.sqrtVariance.toFixed(1)+"   rec.shift:"+varShReqs.mean.toFixed(1)+"+-"+varShReqs.sqrtVariance.toFixed(1) +"  reduces:"+varRds.mean.toFixed(1)+"+-"+varRds.sqrtVariance.toFixed(1)+" ]");
+    console.log(this.rule.rule+"   states:"+(sts) +"     Total: [ totalStates:"+Analysis.totalStates+"   distinct transitions:"+(t)+"     distinct reduces:"+(r)+"      distinct states/leaf:"+(tp)+"   distinct states/common:"+(tp2)+"   jmp.tokens:"+varTkns.mean.toFixed(1)+"+-"+varTkns.sqrtVariance.toFixed(1)+"   shift/tkns:"+varShs.mean.toFixed(1)+"+-"+varShs.sqrtVariance.toFixed(1)+"   rec.shift:"+varShReqs.mean.toFixed(1)+"+-"+varShReqs.sqrtVariance.toFixed(1) +"  reduces:"+varRds.mean.toFixed(1)+"+-"+varRds.sqrtVariance.toFixed(1)+" ]");
 
     function prstate(state: GrammarParsingLeafState) {
       // lazy
-      state.transitions;
+      state.lazy();
 
       var tots:[number,number,number,number]=[0,0,0,0];
 
-      tra(state.serialStateMap, tots);
-      var [nonreq,nonreqtot,req,reqtot]=tots;
-
-      if (nonreq) {
-        varTkns.add(nonreq);
-        varShs.add(nonreqtot/nonreq);
-      }
-      if (req) {
-        if (req !== 1) {
-          throw new Error("req !== 1  "+req+" !== "+1);
-        }
-      }
-      varShReqs.add(reqtot);
+      prscmn(state.common);
 
       var rs1 = red(state.reduceActions);
       varRds.add(rs1);
 
       var spidx = state.startingPoint ? state.startingPoint.nodeIdx : 0;
   
-      var tuple:[number,number,number] = [spidx, state.serialStateMap.index, state.reduceActions.index];
+      var tuple:[number,number,number] = [spidx, state.reduceActions.index, state.common.index];
       var tkey = CodeTblToHex(tuple).join("");
 
-      var tuple0 = Analysis.serializedTuples[tkey];
+      var tuple0:[number,number,number] = Analysis.serializedTuples[tkey] as any;
       if (tuple0) {
         state.serializedTuple = tuple0;
       } else {
         state.serializedTuple = tuple;
-        Analysis.serializedTuples[tkey] = tuple;
+        Analysis.serializedTuples[tkey] = tuple as any;
       }
 
+    }
+
+    function prscmn(state: GrammarParsingLeafStateCommon) {
+      if (!state.serializedTuple) {
+        // lazy
+        state.transitions;
+
+        var tots:[number,number,number,number]=[0,0,0,0];
+
+        tra(state.serialStateMap, tots);
+        var [nonreq,nonreqtot,req,reqtot]=tots;
+
+        if (nonreq) {
+          varTkns.add(nonreq);
+          varShs.add(nonreqtot/nonreq);
+        }
+        if (req) {
+          if (req !== 1) {
+            throw new Error("req !== 1  "+req+" !== "+1);
+          }
+        }
+        varShReqs.add(reqtot);
+
+        var rs1 = red(state.reduceActions);
+        varRds.add(rs1);
+  
+        var tuple:[number,number] = [state.serialStateMap.index, state.reduceActions.index];
+        var tkey = CodeTblToHex(tuple).join("");
+
+        var tuple0:[number,number] = Analysis.stack[0].serializedTuples[tkey] as any;
+        if (tuple0) {
+          state.serializedTuple = tuple0;
+        } else {
+          state.serializedTuple = tuple;
+          Analysis.stack[0].serializedTuples[tkey] = tuple as any;
+        }
+      }
     }
 
     function tra(trans: GrammarParsingLeafStateTransitions, maplen:[number,number,number,number]) {
@@ -387,26 +419,36 @@ export class GrammarParsingLeafStateReduces {
 
   index: number;
 
-  readonly reducedNodes: RTReduce[] = [];
+  readonly reducedNodes: RTReduce[][] = [];
 
   alreadySerialized: number[];
 
   ser(buf: number[]): void {
-
+    var buf2 = [];
+    var tot = 0;
     buf.push(this.reducedNodes.length);
-    this.reducedNodes.forEach(r => {
-      buf.push(r.shiftIndex);
-      buf.push(r.node.nodeIdx);
+    this.reducedNodes.forEach(rs => {
+      rs.forEach(r=>{
+        buf.push(r.shiftIndex);
+        buf.push(r.node.nodeIdx);
+        tot++;
+      });
     });
+    buf.push(tot);
+    [].push.apply(buf, buf2);
   }
 
   deser(buf: number[], pos: number): number {
-    var rlen = buf[pos++];
-    for (var i = 0; i < rlen; i++) {
+    var tot = buf[pos++];
+    for (var i = 0; i < tot; i++) {
       var shi = buf[pos++];
       var nidx = buf[pos++];
       var node = HyperG.nodeTable[nidx];
-      this.reducedNodes.push(new RTReduce(shi, node));
+      var rs = this.reducedNodes[shi];
+      if (!rs) {
+        this.reducedNodes[shi] = rs = [];
+      }
+      rs.push(new RTReduce(shi, node));
     }
     return pos;
   }
@@ -420,8 +462,15 @@ export class GrammarParsingLeafStateReduces {
       for (var i = 0; i < this.reducedNodes.length; i++) {
         var a = this.reducedNodes[i];
         var b = table.reducedNodes[i];
-        if (a !== b) {
+        if (slen(a) !== slen(b)) {
           return debuggerTrap(false);
+        } else {
+          for (var j=0; j<a.length; j++) {
+            var c = a[j].diagnosticEqualityCheck(b[j]);
+            if (!c) {
+              return debuggerTrap(false);
+            }
+          }
         }
       }
     }
@@ -429,26 +478,24 @@ export class GrammarParsingLeafStateReduces {
   }
 }
 
-export class GrammarParsingLeafState {
+export class GrammarParsingLeafStateCommon {
 
   index: number;
 
-  startingPoint: PRef;
-  startStateNode: StateNode;
+  startStateNode: StateNodeCommon;
 
   // tokenId -> traversion state
   private _transitions: GrammarParsingLeafStateTransitions;
   reduceActions: GrammarParsingLeafStateReduces;
   recursiveShifts: GrammarParsingLeafStateTransitions;
   serialStateMap: GrammarParsingLeafStateTransitions;
-  serializedTuple: [number,number,number];
+  serializedTuple: [number,number];
 
-  constructor(startStateNode?: StateNode, startingPoint?: PRef) {
+  constructor(startStateNode?: StateNodeCommon) {
     if (startStateNode) {
       this.index = startStateNode.index;
     }
     this.startStateNode = startStateNode;
-    this.startingPoint = startingPoint;
     this.reduceActions = new GrammarParsingLeafStateReduces();
   }
 
@@ -541,14 +588,85 @@ export class GrammarParsingLeafState {
 
   deser(index: number, buf: number[], pos: number): number {
 
-    var [spx, trind, rdind, emprdind] = [buf[pos++],buf[pos++],buf[pos++],buf[pos++]];
+    var [trind, rdind] = [buf[pos++],buf[pos++]];
+
+    this.index = index;
+
+    this.serialStateMap = Analysis.leafStateTransitionTables[trind];
+    this.reduceActions = Analysis.leafStateReduceTables[rdind];
+    // TODO separate _transitions and recursiveShifts
+
+    return pos;
+  }
+
+  diagnosticEqualityCheck(table: GrammarParsingLeafStateCommon) {
+    if (this.index !== table.index) {
+      return debuggerTrap(false);
+    } else if (!this.reduceActions.diagnosticEqualityCheck(table.reduceActions)) {
+      return debuggerTrap(false);
+    } else if (!this.serialStateMap.diagnosticEqualityCheck(table.serialStateMap)) {
+      return debuggerTrap(false);
+    } else if (!this.recursiveShifts.diagnosticEqualityCheck(table.recursiveShifts)) {
+      return debuggerTrap(false);
+    } else if (!this._transitions.diagnosticEqualityCheck(table._transitions)) {
+      return debuggerTrap(false);
+    }
+    return debuggerTrap(true);
+  }
+}
+
+export class GrammarParsingLeafState {
+
+  index: number;
+
+  startingPoint: PRef;
+  startStateNode: StateNodeWithPrefix;
+
+  common: GrammarParsingLeafStateCommon;
+  reduceActions: GrammarParsingLeafStateReduces;
+  serializedTuple: [number,number,number];
+
+  constructor(startStateNode?: StateNodeWithPrefix, startingPoint?: PRef) {
+    if (startStateNode) {
+      this.index = startStateNode.index;
+    }
+    this.startStateNode = startStateNode;
+    this.startingPoint = startingPoint;
+    this.reduceActions = new GrammarParsingLeafStateReduces();
+  }
+
+  lazy() {
+
+    var shiftIndex = 0;
+    this.startStateNode.reduces.forEach(nextTerm => {
+
+      switch (nextTerm.kind) {
+
+        case ShiftReduceKind.REDUCE:
+        case ShiftReduceKind.REDUCE_RECURSIVE:
+          var r = nextTerm as Reduce;
+          this.reduceActions.reducedNodes.push(new RTReduce(shiftIndex, r.item.node));
+
+          break;
+        default:
+          throw new Error("223b  " + nextTerm);
+      }
+    });
+  }
+
+  ser(buf: number[]): void {
+    [].push.apply(buf, this.serializedTuple);
+  }
+
+  deser(index: number, buf: number[], pos: number): number {
+
+    var [spx, rdind, cmni] = [buf[pos++],buf[pos++],buf[pos++]];
 
     this.index = index;
 
     this.startingPoint = spx ? HyperG.nodeTable[spx] as PRef : null;
-    this.serialStateMap = Analysis.leafStateTransitionTables[trind];
     this.reduceActions = Analysis.leafStateReduceTables[rdind];
-    // TODO separate _transitions and recursiveShifts
+    this.common = Analysis.leafStateCommons[cmni];
 
     return pos;
   }
@@ -559,12 +677,6 @@ export class GrammarParsingLeafState {
     } else if (this.startingPoint !== table.startingPoint) {
       return debuggerTrap(false);
     } else if (!this.reduceActions.diagnosticEqualityCheck(table.reduceActions)) {
-      return debuggerTrap(false);
-    } else if (!this.serialStateMap.diagnosticEqualityCheck(table.serialStateMap)) {
-      return debuggerTrap(false);
-    } else if (!this.recursiveShifts.diagnosticEqualityCheck(table.recursiveShifts)) {
-      return debuggerTrap(false);
-    } else if (!this._transitions.diagnosticEqualityCheck(table._transitions)) {
       return debuggerTrap(false);
     }
     return debuggerTrap(true);

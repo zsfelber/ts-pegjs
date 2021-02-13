@@ -2,6 +2,7 @@ import { ParseTable } from './analyzer';
 import { PRule, PNode } from './parsers';
 import { Analysis } from '../lib';
 import { EntryPointInterpreter } from './interpreter';
+import { Analysis } from '.';
 
 export const MATCH_TOKEN = 40;
 export const ACCEPT_TOKEN = 41;
@@ -22,6 +23,7 @@ export namespace HyperG {
     nodeTable: PNode[] = [];
     parseTables: { [index: number]: ParseTable };
     indent = "";
+    stack: Backup[] = [];
 
     load() {
       this.Env = Env;
@@ -33,6 +35,7 @@ export namespace HyperG {
       this.nodeTable = nodeTable;
       this.parseTables = parseTables;
       this.indent = indent;
+      this.stack = stack;
     }
 
     save() {
@@ -45,6 +48,7 @@ export namespace HyperG {
       nodeTable = this.nodeTable;
       parseTables = this.parseTables;
       indent = this.indent;
+      stack = this.stack;
     }
   }
 
@@ -66,15 +70,16 @@ export namespace HyperG {
 
   export var indent = "";
 
+  export var stack: Backup[] = [];
+
   export function backup() {
     var backup = new Backup();
     backup.load();
     return backup;
   }
 
-  export function init() {
+  export function empty() {
     var emptyBackup = new Backup();
-    emptyBackup.save();
     return emptyBackup;
   }
 
@@ -598,7 +603,7 @@ export function checkParseTablesIntegrity(serializedConstTable: string, items:[P
 
   HyperG.totallyReinitializableTransaction(()=>{
     
-    Analysis.init();
+    Analysis.empty().save();
     HyperG.Env = mode ? mode : HyperGEnvType.INTEGRITY_CHECK;
     HyperG.serializerCnt = HyperG.serializerStartingIdx;
 

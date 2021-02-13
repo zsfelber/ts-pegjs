@@ -1,7 +1,7 @@
 import { EntryPointTraverser, Factory, PNodeKind, RefTraverser, RuleElementTraverser, RuleRefTraverser, TerminalRefTraverser } from '.';
 import { PRule, PRuleRef, PTerminalRef, PValueNode, PNode, PRef, PLogicNode } from './parsers';
 import { CodeTblToHex, HyperG } from './index';
-import { GrammarParsingLeafState, GrammarParsingLeafStateTransitions, GrammarParsingLeafStateReduces, ParseTable } from './analyzer-rt';
+import { GrammarParsingLeafState, GrammarParsingLeafStateTransitions, GrammarParsingLeafStateReduces, ParseTable, GrammarParsingLeafStateCommon } from './analyzer-rt';
 import { LinearTraversion, TraversionPurpose } from './analyzer-tra';
 
 
@@ -37,8 +37,9 @@ export namespace Analysis {
     totalStates = 0;
     serializedTransitions: {[index: string]:GrammarParsingLeafStateTransitions} = {};
     serializedReduces: {[index: string]:GrammarParsingLeafStateReduces} = {};
-    serializedTuples: {[index: string]:[number,number,number]} = {};
-  
+    serializedTuples: {[index: string]:[number,number,number,number,number,number]} = {};
+    stack: Backup[] = [];
+
     load() {
       this.ERRORS = ERRORS;
       this.deferredRules = deferredRules;
@@ -51,6 +52,7 @@ export namespace Analysis {
       this.serializedTransitions = serializedTransitions;
       this.serializedReduces = serializedReduces;
       this.serializedTuples = serializedTuples;
+      this.stack = stack;
   
     }
     save() {
@@ -65,6 +67,7 @@ export namespace Analysis {
       serializedTransitions = this.serializedTransitions;
       serializedReduces = this.serializedReduces;
       serializedTuples = this.serializedTuples;
+      stack = this.stack;
   
     }
   }
@@ -78,6 +81,8 @@ export namespace Analysis {
   export var localDeferredRules = [];
 
   export var leafStates: GrammarParsingLeafState[] = [];
+
+  export var leafStateCommons: GrammarParsingLeafStateCommon[] = [];
 
   export var leafStateTransitionTables: GrammarParsingLeafStateTransitions[] = [];
 
@@ -93,7 +98,9 @@ export namespace Analysis {
 
   export var serializedReduces: {[index: string]:GrammarParsingLeafStateReduces} = {};
 
-  export var serializedTuples: {[index: string]:[number,number,number]} = {};
+  export var serializedTuples: {[index: string]:[number,number,number,number,number,number]} = {};
+
+  export var stack: Backup[] = [];
 
   export function backup() {
     var backup = new Backup();
@@ -101,9 +108,8 @@ export namespace Analysis {
     return backup;
   }
 
-  export function init() {
+  export function empty() {
     var emptyBackup = new Backup();
-    emptyBackup.save();
     return emptyBackup;
   }
 
@@ -231,7 +237,7 @@ function hex2(c) {
 
 }*/
 
-export abstract class StateNode {
+export abstract class StateNodeCommon {
 
   index: number;
 
@@ -243,38 +249,74 @@ export abstract class StateNode {
   // Epsilon REDUCEs
   readonly shiftsAndReduces: ShiftReduce[] = [];
 
-  abstract generateTransitions(parser: ParseTableGenerator, rootTraversion: LinearTraversion);
-
 
   abstract generateState(): GrammarParsingLeafState;
 
-
-  abstract get isRule(): boolean;
-
-  abstract get traverser(): RuleElementTraverser;
-
   toString() {
-    return "SH#" + this.index + "->" + this.traverser + (this.isRule ? "<rule>" : "") + ("->" + this.shiftsAndReduces.length + "s/r");
+    return "C#" + this.index + "->" + ("->" + this.shiftsAndReduces.length + "s/r");
   }
 }
 
 
-class RootStateNode extends StateNode {
+class RootStateNodeCommon extends StateNodeCommon {
+
+  constructor() {
+    super();
+  }
+
+  generateState() {
+    var result: GrammarParsingLeafState = new GrammarParsingLeafState(this, null);
+    return result;
+  }
+
+  toString() {
+    return "start C#" + this.index + ("->" + this.shiftsAndReduces.length);
+  }
+}
+
+export abstract class LeafStateNodeCommon extends StateNodeCommon {
+
+  generateState() {
+    var state = Analysis.leafState(this.index);
+    if (!state.startStateNode) {
+      state.startStateNode = this;
+      state.startingPoint = this.ref.node;
+      state.index = this.index;
+    }
+    return state;
+  }
+}
+
+export abstract class StateNodeWithPrefix {
+
+  common: StateNodeCommon;
+
+  index: number;
+
+  readonly reduces: Reduce[] = [];
+
+  abstract get traverser(): RuleElementTraverser;
+
+}
+
+
+
+class RootStateNodeWithPrefix extends StateNodeWithPrefix {
 
   rule: EntryPointTraverser;
+
+  common: RootStateNodeCommon;
 
   constructor(rule: EntryPointTraverser) {
     super();
     this.rule = rule;
-  }
-
-  get isRule(): boolean {
-    return false;
+    this.common = new RootStateNodeCommon();
   }
 
   get traverser(): RuleElementTraverser {
     return this.rule;
   }
+
 
   generateTransitions(parser: ParseTableGenerator, rootTraversion: LinearTraversion) {
     if (parser.cntStates !== 1) throw new Error("?? staring state not the first : " + parser.cntStates);
@@ -290,11 +332,14 @@ class RootStateNode extends StateNode {
   }
 
   toString() {
-    return "start#" + this.index + "->" + this.traverser + (this.isRule ? "<rule>" : "") + ("->" + this.shiftsAndReduces.length);
+    return "start C#" + this.index + "->" + this.traverser + ("->C#" + this.common.index);
   }
 }
 
-export abstract class LeafStateNode extends StateNode {
+
+export abstract class LeafStateNodeWithPrefix extends StateNodeWithPrefix {
+
+  common: LeafStateNodeCommon;
 
   ref: RefTraverser;
 
@@ -307,6 +352,7 @@ export abstract class LeafStateNode extends StateNode {
     return this.ref;
   }
 
+  
   generateTransitions(parser: ParseTableGenerator, rootTraversion: LinearTraversion) {
 
     var ts = this.ref.traverserStep;
@@ -318,19 +364,16 @@ export abstract class LeafStateNode extends StateNode {
     this.index = parser.cntStates;
     parser.cntStates++;
   }
+ 
+  abstract get isRule(): boolean;
 
-  generateState() {
-    var state = Analysis.leafState(this.index);
-    if (!state.startStateNode) {
-      state.startStateNode = this;
-      state.startingPoint = this.ref.node;
-      state.index = this.index;
-    }
-    return state;
+  toString() {
+    return "LeafSN#" + this.index + "->" + this.traverser + (this.isRule ? "<rule>" : "") + ("->C#" + this.common.index);
   }
+
 }
 
-export class TraversedLeafStateNode extends LeafStateNode {
+export class TraversedLeafStateNode extends LeafStateNodeWithPrefix {
 
   ref: TerminalRefTraverser;
 
@@ -345,7 +388,7 @@ export class TraversedLeafStateNode extends LeafStateNode {
 
 }
 
-export class JumpIntoSubroutineLeafStateNode extends LeafStateNode {
+export class JumpIntoSubroutineLeafStateNode extends LeafStateNodeWithPrefix {
 
   ref: RuleRefTraverser;
 
@@ -358,6 +401,8 @@ export class JumpIntoSubroutineLeafStateNode extends LeafStateNode {
   }
 
 }
+
+
 
 
 export class ShiftReduce {
@@ -497,12 +542,12 @@ export class ParseTableGenerator {
   rule: PRule;
   theTraversion: LinearTraversion;
 
-  startingStateNode: RootStateNode;
+  startingStateNode: RootStateNodeWithPrefix;
 
   newRuleReferences: RuleRefTraverser[] = [];
 
   // the state nodes 
-  allLeafStateNodes: StateNode[] = [];
+  allLeafStateNodes: LeafStateNodeWithPrefix[] = [];
 
   entryPoints: StrMapLike<EntryPointTraverser> = {};
   jumperStates: NumMapLike<number> = [];
@@ -537,7 +582,7 @@ export class ParseTableGenerator {
     }
     //console.log("Loaded "+cntrules+" rules.");
 
-    this.startingStateNode = new RootStateNode(mainEntryPoint);
+    this.startingStateNode = new RootStateNodeWithPrefix(mainEntryPoint);
 
     //console.log("Generating traversion...")
 

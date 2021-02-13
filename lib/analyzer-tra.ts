@@ -1,4 +1,5 @@
-import { RuleElementTraverser, RuleRefTraverser, TerminalRefTraverser, StateNode, ParseTableGenerator, EntryPointTraverser, Traversing, ShiftReduceKind } from ".";
+import { RuleElementTraverser, RuleRefTraverser, TerminalRefTraverser, StateNodeCommon, ParseTableGenerator, EntryPointTraverser, Traversing, ShiftReduceKind } from ".";
+import { StateNodeWithPrefix } from './analyzer';
 
 export enum TraversionItemKind {
   RULE, DEFERRED_RULE, REPEAT, OPTIONAL, TERMINAL, NODE_START, NODE_END, CHILD_SEPARATOR, NEGATE
@@ -65,9 +66,9 @@ export class TraversionCache {
 
   readonly isNegative = false;
 
-  readonly intoState: StateNode;
+  readonly intoState: StateNodeWithPrefix;
 
-  constructor(intoState: StateNode) {
+  constructor(intoState: StateNodeWithPrefix) {
     this.intoState = intoState;
   }
 
@@ -182,7 +183,7 @@ export class LinearTraversion {
     this.traversionControls.push(item);
   }
 
-  traverse(intoState: StateNode, initialPurpose: TraversionPurpose, purposeThen?: TraversionPurpose[], startPosition = 0): TraversionCache {
+  traverse(intoState: StateNodeWithPrefix, initialPurpose: TraversionPurpose, purposeThen?: TraversionPurpose[], startPosition = 0): TraversionCache {
     var t = this as any;
     t.purpose = initialPurpose;
     t.purposeThen = purposeThen ? purposeThen : [];
@@ -213,7 +214,7 @@ export class LinearTraversion {
     return cache;
   }
 
-  defaultActions(step: TraversionControl, cache: TraversionCache, intoState: StateNode) {
+  defaultActions(step: TraversionControl, cache: TraversionCache, intoState: StateNodeWithPrefix) {
     switch (step.kind) {
       case TraversionItemKind.CHILD_SEPARATOR:
         switch (this.purpose) {
@@ -256,7 +257,11 @@ export class LinearTraversion {
             // NOTE still generating this one for the previous state !
             //
             if (step.item.isReducable) {
-              intoState.shiftsAndReduces.push({ kind: ShiftReduceKind.REDUCE, item: step.item });
+              if (intoState.common) {
+                intoState.common.shiftsAndReduces.push({ kind: ShiftReduceKind.REDUCE, item: step.item });
+              } else {
+                intoState.reduces.push({ kind: ShiftReduceKind.REDUCE, item: step.item });
+              }
             }
 
             break;

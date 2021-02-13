@@ -1,5 +1,6 @@
-import { StrMapLike, ParseTableGenerator, PNode, PNodeKind, PRuleRef, PTerminalRef, PValueNode, PRef, PRule, Analysis, LEV_CNT_BRANCH_NODES, LinearTraversion, TraversionControl, TraversionItemKind, TraversionCache, TraversionItemActionKind, TraversionPurpose, JumpIntoSubroutineLeafStateNode, LeafStateNode, ShiftReduceKind, Traversing, TraversedLeafStateNode, HyperG } from '.';
-import { CNT_HUB_LEVELS, LEV_CNT_LN_RULE } from './analyzer';
+import { Analysis, HyperG, JumpIntoSubroutineLeafStateNode, LeafStateNodeCommon, LEV_CNT_BRANCH_NODES,  ParseTableGenerator, PNode, PNodeKind, PRef, PRule, PRuleRef, PTerminalRef, PValueNode, ShiftReduceKind, StrMapLike, TraversedLeafStateNode, Traversing } from '.';
+import { CNT_HUB_LEVELS, LEV_CNT_LN_RULE, LeafStateNodeWithPrefix } from './analyzer';
+import { TraversionControl, TraversionCache, TraversionItemKind, TraversionPurpose, TraversionItemActionKind, LinearTraversion } from './analyzer-tra';
 
 
 export namespace Factory {
@@ -388,7 +389,7 @@ export class RefTraverser extends EmptyTraverser {
 
   traverserStep: TraversionControl;
 
-  stateNode: LeafStateNode;
+  stateNode: LeafStateNodeWithPrefix;
 
 }
 
@@ -559,7 +560,7 @@ export class RuleRefTraverser extends RefTraverser {
         switch (inTraversion.purpose) {
           case TraversionPurpose.FIND_NEXT_TOKENS:
 
-            cache.intoState.shiftsAndReduces.push({ kind: ShiftReduceKind.SHIFT_RECURSIVE, item: this });
+            cache.intoState.common.shiftsAndReduces.push({ kind: ShiftReduceKind.SHIFT_RECURSIVE, item: this });
 
             break;
           case TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN:
@@ -628,7 +629,7 @@ export class TerminalRefTraverser extends RefTraverser {
       case TraversionItemKind.TERMINAL:
         switch (inTraversion.purpose) {
           case TraversionPurpose.FIND_NEXT_TOKENS:
-            cache.intoState.shiftsAndReduces.push({ kind: ShiftReduceKind.SHIFT, item: this });
+            cache.intoState.common.shiftsAndReduces.push({ kind: ShiftReduceKind.SHIFT, item: this });
             break;
           case TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN:
             break;
