@@ -307,15 +307,9 @@ export class GrammarParsingLeafStateTransitions {
 
   index: number;
 
-  startingStateMinus1: number;
-
   map: NumMapLike<RTShift[]> = {};
 
   alreadySerialized: number[];
-
-  delta(stateId: number): number {
-    return stateId - this.startingStateMinus1;
-  }
 
   ser(buf: number[]): void {
 
@@ -324,7 +318,7 @@ export class GrammarParsingLeafStateTransitions {
     es.forEach(([key, shifts]: [string, RTShift[]]) => {
       var tokenId = Number(key);
       shifts.forEach(shift => {
-        var dti = this.delta(shift.toState.index);
+        var dti = shift.toState.index;
         ord.push([shift.shiftIndex, dti, tokenId]);
       });
     });
@@ -343,24 +337,27 @@ export class GrammarParsingLeafStateTransitions {
 
     var idx = 0;
 
-    ord.forEach(([shi, dti, tki]) => {
+    ord.forEach(([shi, sti, tki]) => {
       if (shi !== idx) {
         throw new Error("shi !== idx   " + shi + " !== " + idx);
       }
 
-      buf.push(dti);
+      buf.push(sti);
       buf.push(tki);
       idx++;
     });
 
   }
 
-  deser(startingStateMinus1: number, buf: number[], pos: number): number {
+  deser(index: number, buf: number[], pos: number): number {
+  
+    this.index = index;
+
     var ordlen = buf[pos++];
 
     var idx = 0;
     for (var i = 0; i < ordlen; i++, idx++) {
-      var dti = buf[pos++];
+      var sti = buf[pos++];
       var tki = buf[pos++];
 
       var shs = this.map[tki];
@@ -368,7 +365,6 @@ export class GrammarParsingLeafStateTransitions {
         this.map[tki] = shs = [];
       }
 
-      var sti = startingStateMinus1 + dti;
       var state = Analysis.leafState(sti);
       var shift = new RTShift(idx, state)
       shs.push(shift);
@@ -379,8 +375,6 @@ export class GrammarParsingLeafStateTransitions {
 
   diagnosticEqualityCheck(table: GrammarParsingLeafStateTransitions) {
     if (this.index !== table.index) {
-      return debuggerTrap(false);
-    } else if (this.startingStateMinus1 !== table.startingStateMinus1) {
       return debuggerTrap(false);
     } else {
       const keys1 = Object.keys(this.map);
@@ -426,11 +420,10 @@ export class GrammarParsingLeafStateReduces {
   ser(buf: number[]): void {
     var buf2 = [];
     var tot = 0;
-    buf.push(this.reducedNodes.length);
     this.reducedNodes.forEach(rs => {
       rs.forEach(r => {
-        buf.push(r.shiftIndex);
-        buf.push(r.node.nodeIdx);
+        buf2.push(r.shiftIndex);
+        buf2.push(r.node.nodeIdx);
         tot++;
       });
     });
@@ -438,7 +431,10 @@ export class GrammarParsingLeafStateReduces {
     [].push.apply(buf, buf2);
   }
 
-  deser(buf: number[], pos: number): number {
+  deser(index: number, buf: number[], pos: number): number {
+  
+    this.index = index;
+
     var tot = buf[pos++];
     for (var i = 0; i < tot; i++) {
       var shi = buf[pos++];
@@ -507,8 +503,8 @@ export class GrammarParsingLeafStateCommon {
         this._transitions = new GrammarParsingLeafStateTransitions();
         this.recursiveShifts = new GrammarParsingLeafStateTransitions();
 
-        this._transitions.startingStateMinus1 = this.index - 1;
-        this.recursiveShifts.startingStateMinus1 = this.index - 1;
+        //this._transitions.startingStateMinus1 = this.index - 1;
+        //this.recursiveShifts.startingStateMinus1 = this.index - 1;
 
         var shiftses: [string, RTShift[]][] = Object.entries(this.serialStateMap.map);
 
@@ -529,9 +525,9 @@ export class GrammarParsingLeafStateCommon {
         this._transitions = new GrammarParsingLeafStateTransitions();
         this.recursiveShifts = new GrammarParsingLeafStateTransitions();
         this.serialStateMap = new GrammarParsingLeafStateTransitions();
-        this._transitions.startingStateMinus1 = this.index - 1;
-        this.recursiveShifts.startingStateMinus1 = this.index - 1;
-        this.serialStateMap.startingStateMinus1 = this.index - 1;
+        //this._transitions.startingStateMinus1 = this.index - 1;
+        //this.recursiveShifts.startingStateMinus1 = this.index - 1;
+        //this.serialStateMap.startingStateMinus1 = this.index - 1;
 
 
         const pushToMap = (s: Shifts, tokenId: number, map: GrammarParsingLeafStateTransitions) => {
@@ -593,9 +589,9 @@ export class GrammarParsingLeafStateCommon {
 
   deser(index: number, buf: number[], pos: number): number {
 
-    var [trind, rdind] = [buf[pos++], buf[pos++]];
-
     this.index = index;
+
+    var [trind, rdind] = [buf[pos++], buf[pos++]];
 
     this.serialStateMap = Analysis.leafStateTransitionTables[trind];
     this.reduceActions = Analysis.leafStateReduceTables[rdind];

@@ -644,6 +644,7 @@ function checkParseTableIntegrity(parseTable: ParseTable, serializedForm: string
 export * from "./parsers";
 export * from "./analyzer";
 export * from "./analyzer-nodes";
+export * from "./analyzer-rt";
 export * from "./interpreter";
 export * from "./packrat";
 export * from "./jmptblrunner";

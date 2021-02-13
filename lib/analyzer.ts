@@ -157,14 +157,29 @@ export namespace Analysis {
     buf.push(sreds.length);
     buf.push(scmn.length);
 
+    var i = 1;
     strans.forEach(s=>{
       s.alreadySerialized.forEach(num=>buf.push(num));
+      if (s.index !== i) {
+        throw new Error("s.index !== i   "+s.index+" !== "+i);
+      }
+      i++;
     });
+    var i = 1;
     sreds.forEach(s=>{
       s.alreadySerialized.forEach(num=>buf.push(num));
+      if (s.index !== i) {
+        throw new Error("s.index !== i   "+s.index+" !== "+i);
+      }
+      i++;
     });
+    var i = 1;
     scmn.forEach(s=>{
       s.serializedTuple.forEach(num=>buf.push(num));
+      if (s.index !== i) {
+        throw new Error("s.index !== i   "+s.index+" !== "+i);
+      }
+      i++;
     });
   }
 
@@ -173,23 +188,19 @@ export namespace Analysis {
     var pos = 0;
     var [stransln,sredsln,scmnln] = [buf[pos++], buf[pos++], buf[pos++]];
 
-    for (var i=0; i<stransln; i++) {
+    for (var i=1; i<=stransln; i++) {
       var trans = new GrammarParsingLeafStateTransitions();
-      trans.index = i;
-      // TODO Not working now just testing Gener~.pack()
-      pos = trans.deser(0, buf, pos);
+      pos = trans.deser(i, buf, pos);
       leafStateTransitionTables.push(trans);
     }
-    for (var i=0; i<sredsln; i++) {
+    for (var i=1; i<=sredsln; i++) {
       var red = new GrammarParsingLeafStateReduces();
-      red.index = i;
-      pos = red.deser(buf, pos);
+      pos = red.deser(i, buf, pos);
       leafStateReduceTables.push(red);
     }
-    for (var i=0; i<scmnln; i++) {
+    for (var i=1; i<=scmnln; i++) {
       var cmn = new GrammarParsingLeafStateCommon();
-      red.index = i;
-      pos = red.deser(buf, pos);
+      pos = cmn.deser(i, buf, pos);
       leafStateCommons.push(cmn);
     }
     if (pos !== buf.length) {
