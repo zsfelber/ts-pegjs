@@ -761,6 +761,7 @@ function pushc(cache: any, item: any): any {
       ].join('\n'));
     tables.push([
       'HyperG.ruleTable = peg$rules;',
+      'HyperGParser.countRuleRefs();',
       "",
     ].join('\n'));
     var ri = 0;

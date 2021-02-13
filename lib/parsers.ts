@@ -76,6 +76,13 @@ function debuggerTrap<T>(value:T):T {
   return value;
 }
 
+
+export function countRuleRefs() {
+  HyperG.ruleRefTable.forEach(rr=>{
+    HyperG.ruleTable[rr.ruleIndex].refs++;
+  });
+}
+
 export abstract class PNode {
   parent: PNode;
   kind: PNodeKind;
@@ -267,6 +274,7 @@ export class PGrammar extends PActContainer {
 export class PRule extends PActContainer {
   kind = PNodeKind.RULE;
   rule?: string;
+  refs = 0;
 
   constructor(parent: PNode, index: number) {
     super(parent);
@@ -394,6 +402,7 @@ export class PRuleRef extends PRef {
     if (HyperG.Env === HyperGEnvType.INTEGRITY_CHECK_VERBOSE) {
       console.log("deser "+HyperG.indent+this.kind+" "+this.nodeIdx+" ruleIndex:"+this.ruleIndex);
     }
+    HyperG.ruleRefTable[this.ruleIndex] = this;
     return pos;
   }
 }

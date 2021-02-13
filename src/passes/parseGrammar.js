@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 var compiler_1 = require("pegjs/lib/compiler");
 var analyzer_1 = require("../../lib/analyzer");
 var lib_1 = require("../../lib");
+var parsers_1 = require("../../lib/parsers");
 var lib_2 = require("../../lib");
 var stringifySafe = require('json-stringify-safe');
 var options;
@@ -20,6 +21,7 @@ function generate(ast) {
     options = args[args.length - 1];
     ast.terminals = terminals;
     ast.terminalConsts = terminalConsts;
+    analyzer_1.Analysis.deferredRules = options.deferredRules ? options.deferredRules : [];
     var findTerminals = compiler_1.visitor.build({
         rule: function (node, context) {
             // terminal rule
@@ -133,113 +135,120 @@ function generate(ast) {
         }
         return child;
     }
-    parseGrammarAst(null, ast);
-    // must be circle-free :
-    var T = function (node) {
-        if (node["$$"])
-            throw new Error("Circle:" + node);
-        node["$$"] = 1;
-        node.children.forEach(function (child) {
-            T(child);
-        });
-        node["$$"] = 0;
-    };
-    T(ctx.grammar);
     var err = 0;
-    ctx.ruleRefs.forEach(function (rr) {
-        var target = ctx.rules.get(rr.rule);
-        if (target) {
-            rr.ruleIndex = target.index;
-        }
-        else {
-            console.error("No rule for rule ref : " + rr.rule);
-            err = 1;
-        }
-    });
-    var maxTknId = 0;
-    ctx.terminalRefs.forEach(function (tr) {
-        var target = ctx.terminals.get(tr.terminal);
-        if (target) {
-            //tr.terminalIndex = target.index;
-            if (tr.value > maxTknId) {
-                maxTknId = tr.value;
+    function analyzeAst() {
+        // must be circle-free :
+        var T = function (node) {
+            if (node["$$"])
+                throw new Error("Circle:" + node);
+            node["$$"] = 1;
+            node.children.forEach(function (child) {
+                T(child);
+            });
+            node["$$"] = 0;
+        };
+        T(ctx.grammar);
+        ctx.ruleRefs.forEach(function (rr) {
+            var target = ctx.rules.get(rr.rule);
+            if (target) {
+                rr.ruleIndex = target.index;
             }
-        }
-        else {
-            console.error("No terminal for terminal ref : " + tr.terminal);
-            err = 1;
-        }
-    });
-    analyzer_1.Analysis.maxTokenId = maxTknId;
-    var allstarts = [];
-    var created = {};
-    var ruleMap = {};
-    var ri = 0;
-    ast.rules.forEach(function (r) { ruleMap[r.name] = ri++; });
-    var grammar = ctx.grammar;
-    lib_1.HyperG.ruleTable = grammar.rules;
-    analyzer_1.Analysis.deferredRules = options.deferredRules ? options.deferredRules : [];
-    var doit = function (r) {
-        if (!created[r]) {
-            created[r] = 1;
-            ri = ruleMap[r];
-            var rule = grammar.children[ri];
-            var g = analyzer_1.ParseTableGenerator.createForRule(rule);
-            return true;
-        }
-    };
-    if (options.allowedStartRules) {
-        console.log("allowedStartRules:" + options.allowedStartRules.join(", "));
-        options.allowedStartRules.forEach(function (r) {
-            if (doit(r))
-                allstarts.push(r);
+            else {
+                console.error("No rule for rule ref : " + rr.rule);
+                err = 1;
+            }
         });
-    }
-    function distinct(inparr) {
-        if (!inparr)
-            return inparr;
-        if (!inparr.length)
-            return [];
-        inparr.sort();
-        var pd = inparr[0];
-        var resarr = [pd];
-        for (var i = 1; i < inparr.length; i++, pd = d) {
-            var d = inparr[i];
-            if (d !== pd)
-                resarr.push(d);
-        }
-        return resarr;
-    }
-    if (options.deferredRules) {
-        options.deferredRules = distinct(options.deferredRules);
-        console.log("User-defined deferred rules: " + options.deferredRules.join(", "));
-    }
-    analyzer_1.Analysis.deferredRules = distinct(analyzer_1.Analysis.deferredRules);
-    analyzer_1.Analysis.localDeferredRules = distinct(analyzer_1.Analysis.localDeferredRules);
-    var def0 = 0, ldef0 = 0;
-    for (var first = true;;) {
-        var ds = analyzer_1.Analysis.deferredRules.slice(def0).concat(analyzer_1.Analysis.localDeferredRules.slice(ldef0));
-        ds = distinct(ds);
-        if (ds.length) {
-            console.log("Remaining deferred rules: " + ds.join(", "));
-        }
-        else if (first) {
-            first = false;
-        }
-        else {
-            break;
-        }
-        def0 = analyzer_1.Analysis.deferredRules.length;
-        ldef0 = analyzer_1.Analysis.localDeferredRules.length;
-        ds.forEach(function (r) {
-            if (doit(r))
-                allstarts.push(r);
+        var maxTknId = 0;
+        ctx.terminalRefs.forEach(function (tr) {
+            var target = ctx.terminals.get(tr.terminal);
+            if (target) {
+                //tr.terminalIndex = target.index;
+                if (tr.value > maxTknId) {
+                    maxTknId = tr.value;
+                }
+            }
+            else {
+                console.error("No terminal for terminal ref : " + tr.terminal);
+                err = 1;
+            }
         });
+        lib_1.HyperG.ruleTable = ctx.grammar.rules;
+        lib_1.HyperG.ruleRefTable = ctx.ruleRefs;
+        analyzer_1.Analysis.maxTokenId = maxTknId;
+        parsers_1.countRuleRefs();
     }
-    allstarts.sort();
-    allstarts.splice(allstarts.indexOf(options.allowedStartRules[0]), 1);
-    allstarts.unshift(options.allowedStartRules[0]);
-    ast.allstarts = allstarts;
+    function createParseTables() {
+        var allstarts = [];
+        var created = {};
+        var ruleMap = {};
+        var ri = 0;
+        ast.rules.forEach(function (r) { ruleMap[r.name] = ri++; });
+        var grammar = ctx.grammar;
+        var doit = function (r) {
+            if (!created[r]) {
+                created[r] = 1;
+                ri = ruleMap[r];
+                var rule = grammar.children[ri];
+                var g = analyzer_1.ParseTableGenerator.createForRule(rule);
+                return true;
+            }
+        };
+        if (options.allowedStartRules) {
+            console.log("allowedStartRules:" + options.allowedStartRules.join(", "));
+            options.allowedStartRules.forEach(function (r) {
+                if (doit(r))
+                    allstarts.push(r);
+            });
+        }
+        function distinct(inparr) {
+            if (!inparr)
+                return inparr;
+            if (!inparr.length)
+                return [];
+            inparr.sort();
+            var pd = inparr[0];
+            var resarr = [pd];
+            for (var i = 1; i < inparr.length; i++, pd = d) {
+                var d = inparr[i];
+                if (d !== pd)
+                    resarr.push(d);
+            }
+            return resarr;
+        }
+        if (options.deferredRules) {
+            options.deferredRules = distinct(options.deferredRules);
+            console.log("User-defined deferred rules: " + options.deferredRules.join(", "));
+        }
+        analyzer_1.Analysis.deferredRules = distinct(analyzer_1.Analysis.deferredRules);
+        analyzer_1.Analysis.localDeferredRules = distinct(analyzer_1.Analysis.localDeferredRules);
+        var def0 = 0, ldef0 = 0;
+        for (var first = true;;) {
+            var ds = analyzer_1.Analysis.deferredRules.slice(def0).concat(analyzer_1.Analysis.localDeferredRules.slice(ldef0));
+            ds = distinct(ds);
+            if (ds.length) {
+                console.log("Remaining deferred rules: " + ds.join(", "));
+            }
+            else if (first) {
+                first = false;
+            }
+            else {
+                break;
+            }
+            def0 = analyzer_1.Analysis.deferredRules.length;
+            ldef0 = analyzer_1.Analysis.localDeferredRules.length;
+            ds.forEach(function (r) {
+                if (doit(r))
+                    allstarts.push(r);
+            });
+        }
+        allstarts.sort();
+        allstarts.splice(allstarts.indexOf(options.allowedStartRules[0]), 1);
+        allstarts.unshift(options.allowedStartRules[0]);
+        ast.allstarts = allstarts;
+    }
+    parseGrammarAst(null, ast);
+    analyzeAst();
+    createParseTables();
     if (err) {
         throw new Error("Grammar parsing error(s).");
     }

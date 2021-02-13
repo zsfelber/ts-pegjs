@@ -9,11 +9,14 @@ export const FAIL_STATE = 0;
 
 export const START_STATE = 1;
 
-export const CNT_HUB_LEVELS = 5;
+//export const CNT_HUB_LEVELS = 5;
+//export const LEV_CNT_LN_RULE = 500;
+//export const LEV_CNT_BRANCH_NODES = 500;
 
-export const LEV_CNT_LN_RULE = 500;
-
-export const LEV_CNT_BRANCH_NODES = 500;
+// NOTE case cut off currently
+export const CNT_HUB_LEVELS = 1;
+export const LEV_CNT_LN_RULE = 50000;
+export const LEV_CNT_BRANCH_NODES = 50000;
 
 
 export interface StrMapLike<V> {

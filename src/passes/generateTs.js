@@ -630,6 +630,7 @@ function generateTS(ast) {
             }).join(", "), "];"].join('\n'));
         tables.push([
             'HyperG.ruleTable = peg$rules;',
+            'HyperGParser.countRuleRefs();',
             "",
         ].join('\n'));
         var ri = 0;

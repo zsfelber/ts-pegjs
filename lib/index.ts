@@ -1,4 +1,4 @@
-import { PRule, PNode } from './parsers';
+import { PRule, PNode, PRuleRef } from './parsers';
 import { Analysis } from './analyzer';
 import { ParseTable } from './analyzer-rt';
 import { EntryPointInterpreter } from './interpreter';
@@ -20,6 +20,7 @@ export namespace HyperG {
     ruleTable: PRule[];
     ruleInterpreters: EntryPointInterpreter[];
     nodeTable: PNode[] = [];
+    ruleRefTable: PRuleRef[] = [];
     parseTables: { [index: number]: ParseTable };
     indent = "";
     stack: Backup[] = [];
@@ -32,6 +33,7 @@ export namespace HyperG {
       this.ruleTable = ruleTable;
       this.ruleInterpreters = ruleInterpreters;
       this.nodeTable = nodeTable;
+      this.ruleRefTable = ruleRefTable;
       this.parseTables = parseTables;
       this.indent = indent;
       this.stack = stack;
@@ -45,6 +47,7 @@ export namespace HyperG {
       ruleTable = this.ruleTable;
       ruleInterpreters = this.ruleInterpreters;
       nodeTable = this.nodeTable;
+      ruleRefTable = this.ruleRefTable;
       parseTables = this.parseTables;
       indent = this.indent;
       stack = this.stack;
@@ -64,6 +67,8 @@ export namespace HyperG {
   export var ruleInterpreters: EntryPointInterpreter[];
 
   export var nodeTable: PNode[] = [];
+
+  export var ruleRefTable: PRuleRef[] = [];
 
   export var parseTables: { [index: number]: ParseTable };
 
@@ -94,7 +99,6 @@ export namespace HyperG {
       e.save();
     }
   }
-
 }
 
 export interface IFailure {
