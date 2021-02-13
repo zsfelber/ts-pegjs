@@ -33,13 +33,13 @@ export namespace Factory {
         return new TerminalRefTraverser(parser, parent, node as PTerminalRef);
       case PNodeKind.RULE:
         throw new Error("Not expecting it here please fix it");
-        /*if (!parent) {
-          return new EntryPointTraverser(parser, null, node as PRule);
-        } else if (parent instanceof RuleRefTraverser) {
-          return new CopiedRuleTraverser(parser, parent, node as PRule);
-        } else {
-          throw new Error("bad parent:" + parent);
-        }*/
+      /*if (!parent) {
+        return new EntryPointTraverser(parser, null, node as PRule);
+      } else if (parent instanceof RuleRefTraverser) {
+        return new CopiedRuleTraverser(parser, parent, node as PRule);
+      } else {
+        throw new Error("bad parent:" + parent);
+      }*/
 
     }
   }
@@ -195,6 +195,7 @@ export class SequenceTraverser extends RuleElementTraverser {
 
     switch (step.kind) {
       case TraversionItemKind.CHILD_SEPARATOR:
+      case TraversionItemKind.NODE_END:
         switch (inTraversion.purpose) {
           case TraversionPurpose.FIND_NEXT_TOKENS:
 
@@ -210,17 +211,29 @@ export class SequenceTraverser extends RuleElementTraverser {
               // makes the whole parse Invalid   if prev was optional, continuing 
               // regurarly and traversing the next (C or D) or moving upwards
 
-              if (!step.previousChild.optionalBranch) {
+              if (step.previousChild.optionalBranch) {
+                if (step.kind === TraversionItemKind.NODE_END) {
+                  // FINISH
+                  // change purpose
+
+                  inTraversion.execute(TraversionItemActionKind.CHANGE_PURPOSE, 
+                    step, TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN,
+                          [TraversionPurpose.FIND_NEXT_TOKENS]  );
+                }
+              } else {
                 inTraversion.execute(TraversionItemActionKind.STOP, step);
               }
 
             } else {
+
               // it is the 2..n th branch of sequence, their first items  may not be
               // the following  unless the 1..(n-1)th (previous) branch was optional
               //
               // if so then traversing the next branch / moving upwards  regurarly
               //
-              if (!step.previousChild.optionalBranch) {
+              if (step.kind === TraversionItemKind.NODE_END) {
+                // skip ok
+              } else if (!step.previousChild.optionalBranch) {
                 inTraversion.execute(TraversionItemActionKind.OMIT_SUBTREE, step);
               }
             }
@@ -228,9 +241,16 @@ export class SequenceTraverser extends RuleElementTraverser {
             break;
           case TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN:
 
-            traverseLocals.steppingFromInsideThisSequence = true;
+            if (step.kind === TraversionItemKind.NODE_END) {
 
-            inTraversion.execute(TraversionItemActionKind.STEP_PURPOSE, step);
+              // continue upwards section of traversal
+
+            } else {
+              traverseLocals.steppingFromInsideThisSequence = true;
+
+              inTraversion.execute(TraversionItemActionKind.STEP_PURPOSE, step);
+            }
+
             break;
         }
         break;
@@ -390,7 +410,7 @@ export class RuleRefTraverser extends RefTraverser {
 
   constructor(parser: ParseTableGenerator, parent: RuleElementTraverser, node: PRuleRef) {
     super(parser, parent, node);
-    
+
     this.topRule.allRuleReferences.push(this);
     this.parser.newRuleReferences.push(this);
 
@@ -469,9 +489,9 @@ export class RuleRefTraverser extends RefTraverser {
       this.lazyLinkRule();
       var cntNodesL1 = this.linkedRuleEntry.hubSize(1);
       var cntNodesLN = this.linkedRuleEntry.hubSize(CNT_HUB_LEVELS);
-      var estCntNodes = Traversing.recursionCacheStack.parent.upwardBranchCnt * 
-          cntNodesL1;
-      if (cntNodesLN>=LEV_CNT_LN_RULE && estCntNodes>=LEV_CNT_BRANCH_NODES) {
+      var estCntNodes = Traversing.recursionCacheStack.parent.upwardBranchCnt *
+        cntNodesL1;
+      if (cntNodesLN >= LEV_CNT_LN_RULE && estCntNodes >= LEV_CNT_BRANCH_NODES) {
         /*console.warn("Auto defer rule hub : " + this + " in " + inTraversion + "  its size L1:" + cntNodesL1+"   LN("+MAX_CNT_HUB_LEVELS+"):" + cntNodesLN+"  est.tot:"+estCntNodes);
         if (!Analysis["consideredManualDefer"]) {
           Analysis["consideredManualDefer"] = true;
@@ -486,8 +506,8 @@ export class RuleRefTraverser extends RefTraverser {
         Analysis.deferredRules.push(this.targetRule.rule);
         this.isDeferred = true;
         delete Traversing.recursionCacheStack["rule_ref#" + this.targetRule.nodeIdx];
-      //} else if (estCntNodes>=20) {
-      //  console.log("Copied rule branch : " + ruledup+" cntNodes:"+estCntNodes);
+        //} else if (estCntNodes>=20) {
+        //  console.log("Copied rule branch : " + ruledup+" cntNodes:"+estCntNodes);
       }
 
     }
@@ -501,7 +521,7 @@ export class RuleRefTraverser extends RefTraverser {
       this.parser.allLeafStateNodes.push(this.stateNode);
 
       if (this.children.length) {
-        throw new Error("children ?? There are "+this.children.length+". "+this);
+        throw new Error("children ?? There are " + this.children.length + ". " + this);
       }
 
       return false;
@@ -699,9 +719,9 @@ export class EntryPointTraverser extends RuleTraverser {
 
     var result = this.allNodes.length;
 
-    if (maxLev>0) this.allRuleReferences.forEach(rr=>{
+    if (maxLev > 0) this.allRuleReferences.forEach(rr => {
       rr.lazyLinkRule();
-      if (rr.linkedRuleEntry!==this) {
+      if (rr.linkedRuleEntry !== this) {
         var deferred = Analysis.deferredRules.indexOf(rr.targetRule.rule) !== -1;
         if (!deferred) {
           result += rr.linkedRuleEntry.hubSize(maxLev - 1);

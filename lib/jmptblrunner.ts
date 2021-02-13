@@ -53,11 +53,7 @@ export class JumpTableRunner {
     });
   }
 
-  // Not necessary to call, it's just a diagnostical feature
-  reduceEmptyAfter(newState: GrammarParsingLeafState) {
-    newState.epsilonReduceActions.reducedNodes.forEach(node => {
-      // ...
-    });
+  reduceAfter(newState: GrammarParsingLeafState) {
   }
 
   run(withToken?: IToken): boolean {
