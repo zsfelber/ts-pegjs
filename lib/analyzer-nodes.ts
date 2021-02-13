@@ -348,14 +348,45 @@ export class OrMoreTraverser extends SingleCollectionTraverser {
   }
 
   traversionActions(inTraversion: LinearTraversion, step: TraversionControl, cache: TraversionCache) {
+    var traverseLocals = cache.nodeLocal(this);
+
     switch (step.kind) {
       case TraversionItemKind.REPEAT:
         switch (inTraversion.purpose) {
           case TraversionPurpose.FIND_NEXT_TOKENS:
+
+            if (traverseLocals.steppingFromInsideThisSequence) {
+              // FINISH
+              // change purpose
+
+              inTraversion.execute(TraversionItemActionKind.CHANGE_PURPOSE, 
+                step, TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN,
+                      [TraversionPurpose.FIND_NEXT_TOKENS]  );
+            }
+
+
             break;
           case TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN:
-            inTraversion.execute(TraversionItemActionKind.RESET_POSITION, step);
-            inTraversion.execute(TraversionItemActionKind.STEP_PURPOSE, step);
+
+            if (this.common) {
+              cache.intoState.common = this.common;
+
+              // Found a cached result, it has already done (And we stop) :
+              inTraversion.execute(TraversionItemActionKind.STOP, step);
+
+            } else {
+
+              traverseLocals.steppingFromInsideThisSequence = true;
+
+              // Creating the common section from this node the first time now:
+              this.common = new LeafStateNodeCommon();
+              cache.intoState.common = this.common;
+
+              inTraversion.execute(TraversionItemActionKind.RESET_POSITION, step);
+              inTraversion.execute(TraversionItemActionKind.STEP_PURPOSE, step);
+            }
+          
+
             break;
         }
         break;
@@ -363,6 +394,8 @@ export class OrMoreTraverser extends SingleCollectionTraverser {
     }
   }
 }
+
+
 
 
 // node.optionalNode == true 
