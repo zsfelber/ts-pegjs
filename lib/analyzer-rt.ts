@@ -350,7 +350,7 @@ export class GrammarParsingLeafStateTransitions {
   }
 
   deser(index: number, buf: number[], pos: number): number {
-  
+
     this.index = index;
 
     var ordlen = buf[pos++];
@@ -432,7 +432,7 @@ export class GrammarParsingLeafStateReduces {
   }
 
   deser(index: number, buf: number[], pos: number): number {
-  
+
     this.index = index;
 
     var tot = buf[pos++];
@@ -503,9 +503,6 @@ export class GrammarParsingLeafStateCommon {
         this._transitions = new GrammarParsingLeafStateTransitions();
         this.recursiveShifts = new GrammarParsingLeafStateTransitions();
 
-        //this._transitions.startingStateMinus1 = this.index - 1;
-        //this.recursiveShifts.startingStateMinus1 = this.index - 1;
-
         var shiftses: [string, RTShift[]][] = Object.entries(this.serialStateMap.map);
 
         shiftses.forEach(([key, shs]) => {
@@ -525,10 +522,6 @@ export class GrammarParsingLeafStateCommon {
         this._transitions = new GrammarParsingLeafStateTransitions();
         this.recursiveShifts = new GrammarParsingLeafStateTransitions();
         this.serialStateMap = new GrammarParsingLeafStateTransitions();
-        //this._transitions.startingStateMinus1 = this.index - 1;
-        //this.recursiveShifts.startingStateMinus1 = this.index - 1;
-        //this.serialStateMap.startingStateMinus1 = this.index - 1;
-
 
         const pushToMap = (s: Shifts, tokenId: number, map: GrammarParsingLeafStateTransitions) => {
           var ts = map.map[tokenId];
@@ -638,34 +631,48 @@ export class GrammarParsingLeafState {
 
   lazy() {
 
-    var shiftIndex = 0;
-    this.startStateNode.reduces.forEach(nextTerm => {
+    if (!this.reduceActions) {
 
-      switch (nextTerm.kind) {
+      if (this.startStateNode) {
+        var shiftIndex = 0;
+        this.startStateNode.reduces.forEach(nextTerm => {
 
-        case ShiftReduceKind.REDUCE:
-        case ShiftReduceKind.REDUCE_RECURSIVE:
-          var r = nextTerm as Reduce;
-          var rs = this.reduceActions.reducedNodes[shiftIndex];
-          if (!rs) {
-            this.reduceActions.reducedNodes[shiftIndex] = rs = [];
+          switch (nextTerm.kind) {
+
+            case ShiftReduceKind.REDUCE:
+            case ShiftReduceKind.REDUCE_RECURSIVE:
+              var r = nextTerm as Reduce;
+              var rs = this.reduceActions.reducedNodes[shiftIndex];
+              if (!rs) {
+                this.reduceActions.reducedNodes[shiftIndex] = rs = [];
+              }
+
+              rs.push(new RTReduce(shiftIndex, r.item.node));
+
+              break;
+            default:
+              throw new Error("223b  " + nextTerm);
           }
-
-          rs.push(new RTReduce(shiftIndex, r.item.node));
-
-          break;
-        default:
-          throw new Error("223b  " + nextTerm);
+        });
+      } else {
+        throw new Error("Uninitilized GrammarParsingLeafState");
       }
-    });
+    }
 
-    if (this.startStateNode.common) {
-      this.common = Analysis.leafStateCommon(this.startStateNode.common.index);
-      if (!this.common.startStateNode) {
-        this.common.startStateNode = this.startStateNode.common;
+    if (!this.common) {
+
+      if (this.startStateNode) {
+        if (this.startStateNode.common) {
+          this.common = Analysis.leafStateCommon(this.startStateNode.common.index);
+          if (!this.common.startStateNode) {
+            this.common.startStateNode = this.startStateNode.common;
+          }
+          // lazy
+          this.common.transitions;
+        }
+      } else {
+        throw new Error("Uninitilized GrammarParsingLeafState");
       }
-      // lazy
-      this.common.transitions;
     }
   }
 
