@@ -570,7 +570,12 @@ export class GrammarParsingLeafStateCommon {
             case ShiftReduceKind.REDUCE:
             case ShiftReduceKind.REDUCE_RECURSIVE:
               var r = nextTerm as Reduce;
-              this.reduceActions.reducedNodes.push(new RTReduce(shiftIndex, r.item.node));
+              var rs = this.reduceActions.reducedNodes[shiftIndex];
+              if (!rs) {
+                this.reduceActions.reducedNodes[shiftIndex] = rs = [];
+              }
+        
+              rs.push(new RTReduce(shiftIndex, r.item.node));
 
               break;
             default:
@@ -645,7 +650,12 @@ export class GrammarParsingLeafState {
         case ShiftReduceKind.REDUCE:
         case ShiftReduceKind.REDUCE_RECURSIVE:
           var r = nextTerm as Reduce;
-          this.reduceActions.reducedNodes.push(new RTReduce(shiftIndex, r.item.node));
+          var rs = this.reduceActions.reducedNodes[shiftIndex];
+          if (!rs) {
+            this.reduceActions.reducedNodes[shiftIndex] = rs = [];
+          }
+    
+          rs.push(new RTReduce(shiftIndex, r.item.node));
 
           break;
         default:

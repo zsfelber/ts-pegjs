@@ -62,6 +62,8 @@ export abstract class RuleElementTraverser {
   readonly children: RuleElementTraverser[] = [];
   readonly optionalBranch: boolean;
 
+  common: LeafStateNodeCommon;
+
   constructor(parser: ParseTableGenerator, parent: RuleElementTraverser, node: PNode) {
     this.parser = parser;
     this.parent = parent;
@@ -249,7 +251,17 @@ export class SequenceTraverser extends RuleElementTraverser {
             } else {
               traverseLocals.steppingFromInsideThisSequence = true;
 
-              inTraversion.execute(TraversionItemActionKind.STEP_PURPOSE, step);
+              if (step.child.common) {
+                cache.intoState.common = step.child.common;
+                // Found a cached result, it has already done (And we stop) :
+                inTraversion.execute(TraversionItemActionKind.STOP, step);
+              } else {
+                // Creating the common section from this node the first time now:
+                step.child.common = new LeafStateNodeCommon();
+                cache.intoState.common = step.child.common;
+  
+                inTraversion.execute(TraversionItemActionKind.STEP_PURPOSE, step);
+              }
             }
 
             break;

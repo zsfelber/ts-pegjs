@@ -113,6 +113,15 @@ export namespace Analysis {
     return emptyBackup;
   }
 
+  export function leafStateCommon(index: number) {
+    var ls = leafStateCommons[index];
+    if (!ls) {
+      leafStateCommons[index] = ls = new GrammarParsingLeafStateCommon();
+      ls.index = index;
+    }
+    return ls;
+  }
+
   export function leafState(index: number) {
     var ls = leafStates[index];
     if (!ls) {
@@ -250,7 +259,7 @@ export abstract class StateNodeCommon {
   readonly shiftsAndReduces: ShiftReduce[] = [];
 
 
-  abstract generateState(): GrammarParsingLeafState;
+  abstract generateState(): GrammarParsingLeafStateCommon;
 
   toString() {
     return "C#" + this.index + "->" + ("->" + this.shiftsAndReduces.length + "s/r");
@@ -265,7 +274,7 @@ class RootStateNodeCommon extends StateNodeCommon {
   }
 
   generateState() {
-    var result: GrammarParsingLeafState = new GrammarParsingLeafState(this, null);
+    var result = new GrammarParsingLeafStateCommon(this);
     return result;
   }
 
@@ -274,13 +283,12 @@ class RootStateNodeCommon extends StateNodeCommon {
   }
 }
 
-export abstract class LeafStateNodeCommon extends StateNodeCommon {
+export class LeafStateNodeCommon extends StateNodeCommon {
 
   generateState() {
-    var state = Analysis.leafState(this.index);
+    var state = Analysis.leafStateCommon(this.index);
     if (!state.startStateNode) {
       state.startStateNode = this;
-      state.startingPoint = this.ref.node;
       state.index = this.index;
     }
     return state;
@@ -296,6 +304,8 @@ export abstract class StateNodeWithPrefix {
   readonly reduces: Reduce[] = [];
 
   abstract get traverser(): RuleElementTraverser;
+
+  abstract generateState(): GrammarParsingLeafState;
 
 }
 
@@ -365,6 +375,16 @@ export abstract class LeafStateNodeWithPrefix extends StateNodeWithPrefix {
     parser.cntStates++;
   }
  
+  generateState() {
+    var state = Analysis.leafState(this.index);
+    if (!state.startStateNode) {
+      state.startStateNode = this;
+      state.startingPoint = this.ref.node;
+      state.index = this.index;
+    }
+    return state;
+  }
+
   abstract get isRule(): boolean;
 
   toString() {

@@ -1,8 +1,7 @@
-import { ParseTable } from './analyzer';
 import { PRule, PNode } from './parsers';
-import { Analysis } from '../lib';
+import { Analysis } from './analyzer';
+import { ParseTable } from './analyzer-rt';
 import { EntryPointInterpreter } from './interpreter';
-import { Analysis } from '.';
 
 export const MATCH_TOKEN = 40;
 export const ACCEPT_TOKEN = 41;
