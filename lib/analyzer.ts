@@ -1,7 +1,8 @@
 import { EntryPointTraverser, Factory, PNodeKind, RefTraverser, RuleElementTraverser, RuleRefTraverser, TerminalRefTraverser } from '.';
 import { PRule, PRuleRef, PTerminalRef, PValueNode, PNode, PRef, PLogicNode } from './parsers';
 import { CodeTblToHex, HyperG } from './index';
-import { GrammarParsingLeafState, GrammarParsingLeafStateTransitions, GrammarParsingLeafStateReduces, LinearTraversion, TraversionPurpose, ParseTable } from './analyzer-rt';
+import { GrammarParsingLeafState, GrammarParsingLeafStateTransitions, GrammarParsingLeafStateReduces, ParseTable } from './analyzer-rt';
+import { LinearTraversion, TraversionPurpose } from './analyzer-tra';
 
 
 export const FAIL_STATE = 0;
@@ -584,3 +585,8 @@ export class ParseTableGenerator {
   }
 
 }
+
+
+
+
+
