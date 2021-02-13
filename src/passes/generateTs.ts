@@ -10,7 +10,7 @@ import * as ppack from 'pegjs/package.json';
 import {
   JSstringEscape, CodeTblToHex, PGrammar, PRule, PFunction,
   PNodeKind, PActionKind, PRuleRef, PTerminalRef, HyperG,
-  ParseTable, ParseTableGenerator, encodePrsTbl, encodeVsimPck, 
+  ParseTableGenerator, encodePrsTbl, encodeVsimPck, 
   Analysis, verySimplePackMany0
 } from "../../lib";
 import { Console } from 'console';

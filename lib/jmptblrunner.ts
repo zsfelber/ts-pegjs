@@ -1,10 +1,9 @@
-import { ParseTable, GrammarParsingLeafState, Analysis,
-  IToken, HyperG } from '.';
-import { RTShift, GrammarParsingLeafStateTransitions } from './analyzer';
+import { Analysis,  IToken, HyperG } from '.';
 import { IBaseParserProgram, DeferredReduce } from './interpreter';
 import { PRuleRef, PValueNode } from './parsers';
 import { Packrat } from './packrat';
 import { peg$FAILED } from '../lib';
+import { GrammarParsingLeafState, ParseTable, RTShift, GrammarParsingLeafStateTransitions } from './analyzer-rt';
 
 export interface IJumpTableProgram extends IBaseParserProgram {
 
@@ -44,12 +43,17 @@ export class JumpTableRunner {
   }
 
   reduceBefore(currentState: GrammarParsingLeafState) {
-    currentState.reduceActions.reducedNodes.forEach(node => {
-      var r = node as PValueNode;
+    currentState.reduceActions.reducedNodes.forEach(reds => {
+
+      /*  TODO outdated because muliple reducedNodes are now possible in every shiftIndex
+        (beginning and between shifts too, regular and recursive too)
+
+        var r = node as PValueNode;
       var args: DeferredReduce[] =
         r.action.args.map(arg => this.reduce[arg.evaluate.nodeIdx]);
       var reduce = new DeferredReduce(r.action, args, this.owner.inputPos);
       this.reduce[r.nodeIdx] = reduce;
+      */
     });
   }
 
@@ -139,9 +143,12 @@ export class JumpTableRunner {
         // !! :)  !!
         this.reduceBefore(currentState);
 
-        var newShifts = currentState.transitions.map[token.tokenId];
+        var newShifts = currentState.common.transitions.map[token.tokenId];
         // TODO now multiple
-        var rshs = currentState.recursiveShifts;
+        // TODO add these to before/after sequence split to 
+        var rshs0 = currentState.reduceActions;
+        var rshs1 = currentState.common.reduceActions;
+        var rshs = currentState.common.recursiveShifts;
 
         if (newShifts) {
           if (!rshs) rshs = new GrammarParsingLeafStateTransitions();
