@@ -94,6 +94,8 @@ export namespace Analysis {
 
   export const uniformMaxStateId = 0xe000;
 
+  export var serializedStateCommons: {[index: string]:GrammarParsingLeafStateCommon} = {};
+
   export var serializedTransitions: {[index: string]:GrammarParsingLeafStateTransitions} = {};
 
   export var serializedReduces: {[index: string]:GrammarParsingLeafStateReduces} = {};
@@ -134,15 +136,20 @@ export namespace Analysis {
   export function writeAllSerializedTables(buf: number[]) {
     var strans = Object.values(serializedTransitions);
     var sreds = Object.values(serializedReduces);
+    var scmn = Object.values(serializedStateCommons);
     strans.sort((a,b)=>{
       return a.index-b.index;
     });
     sreds.sort((a,b)=>{
       return a.index-b.index;
     });
+    scmn.sort((a,b)=>{
+      return a.index-b.index;
+    });
 
     buf.push(strans.length);
     buf.push(sreds.length);
+    buf.push(scmn.length);
 
     strans.forEach(s=>{
       s.alreadySerialized.forEach(num=>buf.push(num));
@@ -150,12 +157,15 @@ export namespace Analysis {
     sreds.forEach(s=>{
       s.alreadySerialized.forEach(num=>buf.push(num));
     });
+    scmn.forEach(s=>{
+      s.serializedTuple.forEach(num=>buf.push(num));
+    });
   }
 
   export function readAllSerializedTables(buf: number[]): number {
 
     var pos = 0;
-    var [stransln,sredsln] = [buf[pos++], buf[pos++]];
+    var [stransln,sredsln,scmnln] = [buf[pos++], buf[pos++], buf[pos++]];
 
     for (var i=0; i<stransln; i++) {
       var trans = new GrammarParsingLeafStateTransitions();
@@ -169,6 +179,12 @@ export namespace Analysis {
       red.index = i;
       pos = red.deser(buf, pos);
       leafStateReduceTables.push(red);
+    }
+    for (var i=0; i<scmnln; i++) {
+      var cmn = new GrammarParsingLeafStateCommon();
+      red.index = i;
+      pos = red.deser(buf, pos);
+      leafStateCommons.push(cmn);
     }
     if (pos !== buf.length) {
       throw new Error("pos !== buf.length  "+pos+" !== "+buf.length);

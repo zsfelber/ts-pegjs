@@ -37,16 +37,16 @@ export class ParseTable {
     // !
     Analysis.leafStates = [];
 
-    // We need 2 serializedTuples
-    if (!Analysis.stack[0]) {
-      Analysis.stack[0] = Analysis.empty();
-    }
+    var t0 = Object.keys(Analysis.serializedTransitions).length;
+    var r0 = Object.keys(Analysis.serializedReduces).length;
+    var sc0 = Object.keys(Analysis.serializedStateCommons).length;
 
     // indexes
     // 1 based
     // 0 means empty
-    var transidx = 1;
-    var redidx = 1;
+    var transidx = t0 + 1;
+    var redidx = r0 + 1;
+    var cmnidx = sc0 + 1;
 
 
     prstate(this.startingState);
@@ -54,14 +54,11 @@ export class ParseTable {
       prstate(state);
     });
 
-    var t = Object.keys(Analysis.serializedTransitions).length;
-    var r = Object.keys(Analysis.serializedReduces).length;
     var tp = Object.keys(Analysis.serializedTuples).length;
-    var tp2 = Object.keys(Analysis.stack[0].serializedTuples).length;
 
     const sts = 1+this.allStates.length;
     Analysis.totalStates += sts;
-    console.log(this.rule.rule+"   states:"+(sts) +"     Total: [ totalStates:"+Analysis.totalStates+"   distinct transitions:"+(t)+"     distinct reduces:"+(r)+"      distinct states/leaf:"+(tp)+"   distinct states/common:"+(tp2)+"   jmp.tokens:"+varTkns.mean.toFixed(1)+"+-"+varTkns.sqrtVariance.toFixed(1)+"   shift/tkns:"+varShs.mean.toFixed(1)+"+-"+varShs.sqrtVariance.toFixed(1)+"   rec.shift:"+varShReqs.mean.toFixed(1)+"+-"+varShReqs.sqrtVariance.toFixed(1) +"  reduces:"+varRds.mean.toFixed(1)+"+-"+varRds.sqrtVariance.toFixed(1)+" ]");
+    console.log(this.rule.rule+"   states:"+(sts) +"     Total: [ total states:"+Analysis.totalStates+"  distinct:"+(tp)+"    total states/common:"+varTkns.n+"   distinct:"+(cmnidx)+"    distinct transitions:"+(transidx)+"    distinct reduces:"+(redidx)+"   jmp.tokens:"+varTkns.mean.toFixed(1)+"+-"+varTkns.sqrtVariance.toFixed(1)+"   shift/tkns:"+varShs.mean.toFixed(1)+"+-"+varShs.sqrtVariance.toFixed(1)+"   rec.shift:"+varShReqs.mean.toFixed(1)+"+-"+varShReqs.sqrtVariance.toFixed(1) +"  reduces:"+varRds.mean.toFixed(1)+"+-"+varRds.sqrtVariance.toFixed(1)+" ]");
 
     function prstate(state: GrammarParsingLeafState) {
       // lazy
@@ -116,12 +113,13 @@ export class ParseTable {
         var tuple:[number,number] = [state.serialStateMap.index, state.reduceActions.index];
         var tkey = CodeTblToHex(tuple).join("");
 
-        var tuple0:[number,number] = Analysis.stack[0].serializedTuples[tkey] as any;
-        if (tuple0) {
-          state.serializedTuple = tuple0;
+        var state0 = Analysis.serializedStateCommons[tkey];
+        if (state0) {
+          state.index = state0.index;
         } else {
+          state.index = cmnidx++;
           state.serializedTuple = tuple;
-          Analysis.stack[0].serializedTuples[tkey] = tuple as any;
+          Analysis.serializedStateCommons[tkey] = state;
         }
       }
     }
