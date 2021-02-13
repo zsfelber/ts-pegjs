@@ -39,6 +39,8 @@ export namespace Analysis {
     serializedReduces: {[index: string]:GrammarParsingLeafStateReduces} = {};
     serializedTuples: {[index: string]:[number,number,number,number,number,number]} = {};
     stack: Backup[] = [];
+    serializedStateCommonsCnt = 0;
+
 
     load() {
       this.ERRORS = ERRORS;
@@ -53,6 +55,7 @@ export namespace Analysis {
       this.serializedReduces = serializedReduces;
       this.serializedTuples = serializedTuples;
       this.stack = stack;
+      this.serializedStateCommonsCnt = serializedStateCommonsCnt;
   
     }
     save() {
@@ -68,6 +71,7 @@ export namespace Analysis {
       serializedReduces = this.serializedReduces;
       serializedTuples = this.serializedTuples;
       stack = this.stack;
+      serializedStateCommonsCnt = this.serializedStateCommonsCnt;
   
     }
   }
@@ -103,6 +107,8 @@ export namespace Analysis {
   export var serializedTuples: {[index: string]:[number,number,number,number,number,number]} = {};
 
   export var stack: Backup[] = [];
+
+  export var serializedStateCommonsCnt = 0;
 
   export function backup() {
     var backup = new Backup();
@@ -274,6 +280,9 @@ export abstract class StateNodeCommon {
   // Epsilon REDUCEs
   readonly shiftsAndReduces: ShiftReduce[] = [];
 
+  constructor() {
+    this.index = Analysis.serializedStateCommonsCnt++;
+  }
 
   abstract generateState(): GrammarParsingLeafStateCommon;
 

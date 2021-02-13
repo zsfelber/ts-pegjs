@@ -9,7 +9,7 @@ function smlen(arr: any) {
   return arr ? Object.keys(arr).length : undefined;
 }
 
-function debuggerTrap<T>(value:T):T {
+function debuggerTrap<T>(value: T): T {
   return value;
 }
 
@@ -31,7 +31,7 @@ export class ParseTable {
   pack() {
 
     if (this.allStates.length > Analysis.uniformMaxStateId) {
-      throw new Error("State id overflow. Grammar too big. uniformMaxStateId:"+Analysis.uniformMaxStateId+"  Too many states:"+this.allStates.length);
+      throw new Error("State id overflow. Grammar too big. uniformMaxStateId:" + Analysis.uniformMaxStateId + "  Too many states:" + this.allStates.length);
     }
 
     // !
@@ -50,21 +50,21 @@ export class ParseTable {
 
 
     prstate(this.startingState);
-    this.allStates.forEach(state=>{
+    this.allStates.forEach(state => {
       prstate(state);
     });
 
     var tp = Object.keys(Analysis.serializedTuples).length;
 
-    const sts = 1+this.allStates.length;
+    const sts = 1 + this.allStates.length;
     Analysis.totalStates += sts;
-    console.log(this.rule.rule+"   states:"+(sts) +"     Total: [ total states:"+Analysis.totalStates+"  distinct:"+(tp)+"    total states/common:"+varTkns.n+"   distinct:"+(cmnidx)+"    distinct transitions:"+(transidx)+"    distinct reduces:"+(redidx)+"   jmp.tokens:"+varTkns.mean.toFixed(1)+"+-"+varTkns.sqrtVariance.toFixed(1)+"   shift/tkns:"+varShs.mean.toFixed(1)+"+-"+varShs.sqrtVariance.toFixed(1)+"   rec.shift:"+varShReqs.mean.toFixed(1)+"+-"+varShReqs.sqrtVariance.toFixed(1) +"  reduces:"+varRds.mean.toFixed(1)+"+-"+varRds.sqrtVariance.toFixed(1)+" ]");
+    console.log(this.rule.rule + "   states:" + (sts) + "     Total: [ total states:" + Analysis.totalStates + "  distinct:" + (tp) + "    total states/common:" + varShReqs.n + "   distinct:" + (cmnidx) + "    distinct transitions:" + (transidx) + "    distinct reduces:" + (redidx) + "   jmp.tokens:" + varTkns.mean.toFixed(1) + "+-" + varTkns.sqrtVariance.toFixed(1) + "   shift/tkns:" + varShs.mean.toFixed(1) + "+-" + varShs.sqrtVariance.toFixed(1) + "   rec.shift:" + varShReqs.mean.toFixed(1) + "+-" + varShReqs.sqrtVariance.toFixed(1) + "  reduces:" + varRds.mean.toFixed(1) + "+-" + varRds.sqrtVariance.toFixed(1) + " ]");
 
     function prstate(state: GrammarParsingLeafState) {
       // lazy
       state.lazy();
 
-      var tots:[number,number,number,number]=[0,0,0,0];
+      var tots: [number, number, number, number] = [0, 0, 0, 0];
 
       prscmn(state.common);
 
@@ -72,11 +72,12 @@ export class ParseTable {
       varRds.add(rs1);
 
       var spidx = state.startingPoint ? state.startingPoint.nodeIdx : 0;
-  
-      var tuple:[number,number,number] = [spidx, state.reduceActions.index, state.common.index];
+      var stcmidx = state.common ? state.common.index : 0;
+
+      var tuple: [number, number, number] = [spidx, state.reduceActions.index, stcmidx];
       var tkey = CodeTblToHex(tuple).join("");
 
-      var tuple0:[number,number,number] = Analysis.serializedTuples[tkey] as any;
+      var tuple0: [number, number, number] = Analysis.serializedTuples[tkey] as any;
       if (tuple0) {
         state.serializedTuple = tuple0;
       } else {
@@ -87,35 +88,36 @@ export class ParseTable {
     }
 
     function prscmn(state: GrammarParsingLeafStateCommon) {
-      if (!state.serializedTuple) {
+      if (state && !state.serializedTuple) {
         // lazy
         state.transitions;
 
-        var tots:[number,number,number,number]=[0,0,0,0];
+        var tots: [number, number, number, number] = [0, 0, 0, 0];
 
         tra(state.serialStateMap, tots);
-        var [nonreq,nonreqtot,req,reqtot]=tots;
+        var [nonreq, nonreqtot, req, reqtot] = tots;
 
         if (nonreq) {
           varTkns.add(nonreq);
-          varShs.add(nonreqtot/nonreq);
+          varShs.add(nonreqtot / nonreq);
         }
         if (req) {
           if (req !== 1) {
-            throw new Error("req !== 1  "+req+" !== "+1);
+            throw new Error("req !== 1  " + req + " !== " + 1);
           }
         }
         varShReqs.add(reqtot);
 
         var rs1 = red(state.reduceActions);
         varRds.add(rs1);
-  
-        var tuple:[number,number] = [state.serialStateMap.index, state.reduceActions.index];
+
+        var tuple: [number, number] = [state.serialStateMap.index, state.reduceActions.index];
         var tkey = CodeTblToHex(tuple).join("");
 
         var state0 = Analysis.serializedStateCommons[tkey];
         if (state0) {
           state.index = state0.index;
+          state.serializedTuple = tuple;
         } else {
           state.index = cmnidx++;
           state.serializedTuple = tuple;
@@ -124,21 +126,21 @@ export class ParseTable {
       }
     }
 
-    function tra(trans: GrammarParsingLeafStateTransitions, maplen:[number,number,number,number]) {
-      var shiftses:[string,RTShift[]][] = Object.entries(trans.map);
+    function tra(trans: GrammarParsingLeafStateTransitions, maplen: [number, number, number, number]) {
+      var shiftses: [string, RTShift[]][] = Object.entries(trans.map);
       if (shiftses.length) {
         var nonreq = 0;
         var nonreqtot = 0;
         var req = 0;
         var reqtot = 0;
-        shiftses.forEach(([key,shs])=>{
+        shiftses.forEach(([key, shs]) => {
           var tki = Number(key);
           if (tki) {
             nonreq++;
-            nonreqtot+=shs.length;
+            nonreqtot += shs.length;
           } else {
             req++;
-            reqtot+=shs.length;
+            reqtot += shs.length;
           }
         });
         maplen[0] = nonreq;
@@ -150,9 +152,9 @@ export class ParseTable {
         trans.alreadySerialized = null;
         trans.ser(buf);
         trans.alreadySerialized = buf;
-    
+
         var encoded = CodeTblToHex(buf).join("");
-    
+
         var trans0 = Analysis.serializedTransitions[encoded];
         if (trans0) {
           trans.index = trans0.index;
@@ -199,7 +201,7 @@ export class ParseTable {
   ser(): number[] {
 
     this.pack();
-    
+
     var serStates: number[] = [];
 
     this.startingState.ser(serStates);
@@ -255,7 +257,7 @@ export class ParseTable {
   }
 
   toString() {
-    return "ParseTable/"+this.rule.rule+"/"+(1+this.allStates.length)+" states";
+    return "ParseTable/" + this.rule.rule + "/" + (1 + this.allStates.length) + " states";
   }
 }
 
@@ -317,7 +319,7 @@ export class GrammarParsingLeafStateTransitions {
 
   ser(buf: number[]): void {
 
-    var ord:[number,number,number][] = [];
+    var ord: [number, number, number][] = [];
     var es = Object.entries(this.map);
     es.forEach(([key, shifts]: [string, RTShift[]]) => {
       var tokenId = Number(key);
@@ -326,7 +328,7 @@ export class GrammarParsingLeafStateTransitions {
         ord.push([shift.shiftIndex, dti, tokenId]);
       });
     });
-    ord.sort((a,b)=>{
+    ord.sort((a, b) => {
       var r0 = a[0] - b[0];
       if (r0) return r0;
       throw new Error();
@@ -343,7 +345,7 @@ export class GrammarParsingLeafStateTransitions {
 
     ord.forEach(([shi, dti, tki]) => {
       if (shi !== idx) {
-        throw new Error("shi !== idx   "+shi+" !== "+idx);
+        throw new Error("shi !== idx   " + shi + " !== " + idx);
       }
 
       buf.push(dti);
@@ -355,7 +357,7 @@ export class GrammarParsingLeafStateTransitions {
 
   deser(startingStateMinus1: number, buf: number[], pos: number): number {
     var ordlen = buf[pos++];
- 
+
     var idx = 0;
     for (var i = 0; i < ordlen; i++, idx++) {
       var dti = buf[pos++];
@@ -379,11 +381,11 @@ export class GrammarParsingLeafStateTransitions {
     if (this.index !== table.index) {
       return debuggerTrap(false);
     } else if (this.startingStateMinus1 !== table.startingStateMinus1) {
-        return debuggerTrap(false);
+      return debuggerTrap(false);
     } else {
       const keys1 = Object.keys(this.map);
       const keys2 = Object.keys(table.map);
-      if (keys1.length!==keys2.length) {
+      if (keys1.length !== keys2.length) {
         return debuggerTrap(false);
       }
       keys1.sort();
@@ -426,7 +428,7 @@ export class GrammarParsingLeafStateReduces {
     var tot = 0;
     buf.push(this.reducedNodes.length);
     this.reducedNodes.forEach(rs => {
-      rs.forEach(r=>{
+      rs.forEach(r => {
         buf.push(r.shiftIndex);
         buf.push(r.node.nodeIdx);
         tot++;
@@ -463,7 +465,7 @@ export class GrammarParsingLeafStateReduces {
         if (slen(a) !== slen(b)) {
           return debuggerTrap(false);
         } else {
-          for (var j=0; j<a.length; j++) {
+          for (var j = 0; j < a.length; j++) {
             var c = a[j].diagnosticEqualityCheck(b[j]);
             if (!c) {
               return debuggerTrap(false);
@@ -487,7 +489,7 @@ export class GrammarParsingLeafStateCommon {
   reduceActions: GrammarParsingLeafStateReduces;
   recursiveShifts: GrammarParsingLeafStateTransitions;
   serialStateMap: GrammarParsingLeafStateTransitions;
-  serializedTuple: [number,number];
+  serializedTuple: [number, number];
 
   constructor(startStateNode?: StateNodeCommon) {
     if (startStateNode) {
@@ -508,9 +510,9 @@ export class GrammarParsingLeafStateCommon {
         this._transitions.startingStateMinus1 = this.index - 1;
         this.recursiveShifts.startingStateMinus1 = this.index - 1;
 
-        var shiftses:[string,RTShift[]][] = Object.entries(this.serialStateMap.map);
+        var shiftses: [string, RTShift[]][] = Object.entries(this.serialStateMap.map);
 
-        shiftses.forEach(([key,shs])=>{
+        shiftses.forEach(([key, shs]) => {
           var tki = Number(key);
           if (tki) {
             // nonreq
@@ -530,9 +532,9 @@ export class GrammarParsingLeafStateCommon {
         this._transitions.startingStateMinus1 = this.index - 1;
         this.recursiveShifts.startingStateMinus1 = this.index - 1;
         this.serialStateMap.startingStateMinus1 = this.index - 1;
-        
 
-        const pushToMap = (s: Shifts, tokenId: number, map: GrammarParsingLeafStateTransitions)=>{
+
+        const pushToMap = (s: Shifts, tokenId: number, map: GrammarParsingLeafStateTransitions) => {
           var ts = map.map[tokenId];
           if (!ts) {
             map.map[tokenId] = ts = [];
@@ -572,7 +574,7 @@ export class GrammarParsingLeafStateCommon {
               if (!rs) {
                 this.reduceActions.reducedNodes[shiftIndex] = rs = [];
               }
-        
+
               rs.push(new RTReduce(shiftIndex, r.item.node));
 
               break;
@@ -591,7 +593,7 @@ export class GrammarParsingLeafStateCommon {
 
   deser(index: number, buf: number[], pos: number): number {
 
-    var [trind, rdind] = [buf[pos++],buf[pos++]];
+    var [trind, rdind] = [buf[pos++], buf[pos++]];
 
     this.index = index;
 
@@ -627,7 +629,7 @@ export class GrammarParsingLeafState {
 
   common: GrammarParsingLeafStateCommon;
   reduceActions: GrammarParsingLeafStateReduces;
-  serializedTuple: [number,number,number];
+  serializedTuple: [number, number, number];
 
   constructor(startStateNode?: StateNodeWithPrefix, startingPoint?: PRef) {
     if (startStateNode) {
@@ -652,7 +654,7 @@ export class GrammarParsingLeafState {
           if (!rs) {
             this.reduceActions.reducedNodes[shiftIndex] = rs = [];
           }
-    
+
           rs.push(new RTReduce(shiftIndex, r.item.node));
 
           break;
@@ -660,6 +662,15 @@ export class GrammarParsingLeafState {
           throw new Error("223b  " + nextTerm);
       }
     });
+
+    if (this.startStateNode.common) {
+      this.common = Analysis.leafStateCommon(this.startStateNode.common.index);
+      if (!this.common.startStateNode) {
+        this.common.startStateNode = this.startStateNode.common;
+      }
+      // lazy
+      this.common.transitions;
+    }
   }
 
   ser(buf: number[]): void {
@@ -668,7 +679,7 @@ export class GrammarParsingLeafState {
 
   deser(index: number, buf: number[], pos: number): number {
 
-    var [spx, rdind, cmni] = [buf[pos++],buf[pos++],buf[pos++]];
+    var [spx, rdind, cmni] = [buf[pos++], buf[pos++], buf[pos++]];
 
     this.index = index;
 
@@ -698,15 +709,15 @@ export class GrammarParsingLeafState {
 
 
 class IncVariator {
-  
-  K:number = 0;
-  n:number = 0;
-  Ex:number = 0;
-  Ex2:number = 0;
-  
+
+  K: number = 0;
+  n: number = 0;
+  Ex: number = 0;
+  Ex2: number = 0;
+
   add(x: number) {
     if (this.n === 0) this.K = x;
-    this.n ++;
+    this.n++;
     this.Ex += x - this.K;
     this.Ex2 += (x - this.K) * (x - this.K);
   }
