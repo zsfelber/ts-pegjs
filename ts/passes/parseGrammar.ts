@@ -286,36 +286,27 @@ function generate(ast, ...args) {
     allstarts.splice(allstarts.indexOf(options.allowedStartRules[0]), 1);
     allstarts.unshift(options.allowedStartRules[0]);
 
-    const startingVars = Analysis.backup();
-
-    HyperG.totallyReinitializableTransaction(()=>{
-      startingVars.save();
-
-      console.log("FIRST ROUND PACKING ALL STATES ACROSS ALL STARTING RULES :");
-      console.log("----------------------------------------------------------");
-      allstarts.forEach(r=>{
-        var ptg = Analysis.parseTables[r];
-        var pt = ptg.generateParseTable();
-        pt.pack();
-      });
-    });
     var again = true;
-    for (var round=2; again; round++) {
-      HyperG.totallyReinitializableTransaction(()=>{
+    const startingVars = Analysis.backup();
+    for (var round = 1; again; round++) {
+      var again = true;
+      HyperG.totallyReinitializableTransaction(() => {
         startingVars.save();
 
-        console.log("ROUND "+round+" PACKING");
+        console.log("ROUND " + round + " PACKING");
         console.log("----------------------------------------------------------");
         again = false;
-        allstarts.forEach(r=>{
+        allstarts.forEach(r => {
           var ptg = Analysis.parseTables[r];
           var pt = ptg.generatedResult;
-          if (pt.packagain()) {
+          if (pt.pack()) {
             again = true;
+          } else {
+            console.log(r + " finished.")
           }
-        }
+        });
       });
-  }
+    }
     ast.allstarts = allstarts;
   }
 
