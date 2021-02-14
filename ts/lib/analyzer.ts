@@ -111,7 +111,7 @@ export namespace Analysis {
 
   export var stack: Backup[] = [];
 
-  export var serializedStateCommonsCnt = 0;
+  export var serializedStateCommonsCnt = 1;
 
   export function backup() {
     var backup = new Backup();
@@ -638,7 +638,7 @@ export class ParseTableGenerator {
       cntrules += this.newRuleReferences.length;
       var newRefs = this.newRuleReferences;
       this.newRuleReferences = [];
-      newRefs.forEach(ruleRef => ruleRef.lazyLinkRule());
+      newRefs.forEach(ruleRef => ruleRef.lazyBuildMonoRefTree());
     }
     //console.log("Loaded "+cntrules+" rules.");
 

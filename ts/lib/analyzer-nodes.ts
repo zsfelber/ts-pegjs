@@ -467,6 +467,13 @@ export class RuleRefTraverser extends RefTraverser {
     return true;
   }
 
+  lazyBuildMonoRefTree() {
+    var deferred = Analysis.deferredRules.indexOf(this.targetRule.rule) !== -1;
+    if (!deferred && this.targetRule.refs <= 1) {
+      this.lazyLinkRule();
+    }
+  }
+
   lazyLinkRule() {
     if (this.linkedRuleEntry) {
       return false;
@@ -533,7 +540,7 @@ export class RuleRefTraverser extends RefTraverser {
 
         // NOTE
 
-        // IT IS CUT off now by setting too high values !!!
+        // IT IS CUT off now  !!!
 
 
         //console.log("rule#" + this.targetRule.nodeIdx +"->"+ recursionCacheStack.indent+" "+this);
@@ -545,29 +552,31 @@ export class RuleRefTraverser extends RefTraverser {
         //       Though, recommended defining these manually in ellegant hotspots
         //       which not autodetectable but this safeguard is definitely required:
 
-        this.lazyLinkRule();
+        if (false) {
+          this.lazyLinkRule();
 
-        var cntNodesL1 = this.linkedRuleEntry.hubSize(1);
-        var cntNodesLN = this.linkedRuleEntry.hubSize(CNT_HUB_LEVELS);
-        var estCntNodes = Traversing.recursionCacheStack.parent.upwardBranchCnt *
-          cntNodesL1;
-        if (cntNodesLN >= LEV_CNT_LN_RULE && estCntNodes >= LEV_CNT_BRANCH_NODES) {
-          /*console.warn("Auto defer rule hub : " + this + " in " + inTraversion + "  its size L1:" + cntNodesL1+"   LN("+MAX_CNT_HUB_LEVELS+"):" + cntNodesLN+"  est.tot:"+estCntNodes);
-          if (!Analysis["consideredManualDefer"]) {
-            Analysis["consideredManualDefer"] = true;
-            console.warn(
-              "  Consider configuring deferred rules manually for your code esthetics.\n"+
-              "  This rule reference is made deferred automatically due to its large extent.\n"+
-              "  Analyzer could not simply generate everything to beneath one root, because\n"+
-              "  it will reach a prematurely rapid growth effect at some point in analyzing\n"+
-              "  time and output table size due to its exponential nature.\n");
-          }*/
+          var cntNodesL1 = this.linkedRuleEntry.hubSize(1);
+          var cntNodesLN = this.linkedRuleEntry.hubSize(CNT_HUB_LEVELS);
+          var estCntNodes = Traversing.recursionCacheStack.parent.upwardBranchCnt *
+            cntNodesL1;
+          if (cntNodesLN >= LEV_CNT_LN_RULE && estCntNodes >= LEV_CNT_BRANCH_NODES) {
+            /*console.warn("Auto defer rule hub : " + this + " in " + inTraversion + "  its size L1:" + cntNodesL1+"   LN("+MAX_CNT_HUB_LEVELS+"):" + cntNodesLN+"  est.tot:"+estCntNodes);
+            if (!Analysis["consideredManualDefer"]) {
+              Analysis["consideredManualDefer"] = true;
+              console.warn(
+                "  Consider configuring deferred rules manually for your code esthetics.\n"+
+                "  This rule reference is made deferred automatically due to its large extent.\n"+
+                "  Analyzer could not simply generate everything to beneath one root, because\n"+
+                "  it will reach a prematurely rapid growth effect at some point in analyzing\n"+
+                "  time and output table size due to its exponential nature.\n");
+            }*/
 
-          Analysis.deferredRules.push(this.targetRule.rule);
-          this.isDeferred = true;
-          delete Traversing.recursionCacheStack["rule_ref#" + this.targetRule.nodeIdx];
-          //} else if (estCntNodes>=20) {
-          //  console.log("Copied rule branch : " + ruledup+" cntNodes:"+estCntNodes);
+            Analysis.deferredRules.push(this.targetRule.rule);
+            this.isDeferred = true;
+            delete Traversing.recursionCacheStack["rule_ref#" + this.targetRule.nodeIdx];
+            //} else if (estCntNodes>=20) {
+            //  console.log("Copied rule branch : " + ruledup+" cntNodes:"+estCntNodes);
+          }
         }
 
       }

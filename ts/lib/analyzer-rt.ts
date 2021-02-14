@@ -492,7 +492,7 @@ export class GrammarParsingLeafStateCommon {
       this.index = startStateNode.index;
     }
     this.startStateNode = startStateNode;
-    this.reduceActions = new GrammarParsingLeafStateReduces();
+    this.reduceActions = null;
   }
 
   get transitions(): GrammarParsingLeafStateTransitions {
@@ -502,6 +502,7 @@ export class GrammarParsingLeafStateCommon {
 
         this._transitions = new GrammarParsingLeafStateTransitions();
         this.recursiveShifts = new GrammarParsingLeafStateTransitions();
+        this.reduceActions = new GrammarParsingLeafStateReduces();
 
         var shiftses: [string, RTShift[]][] = Object.entries(this.serialStateMap.map);
 
@@ -522,6 +523,7 @@ export class GrammarParsingLeafStateCommon {
         this._transitions = new GrammarParsingLeafStateTransitions();
         this.recursiveShifts = new GrammarParsingLeafStateTransitions();
         this.serialStateMap = new GrammarParsingLeafStateTransitions();
+        this.reduceActions = new GrammarParsingLeafStateReduces();
 
         const pushToMap = (s: Shifts, tokenId: number, map: GrammarParsingLeafStateTransitions) => {
           var ts = map.map[tokenId];
@@ -628,12 +630,14 @@ export class GrammarParsingLeafState {
     }
     this.startStateNode = startStateNode;
     this.startingPoint = startingPoint;
-    this.reduceActions = new GrammarParsingLeafStateReduces();
+    this.reduceActions = null;
   }
 
   lazy() {
 
     if (!this.reduceActions) {
+
+      this.reduceActions = new GrammarParsingLeafStateReduces();
 
       if (this.startStateNode) {
         var shiftIndex = 0;
