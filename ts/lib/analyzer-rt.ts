@@ -20,6 +20,7 @@ export class ParseTable {
   startingState: GrammarParsingLeafState;
   // Map  Leaf parser nodeTravId -> 
   readonly allStates: GrammarParsingLeafState[];
+  readonly myCommons: GrammarParsingLeafStateCommon[];
   packed = false;
 
 
@@ -28,6 +29,7 @@ export class ParseTable {
     this.rule = rule;
 
     this.allStates = [];
+    this.myCommons = [];
 
     if (g) {
       this.startingState = g.startingStateNode.generateState(this);
@@ -182,7 +184,7 @@ class CompressParseTable {
   prstate(state: GrammarParsingLeafState): boolean {
     if (state && !state.serializedTuple) {
       // lazy
-      state.lazy();
+      state.lazy(this.parseTable);
 
       var tots: [number, number, number, number] = [0, 0, 0, 0];
 
@@ -334,6 +336,45 @@ class CompressParseTable {
       return false;
     }
   }
+}
+
+
+class GenerateParseTableRuleBoxes {
+
+  recursionChecked: {[index:string]: boolean} = {};
+  parseTable: ParseTable;
+
+  constructor(parseTable: ParseTable) {
+    this.parseTable = parseTable;
+  }
+
+  generate() {
+
+    this.parseTable.allStates.forEach(state => {
+      this.prstate(state);
+    });
+
+  }
+  
+  prstate(state: GrammarParsingLeafState) {
+    this.prcmn(state.common);
+  }
+
+  prcmn(state: GrammarParsingLeafStateCommon) {
+    // lazy
+    state.transitions;
+    this.tra(state.serialStateMap);
+  }
+
+  tra(trans: GrammarParsingLeafStateTransitions) {
+
+    var recursiveShifts = trans.map[0];
+
+    recursiveShifts.forEach(shift=>{
+
+    });
+  }
+
 }
 
 
@@ -709,7 +750,7 @@ export class GrammarParsingLeafState {
     this.reduceActions = null;
   }
 
-  lazy() {
+  lazy(parseTable: ParseTable) {
 
     if (!this.reduceActions) {
 
@@ -737,7 +778,7 @@ export class GrammarParsingLeafState {
           }
         });
         if (this.startStateNode.common) {
-          this.common = Analysis.leafStateCommon(this.startStateNode.common.index);
+          this.common = Analysis.leafStateCommon(parseTable, this.startStateNode.common.index);
           if (!this.common.startStateNode) {
             this.common.startStateNode = this.startStateNode.common;
           }

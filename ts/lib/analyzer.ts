@@ -146,12 +146,13 @@ export namespace Analysis {
     return emptyBackup;
   }
 
-  export function leafStateCommon(index: number) {
+  export function leafStateCommon(parseTable: ParseTable, index: number) {
     var ls = leafStateCommons[index];
     if (!ls) {
       leafStateCommons[index] = ls = new GrammarParsingLeafStateCommon();
       ls.index = index;
     }
+    parseTable.myCommons[index] = ls;
     return ls;
   }
 
@@ -330,7 +331,14 @@ export abstract class StateNodeCommon {
     parseTable.allLeafStateCommons[this.index] = this;
   }
 
-  abstract generateState(parseTable: ParseTable): GrammarParsingLeafStateCommon;
+  generateState(parseTable: ParseTable) {
+    var state = Analysis.leafStateCommon(parseTable, this.index);
+    if (!state.startStateNode) {
+      state.startStateNode = this;
+      state.index = this.index;
+    }
+    return state;
+  }
 
   toString() {
     return "C#" + this.index + "->" + ("->" + this.shiftsAndReduces.length + "s/r");
@@ -340,11 +348,6 @@ export abstract class StateNodeCommon {
 
 class RootStateNodeCommon extends StateNodeCommon {
 
-  generateState(parseTable: ParseTable) {
-    var result = new GrammarParsingLeafStateCommon(this);
-    return result;
-  }
-
   toString() {
     return "start C#" + this.index + ("->" + this.shiftsAndReduces.length);
   }
@@ -352,14 +355,6 @@ class RootStateNodeCommon extends StateNodeCommon {
 
 export class LeafStateNodeCommon extends StateNodeCommon {
 
-  generateState(parseTable: ParseTable) {
-    var state = Analysis.leafStateCommon(this.index);
-    if (!state.startStateNode) {
-      state.startStateNode = this;
-      state.index = this.index;
-    }
-    return state;
-  }
 }
 
 export abstract class StateNodeWithPrefix {
