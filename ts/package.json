@@ -1,0 +1,7 @@
+{
+  "it is just a fake package.json because of tsc output dir simply doesn't work at all ":
+  "and we mapped it to /build and copied manually to ../  so it was required to do",
+  "for generateTs.ts": "this file mapping trick of ../../../package.json -> ../../package.json",
+
+  "version": "Moby Dick"
+}

@@ -22,7 +22,9 @@ async function doit(src, dest, srcBase, then) {
 
 async function doall() {
 
-  await doit('build/ts/**/*.js*', '.');
+  // NOTE discard fake package.json
+  await doit('build/ts/**/*.js', '.');
+  await doit('build/ts/**/*.js.map', '.');
 
   fs.rmdirSync("build/", { recursive: true });
 }

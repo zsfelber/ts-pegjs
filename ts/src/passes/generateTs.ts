@@ -5,7 +5,7 @@
 // Adapted from base: (original file: generate-bycode.js for codegen JS)
 // Adapted for Typescript codegen (c) 2017, Pedro J. Molina
 
-import * as pack from '../../../package.json';
+import * as pack from '../../package.json';
 import * as ppack from 'pegjs/package.json';
 import {
   JSstringEscape, CodeTblToHex, PGrammar, PRule, PFunction,
