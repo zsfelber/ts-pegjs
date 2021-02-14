@@ -22,9 +22,9 @@ async function doit(src, dest, srcBase, then) {
 
 async function doall() {
 
-    await doit('build/**/*.js', '.');
+  await doit('build/ts/**/*.js*', '.');
 
-
+  fs.rmdirSync("build/", { recursive: true });
 }
 
 doall();
