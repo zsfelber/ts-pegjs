@@ -8,6 +8,7 @@ import {
   PRuleRef, PSemanticAnd, PSemanticNot, PTerminal,
   PTerminalRef, PValueNode, PConss, StrMapLike
 } from '../lib';
+import { TypeFlags } from "typescript";
 var stringifySafe = require('json-stringify-safe');
 
 var options;
@@ -284,6 +285,37 @@ function generate(ast, ...args) {
     allstarts.sort();
     allstarts.splice(allstarts.indexOf(options.allowedStartRules[0]), 1);
     allstarts.unshift(options.allowedStartRules[0]);
+
+    const startingVars = Analysis.backup();
+
+    HyperG.totallyReinitializableTransaction(()=>{
+      startingVars.save();
+
+      console.log("FIRST ROUND PACKING ALL STATES ACROSS ALL STARTING RULES :");
+      console.log("----------------------------------------------------------");
+      allstarts.forEach(r=>{
+        var ptg = Analysis.parseTables[r];
+        var pt = ptg.generateParseTable();
+        pt.pack();
+      });
+    });
+    var again = true;
+    for (var round=2; again; round++) {
+      HyperG.totallyReinitializableTransaction(()=>{
+        startingVars.save();
+
+        console.log("ROUND "+round+" PACKING");
+        console.log("----------------------------------------------------------");
+        again = false;
+        allstarts.forEach(r=>{
+          var ptg = Analysis.parseTables[r];
+          var pt = ptg.generatedResult;
+          if (pt.packagain()) {
+            again = true;
+          }
+        }
+      });
+  }
     ast.allstarts = allstarts;
   }
 

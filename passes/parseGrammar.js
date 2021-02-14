@@ -243,6 +243,11 @@ function generate(ast) {
         allstarts.sort();
         allstarts.splice(allstarts.indexOf(options.allowedStartRules[0]), 1);
         allstarts.unshift(options.allowedStartRules[0]);
+        allstarts.forEach(function (r) {
+            var ptg = analyzer_1.Analysis.parseTables[r];
+            var pt = ptg.generateParseTable();
+            pt.pack();
+        });
         ast.allstarts = allstarts;
     }
     parseGrammarAst(null, ast);

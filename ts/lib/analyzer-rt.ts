@@ -19,7 +19,7 @@ export class ParseTable {
   startingState: GrammarParsingLeafState;
   // Map  Leaf parser nodeTravId -> 
   readonly allStates: GrammarParsingLeafState[];
-
+  packed = false;
 
   constructor(rule: PRule, startingState: GrammarParsingLeafState, allStates: GrammarParsingLeafState[]) {
     this.rule = rule;
@@ -30,165 +30,18 @@ export class ParseTable {
 
   pack() {
 
-    if (this.allStates.length > Analysis.uniformMaxStateId) {
-      throw new Error("State id overflow. Grammar too big. uniformMaxStateId:" + Analysis.uniformMaxStateId + "  Too many states:" + this.allStates.length);
+    if (!this.packed) {
+
+      new CompressParseTable(this).pack();
+
+      this.packed = true;
     }
+  }
 
-    // !
-    Analysis.leafStates = [];
+  packagain() {
 
-    var t0 = Object.keys(Analysis.serializedTransitions).length;
-    var r0 = Object.keys(Analysis.serializedReduces).length;
-    var sc0 = Object.keys(Analysis.serializedStateCommons).length;
-
-    // indexes
-    // 1 based
-    // 0 means empty
-    var transidx = t0 + 1;
-    var redidx = r0 + 1;
-    var cmnidx = sc0 + 1;
-
-
-    prstate(this.startingState);
-    this.allStates.forEach(state => {
-      prstate(state);
-    });
-
-    var tp = Object.keys(Analysis.serializedTuples).length;
-
-    const sts = 1 + this.allStates.length;
-    Analysis.totalStates += sts;
-    console.log(this.rule.rule + "   states:" + (sts) + "     Total: [ total states:" + Analysis.totalStates + "  distinct:" + (tp) + "    total states/common:" + varShReqs.n + "   distinct:" + (cmnidx) + "    distinct transitions:" + (transidx) + "    distinct reduces:" + (redidx) + "   jmp.tokens:" + varTkns.mean.toFixed(1) + "+-" + varTkns.sqrtVariance.toFixed(1) + "   shift/tkns:" + varShs.mean.toFixed(1) + "+-" + varShs.sqrtVariance.toFixed(1) + "   rec.shift:" + varShReqs.mean.toFixed(1) + "+-" + varShReqs.sqrtVariance.toFixed(1) + "  reduces:" + varRds.mean.toFixed(1) + "+-" + varRds.sqrtVariance.toFixed(1) + " ]");
-
-    function prstate(state: GrammarParsingLeafState) {
-      // lazy
-      state.lazy();
-
-      var tots: [number, number, number, number] = [0, 0, 0, 0];
-
-      prscmn(state.common);
-
-      var rs1 = red(state.reduceActions);
-      varRds.add(rs1);
-
-      var spidx = state.startingPoint ? state.startingPoint.nodeIdx : 0;
-      var stcmidx = state.common ? state.common.index : 0;
-
-      var tuple: [number, number, number] = [spidx, state.reduceActions.index, stcmidx];
-      var tkey = CodeTblToHex(tuple).join("");
-
-      var tuple0: [number, number, number] = Analysis.serializedTuples[tkey] as any;
-      if (tuple0) {
-        state.serializedTuple = tuple0;
-      } else {
-        state.serializedTuple = tuple;
-        Analysis.serializedTuples[tkey] = tuple as any;
-      }
-
-    }
-
-    function prscmn(state: GrammarParsingLeafStateCommon) {
-      if (state && !state.serializedTuple) {
-        // lazy
-        state.transitions;
-
-        var tots: [number, number, number, number] = [0, 0, 0, 0];
-
-        tra(state.serialStateMap, tots);
-        var [nonreq, nonreqtot, req, reqtot] = tots;
-
-        if (nonreq) {
-          varTkns.add(nonreq);
-          varShs.add(nonreqtot / nonreq);
-        }
-        if (req) {
-          if (req !== 1) {
-            throw new Error("req !== 1  " + req + " !== " + 1);
-          }
-        }
-        varShReqs.add(reqtot);
-
-        var rs1 = red(state.reduceActions);
-        varRds.add(rs1);
-
-        var tuple: [number, number] = [state.serialStateMap.index, state.reduceActions.index];
-        var tkey = CodeTblToHex(tuple).join("");
-
-        var state0 = Analysis.serializedStateCommons[tkey];
-        if (state0) {
-          state.index = state0.index;
-          state.serializedTuple = tuple;
-        } else {
-          state.index = cmnidx++;
-          state.serializedTuple = tuple;
-          Analysis.serializedStateCommons[tkey] = state;
-        }
-      }
-    }
-
-    function tra(trans: GrammarParsingLeafStateTransitions, maplen: [number, number, number, number]) {
-      var shiftses: [string, RTShift[]][] = Object.entries(trans.map);
-      if (shiftses.length) {
-        var nonreq = 0;
-        var nonreqtot = 0;
-        var req = 0;
-        var reqtot = 0;
-        shiftses.forEach(([key, shs]) => {
-          var tki = Number(key);
-          if (tki) {
-            nonreq++;
-            nonreqtot += shs.length;
-          } else {
-            req++;
-            reqtot += shs.length;
-          }
-        });
-        maplen[0] = nonreq;
-        maplen[1] = nonreqtot;
-        maplen[2] = req;
-        maplen[3] = reqtot;
-
-        var buf = [];
-        trans.alreadySerialized = null;
-        trans.ser(buf);
-        trans.alreadySerialized = buf;
-
-        var encoded = CodeTblToHex(buf).join("");
-
-        var trans0 = Analysis.serializedTransitions[encoded];
-        if (trans0) {
-          trans.index = trans0.index;
-        } else {
-          trans.index = transidx++;
-          Analysis.serializedTransitions[encoded] = trans;
-        }
-      } else {
-        trans.index = 0;
-      }
-      return shiftses.length;
-    }
-
-    function red(rr: GrammarParsingLeafStateReduces) {
-      var rlen = rr.reducedNodes.length;
-      if (rlen) {
-        var buf = [];
-        rr.alreadySerialized = null;
-        rr.ser(buf);
-        rr.alreadySerialized = buf;
-        var encred = CodeTblToHex(buf).join("");
-
-        var rr0 = Analysis.serializedReduces[encred];
-        if (rr0) {
-          rr.index = rr0.index;
-        } else {
-          rr.index = redidx++;
-          Analysis.serializedReduces[encred] = rr;
-        }
-      } else {
-        rr.index = 0;
-      }
-      return rlen;
-    }
+    var comp = new ReindexAndCompressMoreParseTable(this);
+    comp.pack();
   }
 
   static deserialize(rule: PRule, buf: number[]) {
@@ -261,21 +114,292 @@ export class ParseTable {
   }
 }
 
+
+
+
+class CompressParseTable {
+
+  parseTable: ParseTable;
+  t0: number;
+  r0: number;
+  sl0: number;
+  sc0: number;
+  transidx: number;
+  redidx: number;
+  lfidx: number;
+  cmnidx: number;
+
+  constructor(parseTable: ParseTable) {
+    this.parseTable = parseTable;
+
+    if (parseTable.allStates.length > Analysis.uniformMaxStateId) {
+      throw new Error("State id overflow. Grammar too big. uniformMaxStateId:" + Analysis.uniformMaxStateId + "  Too many states:" + parseTable.allStates.length);
+    }
+
+  }
+
+  pack() {
+
+    // !
+    Analysis.leafStates = [];
+
+    this.t0 = Object.keys(Analysis.serializedTransitions).length;
+    this.r0 = Object.keys(Analysis.serializedReduces).length;
+    this.sl0 = Object.keys(Analysis.serializedLeafStates).length;
+    this.sc0 = Object.keys(Analysis.serializedStateCommons).length;
+
+    // indexes
+    // 1 based
+    // 0 means empty
+    this.transidx = this.t0 + 1;
+    this.redidx = this.r0 + 1;
+    this.lfidx = this.sl0 + 1;
+    this.cmnidx = this.sc0 + 1;
+
+
+    this.prstate(this.parseTable.startingState);
+    this.parseTable.allStates.forEach(state => {
+      this.prstate(state);
+    });
+
+    const sts = 1 + this.parseTable.allStates.length;
+    Analysis.totalStates += sts;
+
+    console.log(this.parseTable.rule.rule + "   states:" + (sts) + "     Total: [ total states:" + Analysis.totalStates + "  distinct:" + (this.lfidx) + "    total states/common:" + varShReqs.n + "   distinct:" + (this.cmnidx) + "    distinct transitions:" + (this.transidx) + "    distinct reduces:" + (this.redidx) + "   jmp.tokens:" + varTkns.mean.toFixed(1) + "+-" + varTkns.sqrtVariance.toFixed(1) + "   shift/tkns:" + varShs.mean.toFixed(1) + "+-" + varShs.sqrtVariance.toFixed(1) + "   rec.shift:" + varShReqs.mean.toFixed(1) + "+-" + varShReqs.sqrtVariance.toFixed(1) + "  reduces:" + varRds.mean.toFixed(1) + "+-" + varRds.sqrtVariance.toFixed(1) + " ]");
+
+  }
+
+  prstate(state: GrammarParsingLeafState) {
+    if (state && !state.serializedTuple) {
+        // lazy
+      state.lazy();
+
+      var tots: [number, number, number, number] = [0, 0, 0, 0];
+
+      var changed = this.prscmn(state.common);
+
+      var rs1:[number] = [0];
+      changed = this.red(state.reduceActions, rs1) || changed;
+      varRds.add(rs1[0]);
+
+      var spidx = state.startingPoint ? state.startingPoint.nodeIdx : 0;
+      var stcmidx = state.common ? state.common.index : 0;
+
+      var tuple: [number, number, number] = [spidx, state.reduceActions.index, stcmidx];
+      var tkey = CodeTblToHex(tuple).join("");
+
+      var state0 = Analysis.serializedLeafStates[tkey];
+      if (state0) {
+        // NOTE we keep old indeces for now because we should update all at once
+        // on all dependent objects (like RTShift-s)
+        state.packedIndex = state0.packedIndex;
+        state.serializedTuple = tuple;
+        return true;
+      } else {
+        // NOTE we keep old indeces for now because we should update all at once
+        // on all dependent objects (like RTShift-s)
+        state.packedIndex = this.lfidx++;
+        state.serializedTuple = tuple;
+        Analysis.serializedLeafStates[tkey] = state;
+        return changed;
+      }
+    } else {
+      return false;
+    }
+  }
+
+  prscmn(state: GrammarParsingLeafStateCommon) {
+    if (state && !state.serializedTuple) {
+      // lazy
+      state.transitions;
+
+      var tots: [number, number, number, number] = [0, 0, 0, 0];
+
+      var changed = this.tra(state.serialStateMap, tots);
+      var [nonreq, nonreqtot, req, reqtot] = tots;
+
+      if (nonreq) {
+        varTkns.add(nonreq);
+        varShs.add(nonreqtot / nonreq);
+      }
+      if (req) {
+        if (req !== 1) {
+          throw new Error("req !== 1  " + req + " !== " + 1);
+        }
+      }
+      varShReqs.add(reqtot);
+
+      var rs1:[number] = [0];
+      changed = this.red(state.reduceActions, rs1) || changed;
+      varRds.add(rs1[0]);
+
+      var tuple: [number, number] = [state.serialStateMap.index, state.reduceActions.index];
+      var tkey = CodeTblToHex(tuple).join("");
+
+      var state0 = Analysis.serializedStateCommons[tkey];
+      if (state0) {
+        state.index = state0.index;
+        state.serializedTuple = tuple;
+        return true;
+      } else {
+        state.index = this.cmnidx++;
+        state.serializedTuple = tuple;
+        Analysis.serializedStateCommons[tkey] = state;
+        return changed;
+      }
+    } else {
+      return false;
+    }
+  }
+
+  tra(trans: GrammarParsingLeafStateTransitions, maplen: [number, number, number, number]) {
+    var shiftses: [string, RTShift[]][] = Object.entries(trans.map);
+    if (shiftses.length) {
+      var nonreq = 0;
+      var nonreqtot = 0;
+      var req = 0;
+      var reqtot = 0;
+      shiftses.forEach(([key, shs]) => {
+        var tki = Number(key);
+        if (tki) {
+          nonreq++;
+          nonreqtot += shs.length;
+        } else {
+          req++;
+          reqtot += shs.length;
+        }
+      });
+      maplen[0] = nonreq;
+      maplen[1] = nonreqtot;
+      maplen[2] = req;
+      maplen[3] = reqtot;
+
+      var buf = [];
+      trans.alreadySerialized = null;
+      trans.ser(buf);
+      trans.alreadySerialized = buf;
+
+      var encoded = CodeTblToHex(buf).join("");
+
+      var trans0 = Analysis.serializedTransitions[encoded];
+      if (trans0) {
+        trans.index = trans0.index;
+        return true;
+      } else {
+        trans.index = this.transidx++;
+        Analysis.serializedTransitions[encoded] = trans;
+        return false;
+      }
+    } else if (trans.index !== 0) {
+      trans.index = 0;
+      return true;
+    } else {
+      return false;
+    }
+    return shiftses.length;
+  }
+
+  red(rr: GrammarParsingLeafStateReduces, maplen: [number]) {
+    var rlen = rr.reducedNodes.length;
+    maplen[0] = rlen;
+    if (rlen) {
+      var buf = [];
+      rr.alreadySerialized = null;
+      rr.ser(buf);
+      rr.alreadySerialized = buf;
+      var encred = CodeTblToHex(buf).join("");
+
+      var rr0 = Analysis.serializedReduces[encred];
+      if (rr0) {
+        rr.index = rr0.index;
+        return true;
+      } else {
+        rr.index = this.redidx++;
+        Analysis.serializedReduces[encred] = rr;
+        return false;
+      }
+    } else if (rr.index !== 0) {
+      rr.index = 0;
+      return true;
+    } else {
+      return false;
+    }
+  }
+}
+
+class ReindexAndCompressMoreParseTable {
+
+  parseTable: ParseTable;
+  phase1Again: CompressParseTable;
+
+  constructor(parseTable: ParseTable) {
+    if (!parseTable.packed) {
+      throw new Error("Not packed");
+    }
+    this.parseTable = parseTable;
+    this.phase1Again = new CompressParseTable(parseTable);
+  }
+
+
+  pack() {
+
+    this.prstate(this.parseTable.startingState);
+    this.parseTable.allStates.forEach(state => {
+      this.prstate(state);
+    });
+    this.parseTable.allStates.forEach(state => {
+      state.index = state.packedIndex;
+    });
+
+    this.phase1Again.pack();
+
+  }
+
+  prstate(state: GrammarParsingLeafState) {
+
+    this.prscmn(state.common);
+  }
+
+  prscmn(state: GrammarParsingLeafStateCommon) {
+    if (state) {
+      this.tra(state.serialStateMap);
+    }
+  }
+
+  tra(trans: GrammarParsingLeafStateTransitions) {
+    var shiftses: [string, RTShift[]][] = Object.entries(trans.map);
+    if (shiftses.length) {
+      shiftses.forEach(([key, shs]) => {
+        shs.forEach(sh=>{
+          var state = this.parseTable.allStates[sh.toStateIndex];
+          (sh as any).toStateIndex = state.packedIndex;
+        })
+      });
+    } else {
+      trans.index = 0;
+    }
+    return shiftses.length;
+  }
+
+}
+
+
+
 export class RTShift {
 
   readonly shiftIndex: number;
 
-  readonly toState: GrammarParsingLeafState;
+  readonly toStateIndex: number;
 
-  constructor(shiftIndex: number, toState: GrammarParsingLeafState) {
+  constructor(shiftIndex: number, toStateIndex: number) {
     this.shiftIndex = shiftIndex;
-    this.toState = toState;
+    this.toStateIndex = toStateIndex;
   }
 
   diagnosticEqualityCheck(table: RTShift) {
     if (this.shiftIndex !== table.shiftIndex) {
       return debuggerTrap(false);
-    } else if (this.toState !== table.toState) {
+    } else if (this.toStateIndex !== table.toStateIndex) {
       return debuggerTrap(false);
     }
     return debuggerTrap(true);
@@ -318,8 +442,7 @@ export class GrammarParsingLeafStateTransitions {
     es.forEach(([key, shifts]: [string, RTShift[]]) => {
       var tokenId = Number(key);
       shifts.forEach(shift => {
-        var dti = shift.toState.index;
-        ord.push([shift.shiftIndex, dti, tokenId]);
+        ord.push([shift.shiftIndex, shift.toStateIndex, tokenId]);
       });
     });
     ord.sort((a, b) => {
@@ -365,8 +488,7 @@ export class GrammarParsingLeafStateTransitions {
         this.map[tki] = shs = [];
       }
 
-      var state = Analysis.leafState(sti);
-      var shift = new RTShift(idx, state)
+      var shift = new RTShift(idx, sti)
       shs.push(shift);
     }
     return pos;
@@ -530,7 +652,7 @@ export class GrammarParsingLeafStateCommon {
           if (!ts) {
             map.map[tokenId] = ts = [];
           }
-          var shift = new RTShift(shiftIndex, s.item.stateNode.generateState());
+          var shift = new RTShift(shiftIndex, s.item.stateNode.index);
           ts.push(shift)
         };
 
@@ -616,6 +738,7 @@ export class GrammarParsingLeafStateCommon {
 export class GrammarParsingLeafState {
 
   index: number;
+  packedIndex: number;
 
   startingPoint: PRef;
   startStateNode: StateNodeWithPrefix;

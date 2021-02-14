@@ -38,11 +38,12 @@ export namespace Analysis {
     leafStateReduceTables: GrammarParsingLeafStateReduces[] = [];
     maxTokenId: number;
     totalStates = 0;
+    serializedLeafStates: {[index: string]:GrammarParsingLeafState} = {};
+    serializedStateCommons: {[index: string]:GrammarParsingLeafStateCommon} = {};
     serializedTransitions: {[index: string]:GrammarParsingLeafStateTransitions} = {};
     serializedReduces: {[index: string]:GrammarParsingLeafStateReduces} = {};
-    serializedTuples: {[index: string]:[number,number,number,number,number,number]} = {};
     stack: Backup[] = [];
-    serializedStateCommonsCnt = 0;
+    serializedStateCommonsCnt = 1;
 
 
     load() {
@@ -54,9 +55,10 @@ export namespace Analysis {
       this.leafStateReduceTables = leafStateReduceTables;
       this.maxTokenId = maxTokenId;
       this.totalStates = totalStates;
+      this.serializedLeafStates = serializedLeafStates;
+      this.serializedStateCommons = serializedStateCommons;
       this.serializedTransitions = serializedTransitions;
       this.serializedReduces = serializedReduces;
-      this.serializedTuples = serializedTuples;
       this.stack = stack;
       this.serializedStateCommonsCnt = serializedStateCommonsCnt;
   
@@ -70,9 +72,10 @@ export namespace Analysis {
       leafStateReduceTables = this.leafStateReduceTables;
       maxTokenId = this.maxTokenId;
       totalStates = this.totalStates;
+      serializedLeafStates = this.serializedLeafStates;
+      serializedStateCommons = this.serializedStateCommons;
       serializedTransitions = this.serializedTransitions;
       serializedReduces = this.serializedReduces;
-      serializedTuples = this.serializedTuples;
       stack = this.stack;
       serializedStateCommonsCnt = this.serializedStateCommonsCnt;
   
@@ -101,17 +104,19 @@ export namespace Analysis {
 
   export const uniformMaxStateId = 0xe000;
 
+  export var serializedLeafStates: {[index: string]:GrammarParsingLeafState} = {};
+
   export var serializedStateCommons: {[index: string]:GrammarParsingLeafStateCommon} = {};
 
   export var serializedTransitions: {[index: string]:GrammarParsingLeafStateTransitions} = {};
 
   export var serializedReduces: {[index: string]:GrammarParsingLeafStateReduces} = {};
 
-  export var serializedTuples: {[index: string]:[number,number,number,number,number,number]} = {};
-
   export var stack: Backup[] = [];
 
   export var serializedStateCommonsCnt = 1;
+
+  export var parseTables: StrMapLike<ParseTableGenerator> = {};
 
   export function backup() {
     var backup = new Backup();
@@ -145,11 +150,15 @@ export namespace Analysis {
   export function writeAllSerializedTables(buf: number[]) {
     var strans = Object.values(serializedTransitions);
     var sreds = Object.values(serializedReduces);
+    var slf = Object.values(serializedLeafStates);
     var scmn = Object.values(serializedStateCommons);
     strans.sort((a,b)=>{
       return a.index-b.index;
     });
     sreds.sort((a,b)=>{
+      return a.index-b.index;
+    });
+    slf.sort((a,b)=>{
       return a.index-b.index;
     });
     scmn.sort((a,b)=>{
@@ -158,6 +167,7 @@ export namespace Analysis {
 
     buf.push(strans.length);
     buf.push(sreds.length);
+    buf.push(slf.length);
     buf.push(scmn.length);
 
     var i = 1;
@@ -171,6 +181,14 @@ export namespace Analysis {
     var i = 1;
     sreds.forEach(s=>{
       s.alreadySerialized.forEach(num=>buf.push(num));
+      if (s.index !== i) {
+        throw new Error("s.index !== i   "+s.index+" !== "+i);
+      }
+      i++;
+    });
+    var i = 1;
+    slf.forEach(s=>{
+      s.serializedTuple.forEach(num=>buf.push(num));
       if (s.index !== i) {
         throw new Error("s.index !== i   "+s.index+" !== "+i);
       }
@@ -339,6 +357,9 @@ export abstract class StateNodeWithPrefix {
   common: StateNodeCommon;
 
   index: number;
+
+  constructor() {
+  }
 
   readonly reduces: Reduce[] = [];
 
@@ -614,12 +635,14 @@ export class ParseTableGenerator {
 
   // 1 based index
   cntStates = 1;
+  
+  generatedResult: ParseTable;
 
   static createForRule(rule: PRule) {
-    var parseTable: ParseTableGenerator = Factory.parseTables[rule.rule];
+    var parseTable: ParseTableGenerator = Analysis.parseTables[rule.rule];
     if (!parseTable) {
       parseTable = new ParseTableGenerator(rule);
-      Factory.parseTables[rule.rule] = parseTable;
+      Analysis.parseTables[rule.rule] = parseTable;
     }
     return parseTable;
   }
@@ -684,10 +707,12 @@ export class ParseTableGenerator {
   }
 
   generateParseTable() {
-    var start = this.startingStateNode.generateState();
-    var all = this.allLeafStateNodes.map(s => s.generateState());
-    var result = new ParseTable(this.rule, start, all);
-    return result;
+    if (!this.generatedResult) {
+      var start = this.startingStateNode.generateState();
+      var all = this.allLeafStateNodes.map(s => s.generateState());
+      this.generatedResult = new ParseTable(this.rule, start, all);
+    }
+    return this.generatedResult;
   }
 
 }

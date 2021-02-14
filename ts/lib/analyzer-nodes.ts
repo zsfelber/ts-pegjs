@@ -5,8 +5,6 @@ import { TraversionControl, TraversionCache, TraversionItemKind, TraversionPurpo
 
 export namespace Factory {
 
-  export var parseTables: StrMapLike<ParseTableGenerator> = {};
-
   export function createTraverser(parser: ParseTableGenerator, parent: RuleElementTraverser, node: PNode) {
     switch (node.kind) {
       case PNodeKind.CHOICE:
