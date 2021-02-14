@@ -1,7 +1,7 @@
 {
     "compilerOptions": {
         "experimentalDecorators": true,
-        "outDir": "src/passes",
+        "rootDir": ".",
         "sourceMap": true,
         "target": "ES5",
         "resolveJsonModule": true
