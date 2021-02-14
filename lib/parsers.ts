@@ -77,12 +77,6 @@ function debuggerTrap<T>(value:T):T {
 }
 
 
-export function countRuleRefs() {
-  HyperG.ruleRefTable.forEach(rr=>{
-    HyperG.ruleTable[rr.ruleIndex].refs++;
-  });
-}
-
 export abstract class PNode {
   parent: PNode;
   kind: PNodeKind;

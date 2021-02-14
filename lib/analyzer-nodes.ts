@@ -257,7 +257,7 @@ export class SequenceTraverser extends RuleElementTraverser {
                 inTraversion.execute(TraversionItemActionKind.STOP, step);
               } else {
                 // Creating the common section from this node the first time now:
-                step.child.common = new LeafStateNodeCommon();
+                step.child.common = new LeafStateNodeCommon(this.parser);
                 cache.intoState.common = step.child.common;
 
                 inTraversion.execute(TraversionItemActionKind.STEP_PURPOSE, step);
@@ -379,7 +379,7 @@ export class OrMoreTraverser extends SingleCollectionTraverser {
               traverseLocals.steppingFromInsideThisSequence = true;
 
               // Creating the common section from this node the first time now:
-              this.common = new LeafStateNodeCommon();
+              this.common = new LeafStateNodeCommon(this.parser);
               cache.intoState.common = this.common;
 
               inTraversion.execute(TraversionItemActionKind.RESET_POSITION, step);

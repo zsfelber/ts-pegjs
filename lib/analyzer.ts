@@ -297,8 +297,9 @@ export abstract class StateNodeCommon {
   // Epsilon REDUCEs
   readonly shiftsAndReduces: ShiftReduce[] = [];
 
-  constructor() {
+  constructor(parseTable: ParseTableGenerator) {
     this.index = Analysis.serializedStateCommonsCnt++;
+    parseTable.allLeafStateCommons[this.index] = this;
   }
 
   abstract generateState(): GrammarParsingLeafStateCommon;
@@ -310,10 +311,6 @@ export abstract class StateNodeCommon {
 
 
 class RootStateNodeCommon extends StateNodeCommon {
-
-  constructor() {
-    super();
-  }
 
   generateState() {
     var result = new GrammarParsingLeafStateCommon(this);
@@ -362,7 +359,7 @@ class RootStateNodeWithPrefix extends StateNodeWithPrefix {
   constructor(rule: EntryPointTraverser) {
     super();
     this.rule = rule;
-    this.common = new RootStateNodeCommon();
+    this.common = new RootStateNodeCommon(rule.parser);
   }
 
   get traverser(): RuleElementTraverser {
@@ -610,6 +607,7 @@ export class ParseTableGenerator {
 
   // the state nodes 
   allLeafStateNodes: LeafStateNodeWithPrefix[] = [];
+  allLeafStateCommons: LeafStateNodeCommon[] = [];
 
   entryPoints: StrMapLike<EntryPointTraverser> = {};
   jumperStates: NumMapLike<number> = [];
@@ -667,6 +665,7 @@ export class ParseTableGenerator {
     this.allLeafStateNodes.forEach(state => {
       state.generateTransitions(this, this.theTraversion);
     });
+
 
     //var result = new ParseTable(rule, step0, Factory.allTerminals, Factory.maxTokenId);
     //, startingState : GrammarAnalysisState, allTerminals: TerminalRefTraverser[], maxTokenId: number

@@ -2,7 +2,6 @@ import * as fs from "fs";
 import { visitor } from "pegjs/lib/compiler";
 import { Analysis, ParseTableGenerator } from '../../lib/analyzer';
 import { HyperG } from '../../lib';
-import { countRuleRefs } from '../../lib/parsers';
 import {
   PActContainer, PActionKind, PFunction,
   PGrammar, PLogicNode, PNode, PNodeKind, PRule,
@@ -208,7 +207,7 @@ function generate(ast, ...args) {
     HyperG.ruleRefTable = ctx.ruleRefs;
     Analysis.maxTokenId = maxTknId;
 
-    countRuleRefs();
+    HyperG.countRuleRefs();
   }
 
   function createParseTables() {

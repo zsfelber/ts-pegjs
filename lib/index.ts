@@ -99,6 +99,16 @@ export namespace HyperG {
       e.save();
     }
   }
+
+  export function countRuleRefs() {
+    ruleTable.forEach(r=>{
+      r.refs = 0;
+    });
+    ruleRefTable.forEach(rr=>{
+      ruleTable[rr.ruleIndex].refs++;
+    });
+  }
+  
 }
 
 export interface IFailure {
@@ -426,6 +436,8 @@ export abstract class HyperGParseStream<T extends IToken> {
   constructor(tokens: T[], ruleNames: string[]) {
     this.tokens = tokens;
     this.ruleNames = ruleNames;
+    this.currPos = 0;
+    this.savedPos = 0;
   }
 
   tokenAt(pos: number) {

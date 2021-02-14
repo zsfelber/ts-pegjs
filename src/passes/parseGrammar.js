@@ -3,7 +3,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 var compiler_1 = require("pegjs/lib/compiler");
 var analyzer_1 = require("../../lib/analyzer");
 var lib_1 = require("../../lib");
-var parsers_1 = require("../../lib/parsers");
 var lib_2 = require("../../lib");
 var stringifySafe = require('json-stringify-safe');
 var options;
@@ -175,7 +174,7 @@ function generate(ast) {
         lib_1.HyperG.ruleTable = ctx.grammar.rules;
         lib_1.HyperG.ruleRefTable = ctx.ruleRefs;
         analyzer_1.Analysis.maxTokenId = maxTknId;
-        parsers_1.countRuleRefs();
+        lib_1.HyperG.countRuleRefs();
     }
     function createParseTables() {
         var allstarts = [];
