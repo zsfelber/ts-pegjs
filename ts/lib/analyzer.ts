@@ -34,6 +34,7 @@ export namespace Analysis {
     deferredRules = [];
     localDeferredRules = [];
     leafStates: GrammarParsingLeafState[] = [];
+    leafStateCommons: GrammarParsingLeafStateCommon[] = [];
     leafStateTransitionTables: GrammarParsingLeafStateTransitions[] = [];
     leafStateReduceTables: GrammarParsingLeafStateReduces[] = [];
     maxTokenId: number;
@@ -44,6 +45,7 @@ export namespace Analysis {
     serializedReduces: {[index: string]:GrammarParsingLeafStateReduces} = {};
     stack: Backup[] = [];
     serializedStateCommonsCnt = 1;
+    parseTables: StrMapLike<ParseTableGenerator> = {};
 
 
     load() {
@@ -51,6 +53,7 @@ export namespace Analysis {
       this.deferredRules = deferredRules;
       this.localDeferredRules = localDeferredRules;
       this.leafStates = leafStates;
+      this.leafStateCommons = leafStateCommons;
       this.leafStateTransitionTables = leafStateTransitionTables;
       this.leafStateReduceTables = leafStateReduceTables;
       this.maxTokenId = maxTokenId;
@@ -61,6 +64,7 @@ export namespace Analysis {
       this.serializedReduces = serializedReduces;
       this.stack = stack;
       this.serializedStateCommonsCnt = serializedStateCommonsCnt;
+      this.parseTables = parseTables;
   
     }
     save() {
@@ -68,6 +72,7 @@ export namespace Analysis {
       deferredRules = this.deferredRules;
       localDeferredRules = this.localDeferredRules;
       leafStates = this.leafStates;
+      leafStateCommons = this.leafStateCommons;
       leafStateTransitionTables = this.leafStateTransitionTables;
       leafStateReduceTables = this.leafStateReduceTables;
       maxTokenId = this.maxTokenId;
@@ -78,7 +83,7 @@ export namespace Analysis {
       serializedReduces = this.serializedReduces;
       stack = this.stack;
       serializedStateCommonsCnt = this.serializedStateCommonsCnt;
-  
+      parseTables = this.parseTables;
     }
   }
   

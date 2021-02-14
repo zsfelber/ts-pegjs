@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import { visitor } from "pegjs/lib/compiler";
 import { Analysis, ParseTableGenerator } from '../lib/analyzer';
-import { HyperG } from '../lib';
+import { distinct, HyperG } from '../lib';
 import {
   PActContainer, PActionKind, PFunction,
   PGrammar, PLogicNode, PNode, PNodeKind, PRule,
@@ -240,19 +240,6 @@ function generate(ast, ...args) {
       });
     }
 
-    function distinct(inparr: any[]) {
-      if (!inparr) return inparr;
-      if (!inparr.length) return [];
-      inparr.sort();
-      var pd = inparr[0];
-      var resarr = [pd];
-      for (var i = 1; i < inparr.length; i++, pd = d) {
-        var d = inparr[i];
-        if (d !== pd) resarr.push(d);
-      }
-      return resarr;
-    }
-
     if (options.deferredRules) {
       options.deferredRules = distinct(options.deferredRules);
 
@@ -296,15 +283,19 @@ function generate(ast, ...args) {
         console.log("ROUND " + round + " PACKING");
         console.log("----------------------------------------------------------");
         again = false;
+        var ind = 0;
         allstarts.forEach(r => {
           var ptg = Analysis.parseTables[r];
-          var pt = ptg.generatedResult;
-          if (pt.pack()) {
+          var pt = ptg.generateParseTable();
+          var toLog = (round === 1) || (ind === (allstarts.length-1));
+          if (pt.pack(toLog)) {
             again = true;
           } else {
             console.log(r + " finished.")
           }
+          ind++;
         });
+
       });
     }
     ast.allstarts = allstarts;

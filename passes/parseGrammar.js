@@ -199,31 +199,16 @@ function generate(ast) {
                     allstarts.push(r);
             });
         }
-        function distinct(inparr) {
-            if (!inparr)
-                return inparr;
-            if (!inparr.length)
-                return [];
-            inparr.sort();
-            var pd = inparr[0];
-            var resarr = [pd];
-            for (var i = 1; i < inparr.length; i++, pd = d) {
-                var d = inparr[i];
-                if (d !== pd)
-                    resarr.push(d);
-            }
-            return resarr;
-        }
         if (options.deferredRules) {
-            options.deferredRules = distinct(options.deferredRules);
+            options.deferredRules = lib_1.distinct(options.deferredRules);
             console.log("User-defined deferred rules: " + options.deferredRules.join(", "));
         }
-        analyzer_1.Analysis.deferredRules = distinct(analyzer_1.Analysis.deferredRules);
-        analyzer_1.Analysis.localDeferredRules = distinct(analyzer_1.Analysis.localDeferredRules);
+        analyzer_1.Analysis.deferredRules = lib_1.distinct(analyzer_1.Analysis.deferredRules);
+        analyzer_1.Analysis.localDeferredRules = lib_1.distinct(analyzer_1.Analysis.localDeferredRules);
         var def0 = 0, ldef0 = 0;
         for (var first = true;;) {
             var ds = analyzer_1.Analysis.deferredRules.slice(def0).concat(analyzer_1.Analysis.localDeferredRules.slice(ldef0));
-            ds = distinct(ds);
+            ds = lib_1.distinct(ds);
             if (ds.length) {
                 console.log("Remaining deferred rules: " + ds.join(", "));
             }
@@ -243,11 +228,30 @@ function generate(ast) {
         allstarts.sort();
         allstarts.splice(allstarts.indexOf(options.allowedStartRules[0]), 1);
         allstarts.unshift(options.allowedStartRules[0]);
-        allstarts.forEach(function (r) {
-            var ptg = analyzer_1.Analysis.parseTables[r];
-            var pt = ptg.generateParseTable();
-            pt.pack();
-        });
+        var again = true;
+        var startingVars = analyzer_1.Analysis.backup();
+        for (var round = 1; again; round++) {
+            var again = true;
+            lib_1.HyperG.totallyReinitializableTransaction(function () {
+                startingVars.save();
+                console.log("ROUND " + round + " PACKING");
+                console.log("----------------------------------------------------------");
+                again = false;
+                var ind = 0;
+                allstarts.forEach(function (r) {
+                    var ptg = analyzer_1.Analysis.parseTables[r];
+                    var pt = ptg.generateParseTable();
+                    var toLog = (round === 1) || (ind === (allstarts.length - 1));
+                    if (pt.pack(toLog)) {
+                        again = true;
+                    }
+                    else {
+                        console.log(r + " finished.");
+                    }
+                    ind++;
+                });
+            });
+        }
         ast.allstarts = allstarts;
     }
     parseGrammarAst(null, ast);

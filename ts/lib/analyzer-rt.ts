@@ -1,6 +1,7 @@
 import { stat } from "fs";
 import { PRule, Analysis, CodeTblToHex, PLogicNode, NumMapLike, HyperG, PRef, Shifts, ShiftReduceKind, Shift, ShiftRecursive, Reduce, RuleElementTraverser, RuleRefTraverser, TerminalRefTraverser, ParseTableGenerator, EntryPointTraverser, Traversing, StateNodeCommon } from ".";
 import { StateNodeWithPrefix } from './analyzer';
+import { distinct } from './index';
 
 function slen(arr: any[]) {
   return arr ? arr.length : undefined;
@@ -29,23 +30,23 @@ export class ParseTable {
 
   }
 
-  pack() {
+  pack(log = true) {
     var result: boolean;
     if (!this.packed) {
       var comp = new CompressParseTable(this);
-      result = comp.pack();
+      result = comp.pack(log);
 
       this.packed = true;
     } else {
-      result = this.packagain();
+      result = this.packagain(log);
     }
     return result;
   }
 
-  private packagain() {
+  private packagain(log = true) {
 
     var comp = new ReindexAndCompressMoreParseTable(this);
-    var result = comp.pack();
+    var result = comp.pack(log);
 
     return result;
   }
@@ -144,7 +145,7 @@ class CompressParseTable {
 
   }
 
-  pack(): boolean {
+  pack(log = true): boolean {
 
     // !
     Analysis.leafStates = [];
@@ -171,7 +172,9 @@ class CompressParseTable {
     const sts = 1 + this.parseTable.allStates.length;
     Analysis.totalStates += sts;
 
-    console.log(this.parseTable.rule.rule + "   states:" + (sts) + "     Total: [ total states:" + Analysis.totalStates + "  distinct:" + (this.lfidx) + "    total states/common:" + varShReqs.n + "   distinct:" + (this.cmnidx) + "    distinct transitions:" + (this.transidx) + "    distinct reduces:" + (this.redidx) + "   jmp.tokens:" + varTkns.mean.toFixed(1) + "+-" + varTkns.sqrtVariance.toFixed(1) + "   shift/tkns:" + varShs.mean.toFixed(1) + "+-" + varShs.sqrtVariance.toFixed(1) + "   rec.shift:" + varShReqs.mean.toFixed(1) + "+-" + varShReqs.sqrtVariance.toFixed(1) + "  reduces:" + varRds.mean.toFixed(1) + "+-" + varRds.sqrtVariance.toFixed(1) + " ]");
+    if (log) {
+      console.log(this.parseTable.rule.rule + "   states:" + (sts) + "     Total: [ total states:" + Analysis.totalStates + "  distinct:" + (this.lfidx) + "    total states/common:" + varShReqs.n + "   distinct:" + (this.cmnidx) + "    distinct transitions:" + (this.transidx) + "    distinct reduces:" + (this.redidx) + "   jmp.tokens:" + varTkns.mean.toFixed(1) + "+-" + varTkns.sqrtVariance.toFixed(1) + "   shift/tkns:" + varShs.mean.toFixed(1) + "+-" + varShs.sqrtVariance.toFixed(1) + "   rec.shift:" + varShReqs.mean.toFixed(1) + "+-" + varShReqs.sqrtVariance.toFixed(1) + "  reduces:" + varRds.mean.toFixed(1) + "+-" + varRds.sqrtVariance.toFixed(1) + " ]");
+    }
 
     return changed;
   }
@@ -347,17 +350,24 @@ class ReindexAndCompressMoreParseTable {
   }
 
 
-  pack(): boolean {
+  pack(log = true): boolean {
 
     this.prstate(this.parseTable.startingState);
     this.parseTable.allStates.forEach(state => {
       this.prstate(state);
     });
+    var ind = 1;
     this.parseTable.allStates.forEach(state => {
+      if (state.index !== ind) {
+        throw new Error("state.index !== ind  "+state.index+" !== "+ind);
+      }
       state.index = state.packedIndex;
     });
+    (this.parseTable as any).allStates = distinct(this.parseTable.allStates, (a,b)=>{
+      return a.index-b.index;
+    });
 
-    return this.phase1Again.pack();
+    return this.phase1Again.pack(log);
   }
 
   prstate(state: GrammarParsingLeafState) {
@@ -378,7 +388,13 @@ class ReindexAndCompressMoreParseTable {
       shiftses.forEach(([key, shs]) => {
         shs.forEach(sh=>{
           var state = this.parseTable.allStates[sh.toStateIndex];
-          (sh as any).toStateIndex = state.packedIndex;
+          if (state) {
+            (sh as any).toStateIndex = state.packedIndex;
+          } else {
+            if (sh.toStateIndex) {
+              throw new Error("Non-0-indexed state does not exist : "+sh.toStateIndex);
+            }
+          }
         })
       });
     } else {

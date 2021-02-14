@@ -543,6 +543,19 @@ function hex(ch: string): string {
   return ch.charCodeAt(0).toString(16).toUpperCase();
 }
 
+export function distinct<T>(inparr: T[], cmp?:((a:T, b:T)=>number)) {
+  if (!inparr) return inparr;
+  if (!inparr.length) return [];
+  inparr.sort(cmp);
+  var pd = inparr[0];
+  var resarr = [pd];
+  for (var i = 1; i < inparr.length; i++, pd = d) {
+    var d = inparr[i];
+    if (d !== pd) resarr.push(d);
+  }
+  return resarr;
+}
+
 export function CodeTblToHex(s: number[]) {
   var r = s.map(c=>{
     if (!c) return "00";
