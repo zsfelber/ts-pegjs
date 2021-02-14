@@ -1,9 +1,9 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 var compiler_1 = require("pegjs/lib/compiler");
-var analyzer_1 = require("../../lib/analyzer");
-var lib_1 = require("../../lib");
-var lib_2 = require("../../lib");
+var analyzer_1 = require("../lib/analyzer");
+var lib_1 = require("../lib");
+var lib_2 = require("../lib");
 var stringifySafe = require('json-stringify-safe');
 var options;
 var terminals = [];

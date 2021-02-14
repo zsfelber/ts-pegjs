@@ -2,7 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 var ts = require("typescript");
 var fs = require("fs");
-var lib_1 = require("../../lib");
+var lib_1 = require("../lib");
 // Generates parser JavaScript code.
 function generate(ast) {
     var args = [];

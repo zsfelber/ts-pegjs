@@ -3,7 +3,7 @@ import * as fs from "fs";
 import {
   PNodeKind, PActionKind, PNode, PGrammar, PRef, PFunction, PCallArg, PRule,
   PRuleRef, PTerminalRef, PActContainer
-} from "../../lib";
+} from "../lib";
 
 // Generates parser JavaScript code.
 function generate(ast, ...args) {

@@ -4,9 +4,10 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 // Adapted from base: (original file: generate-bycode.js for codegen JS)
 // Adapted for Typescript codegen (c) 2017, Pedro J. Molina
-var pack = require("../../package.json");
+//import * as pack from '../../package.json';
+var pack = require('../../package.json');
 var ppack = require("pegjs/package.json");
-var lib_1 = require("../../lib");
+var lib_1 = require("../lib");
 // Generates parser JavaScript code.
 function generateTS(ast) {
     var args = [];

@@ -2,9 +2,9 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 var fs = require("fs");
 var glob = require("glob");
-var lib_1 = require("../../lib");
-var parsers_1 = require("../../lib/parsers");
-var lib_2 = require("../../lib");
+var lib_1 = require("../lib");
+var parsers_1 = require("../lib/parsers");
+var lib_2 = require("../lib");
 // Generates parser JavaScript code.
 function generateTT(ast) {
     var args = [];

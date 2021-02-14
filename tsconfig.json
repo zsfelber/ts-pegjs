@@ -1,8 +1,8 @@
 {
     "compilerOptions": {
         "experimentalDecorators": true,
-        "rootDir": ".",
-        "outDir": "build",
+        "rootDir": "ts",
+        "outDir": ".",
         "sourceMap": true,
         "target": "ES5",
         "resolveJsonModule": true

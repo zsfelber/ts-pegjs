@@ -5,14 +5,15 @@
 // Adapted from base: (original file: generate-bycode.js for codegen JS)
 // Adapted for Typescript codegen (c) 2017, Pedro J. Molina
 
-import * as pack from '../../package.json';
+//import * as pack from '../../package.json';
+const pack = require('../../package.json');
 import * as ppack from 'pegjs/package.json';
 import {
   JSstringEscape, CodeTblToHex, PGrammar, PRule, PFunction,
   PNodeKind, PActionKind, PRuleRef, PTerminalRef, HyperG,
   ParseTableGenerator, encodePrsTbl, encodeVsimPck, 
   Analysis, verySimplePackMany0
-} from "../../lib";
+} from "../lib";
 import { Console } from 'console';
 
 // Generates parser JavaScript code.

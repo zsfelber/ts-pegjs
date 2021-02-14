@@ -2,7 +2,7 @@
   "name": "ts-pegjs",
   "version": "0.3.0",
   "description": "TS target for PEG.js parser generator",
-  "main": "src/tspegjs.js",
+  "main": "./tspegjs.js",
   "exports": {
     "./lib": "./lib"
   },
@@ -49,7 +49,7 @@
     "test/test.js"
   ],
   "scripts": {
-    "compile:ts_src": "tsc && node copy-instead-totally-useless-tsc-dir-options.js",
+    "compile:ts_src": "tsc",
     "clean": "rimraf output/*.ts output/*.js",
     "pretest": "npm run clean",
     "test": "npm run test:non-optimized && npm run test:optimize-size && npm run lint",
