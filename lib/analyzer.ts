@@ -191,6 +191,9 @@ export namespace Analysis {
     var pos = 0;
     var [stransln,sredsln,scmnln] = [buf[pos++], buf[pos++], buf[pos++]];
 
+    leafStateTransitionTables.push(null);
+    leafStateReduceTables.push(null);
+    leafStateCommons.push(null);
     for (var i=1; i<=stransln; i++) {
       var trans = new GrammarParsingLeafStateTransitions();
       pos = trans.deser(i, buf, pos);

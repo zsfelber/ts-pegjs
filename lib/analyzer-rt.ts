@@ -587,7 +587,9 @@ export class GrammarParsingLeafStateCommon {
     var [trind, rdind] = [buf[pos++], buf[pos++]];
 
     this.serialStateMap = Analysis.leafStateTransitionTables[trind];
+    if (!this.serialStateMap) this.serialStateMap = new GrammarParsingLeafStateTransitions();
     this.reduceActions = Analysis.leafStateReduceTables[rdind];
+    if (!this.reduceActions) this.reduceActions = new GrammarParsingLeafStateReduces();
     // TODO separate _transitions and recursiveShifts
 
     return pos;
@@ -654,14 +656,6 @@ export class GrammarParsingLeafState {
               throw new Error("223b  " + nextTerm);
           }
         });
-      } else {
-        throw new Error("Uninitilized GrammarParsingLeafState");
-      }
-    }
-
-    if (!this.common) {
-
-      if (this.startStateNode) {
         if (this.startStateNode.common) {
           this.common = Analysis.leafStateCommon(this.startStateNode.common.index);
           if (!this.common.startStateNode) {
@@ -689,6 +683,7 @@ export class GrammarParsingLeafState {
     this.startingPoint = spx ? HyperG.nodeTable[spx] as PRef : null;
     this.reduceActions = Analysis.leafStateReduceTables[rdind];
     this.common = Analysis.leafStateCommons[cmni];
+    if (!this.reduceActions) this.reduceActions = new GrammarParsingLeafStateReduces();
 
     return pos;
   }
