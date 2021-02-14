@@ -1,0 +1,11 @@
+{
+    "compilerOptions": {
+        "experimentalDecorators": true,
+        "outDir": "src/passes",
+        "sourceMap": true,
+        "target": "ES5",
+        "resolveJsonModule": true
+    },
+    "exclude": [],
+    "include": ["./src/passes/ts/*.ts"]
+}

@@ -2,7 +2,7 @@ import { Analysis,  IToken, HyperG } from '.';
 import { IBaseParserProgram, DeferredReduce } from './interpreter';
 import { PRuleRef, PValueNode } from './parsers';
 import { Packrat } from './packrat';
-import { peg$FAILED } from '../lib';
+import { peg$FAILED } from '.';
 import { GrammarParsingLeafState, ParseTable, RTShift, GrammarParsingLeafStateTransitions } from './analyzer-rt';
 
 export interface IJumpTableProgram extends IBaseParserProgram {

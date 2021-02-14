@@ -1,0 +1,11 @@
+{
+    "compilerOptions": {
+        "experimentalDecorators": true,
+        "outDir": "lib",
+        "sourceMap": true,
+        "target": "ES5",
+        "resolveJsonModule": true
+    },
+    "exclude": [],
+    "include": ["./lib/ts/*.ts"]
+}
