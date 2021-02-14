@@ -6,7 +6,7 @@
 // Adapted for Typescript codegen (c) 2017, Pedro J. Molina
 
 //import * as pack from '../../package.json';
-const pack = require('../../package.json');
+const pack = require('../package.json');
 import * as ppack from 'pegjs/package.json';
 import {
   JSstringEscape, CodeTblToHex, PGrammar, PRule, PFunction,
