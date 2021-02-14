@@ -1,10 +1,10 @@
 import * as fs from "fs";
 import * as glob from "glob";
-import { Analysis, ParseTableGenerator } from "../../../lib/ts";
-import { PGrammar, PRule, PNode, PRuleRef, PNodeKind } from '../../../lib/ts/parsers';
-import {  StrMapLike } from '../../../lib/ts/analyzer';
-import { RuleElementTraverser } from '../../../lib/ts/analyzer-nodes';
-import { HyperG } from '../../../lib/ts';
+import { Analysis, ParseTableGenerator } from "../../lib";
+import { PGrammar, PRule, PNode, PRuleRef, PNodeKind } from '../../lib/parsers';
+import {  StrMapLike } from '../../lib/analyzer';
+import { RuleElementTraverser } from '../../lib/analyzer-nodes';
+import { HyperG } from '../../lib';
 
 
 // Generates parser JavaScript code.

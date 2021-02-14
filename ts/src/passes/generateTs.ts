@@ -12,7 +12,7 @@ import {
   PNodeKind, PActionKind, PRuleRef, PTerminalRef, HyperG,
   ParseTableGenerator, encodePrsTbl, encodeVsimPck, 
   Analysis, verySimplePackMany0
-} from "../../../lib/ts";
+} from "../../lib";
 import { Console } from 'console';
 
 // Generates parser JavaScript code.

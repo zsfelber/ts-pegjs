@@ -1,13 +1,13 @@
 import * as fs from "fs";
 import { visitor } from "pegjs/lib/compiler";
-import { Analysis, ParseTableGenerator } from '../../../lib/ts/analyzer';
-import { HyperG } from '../../../lib/ts';
+import { Analysis, ParseTableGenerator } from '../../lib/analyzer';
+import { HyperG } from '../../lib';
 import {
   PActContainer, PActionKind, PFunction,
   PGrammar, PLogicNode, PNode, PNodeKind, PRule,
   PRuleRef, PSemanticAnd, PSemanticNot, PTerminal,
   PTerminalRef, PValueNode, PConss, StrMapLike
-} from '../../../lib/ts';
+} from '../../lib';
 var stringifySafe = require('json-stringify-safe');
 
 var options;
