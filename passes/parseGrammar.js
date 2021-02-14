@@ -228,30 +228,17 @@ function generate(ast) {
         allstarts.sort();
         allstarts.splice(allstarts.indexOf(options.allowedStartRules[0]), 1);
         allstarts.unshift(options.allowedStartRules[0]);
-        var again = true;
-        var startingVars = analyzer_1.Analysis.backup();
-        for (var round = 1; again; round++) {
-            var again = true;
-            lib_1.HyperG.totallyReinitializableTransaction(function () {
-                startingVars.save();
-                console.log("ROUND " + round + " PACKING");
-                console.log("----------------------------------------------------------");
-                again = false;
-                var ind = 0;
-                allstarts.forEach(function (r) {
-                    var ptg = analyzer_1.Analysis.parseTables[r];
-                    var pt = ptg.generateParseTable();
-                    var toLog = (round === 1) || (ind === (allstarts.length - 1));
-                    if (pt.pack(round - 1, toLog)) {
-                        again = true;
-                    }
-                    else {
-                        console.log(r + " finished.");
-                    }
-                    ind++;
-                });
+        lib_1.HyperG.totallyReinitializableTransaction(function () {
+            console.log("----------------------------------------------------------");
+            var ind = 0;
+            allstarts.forEach(function (r) {
+                var ptg = analyzer_1.Analysis.parseTables[r];
+                var pt = ptg.generateParseTable();
+                var toLog = (ind === (allstarts.length - 1));
+                pt.pack(toLog);
+                ind++;
             });
-        }
+        });
         ast.allstarts = allstarts;
     }
     parseGrammarAst(null, ast);

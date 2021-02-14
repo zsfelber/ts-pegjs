@@ -1,7 +1,6 @@
-import { stat } from "fs";
-import { PRule, Analysis, CodeTblToHex, PLogicNode, NumMapLike, HyperG, PRef, Shifts, ShiftReduceKind, Shift, ShiftRecursive, Reduce, RuleElementTraverser, RuleRefTraverser, TerminalRefTraverser, ParseTableGenerator, EntryPointTraverser, Traversing, StateNodeCommon } from ".";
+import { PRule, Analysis, CodeTblToHex, PLogicNode, NumMapLike, HyperG, PRef, Shifts, ShiftReduceKind, Shift, ShiftRecursive, Reduce, RuleElementTraverser, RuleRefTraverser, TerminalRefTraverser, ParseTableGenerator, EntryPointTraverser, Traversing, StateNodeCommon } from '.';
 import { StateNodeWithPrefix } from './analyzer';
-import { distinct } from './index';
+
 
 function slen(arr: any[]) {
   return arr ? arr.length : undefined;
@@ -23,39 +22,45 @@ export class ParseTable {
   readonly allStates: GrammarParsingLeafState[];
   packed = false;
 
-  constructor(rule: PRule, startingState: GrammarParsingLeafState, allStates: GrammarParsingLeafState[]) {
+
+
+  constructor(rule: PRule, g?: ParseTableGenerator) {
     this.rule = rule;
-    this.startingState = startingState;
-    this.allStates = allStates;
+
+    this.allStates = [];
+
+    if (g) {
+      this.startingState = g.startingStateNode.generateState(this);
+      g.allLeafStateNodes.forEach(s => s.generateState(this));
+    }
 
   }
 
-  pack(roundIdx = 0, log = true) {
+  pack(log = true) {
     var result: boolean;
     if (!this.packed) {
       var comp = new CompressParseTable(this, log);
       result = comp.pack();
 
       this.packed = true;
-    } else {
-      result = this.packagain(roundIdx, log);
     }
     return result;
   }
 
-  private packagain(roundIdx = 0, log = true) {
-
-    var comp = new ReindexAndCompressMoreParseTable(this, roundIdx, log);
-    var result = comp.pack();
-
-    return result;
-  }
-
   static deserialize(rule: PRule, buf: number[]) {
-    var result = new ParseTable(rule, null, []);
+    var result = new ParseTable(rule);
     var pos = result.deser(buf);
     if (pos !== buf.length) throw new Error("ptable:" + rule + " pos:" + pos + " !== " + buf.length);
     return result;
+  }
+
+  leafState(index: number) {
+    var ls = this.allStates[index];
+    if (!ls) {
+      this.allStates[index] = ls = new GrammarParsingLeafState();
+      ls.index = index;
+    }
+    return ls;
   }
 
   ser(): number[] {
@@ -63,8 +68,6 @@ export class ParseTable {
     this.pack();
 
     var serStates: number[] = [];
-
-    this.startingState.ser(serStates);
 
     this.allStates.forEach(s => {
       s.ser(serStates);
@@ -81,15 +84,13 @@ export class ParseTable {
     }
 
     var pos = 2;
-    var st0 = Analysis.leafState(1);
+    var st0 = this.leafState(1);
     pos = st0.deser(1, buf, pos);
     this.startingState = st0;
 
-    stlen++;
     for (var i = 2; i <= stlen; i++) {
-      var st = Analysis.leafState(i);
+      var st = this.leafState(i);
       pos = st.deser(i, buf, pos);
-      this.allStates.push(st);
     }
 
     return pos;
@@ -117,7 +118,7 @@ export class ParseTable {
   }
 
   toString() {
-    return "ParseTable/" + this.rule.rule + "/" + (1 + this.allStates.length) + " states";
+    return "ParseTable/" + this.rule.rule + "/" + (this.allStates.length) + " states";
   }
 }
 
@@ -149,9 +150,6 @@ class CompressParseTable {
 
   pack(): boolean {
 
-    // !
-    Analysis.leafStates = [];
-
     this.t0 = Object.keys(Analysis.serializedTransitions).length;
     this.r0 = Object.keys(Analysis.serializedReduces).length;
     this.sl0 = Object.keys(Analysis.serializedLeafStates).length;
@@ -166,16 +164,16 @@ class CompressParseTable {
     this.cmnidx = this.sc0 + 1;
 
 
-    var changed: boolean = this.prstate(this.parseTable.startingState);
+    var changed: boolean = false;
     this.parseTable.allStates.forEach(state => {
       changed = this.prstate(state) || changed;
     });
 
-    const sts = 1 + this.parseTable.allStates.length;
+    const sts = this.parseTable.allStates.length;
     Analysis.totalStates += sts;
 
     if (this.log) {
-      console.log(this.parseTable.rule.rule + "   states:" + (sts) + "     Total: [ total states:" + Analysis.totalStates + "  distinct:" + (this.lfidx) + "    total states/common:" + Analysis.varShReqs.n + "   distinct:" + (this.cmnidx) + "    distinct transitions:" + (this.transidx) + "    distinct reduces:" + (this.redidx) + "   jmp.tokens:" + Analysis.varTkns.mean.toFixed(1) + "+-" + Analysis.varTkns.sqrtVariance.toFixed(1) + "   shift/tkns:" + Analysis.varShs.mean.toFixed(1) + "+-" + Analysis.varShs.sqrtVariance.toFixed(1) + "   rec.shift:" + Analysis.varShReqs.mean.toFixed(1) + "+-" + Analysis.varShReqs.sqrtVariance.toFixed(1) + "  reduces:" + Analysis.varRds.mean.toFixed(1) + "+-" + Analysis.varRds.sqrtVariance.toFixed(1) + " ]");
+      console.log("Total: [ total states:" + Analysis.totalStates + "  distinct:" + (this.lfidx) + "    total states/common:" + Analysis.varShReqs.n + "   distinct:" + (this.cmnidx) + "    distinct transitions:" + (this.transidx) + "    distinct reduces:" + (this.redidx) + "   jmp.tokens:" + Analysis.varTkns.mean.toFixed(1) + "+-" + Analysis.varTkns.sqrtVariance.toFixed(1) + "   shift/tkns:" + Analysis.varShs.mean.toFixed(1) + "+-" + Analysis.varShs.sqrtVariance.toFixed(1) + "   rec.shift:" + Analysis.varShReqs.mean.toFixed(1) + "+-" + Analysis.varShReqs.sqrtVariance.toFixed(1) + "  reduces:" + Analysis.varRds.mean.toFixed(1) + "+-" + Analysis.varRds.sqrtVariance.toFixed(1) + " ]");
     }
 
     return changed;
@@ -336,93 +334,6 @@ class CompressParseTable {
       return false;
     }
   }
-}
-
-class ReindexAndCompressMoreParseTable {
-
-  parseTable: ParseTable;
-  roundIdx = 0;
-  log = true;
-  phase1Again: CompressParseTable;
-
-  constructor(parseTable: ParseTable, roundIdx = 0, log = true) {
-    if (!parseTable.packed) {
-      throw new Error("Not packed");
-    }
-    this.parseTable = parseTable;
-    this.roundIdx = roundIdx;
-    this.log = log;
-    this.phase1Again = new CompressParseTable(parseTable, log);
-  }
-
-
-  pack(log = true): boolean {
-
-    this.prstate(this.parseTable.startingState);
-    this.parseTable.allStates.forEach(state => {
-      this.prstate(state);
-    });
-
-    var ind = 1;
-    var state = this.parseTable.startingState;
-    if (state.index !== ind) {
-      throw new Error("state.index !== ind  " + state.index + " !== " + ind);
-    }
-
-    ind = undefined;
-    this.parseTable.allStates.forEach(state => {
-      if (ind === undefined) ind = state.index;
-      if (state.index !== ind) {
-        throw new Error("state.index !== ind  " + state.index + " !== " + ind);
-      }
-      state.index = state.packedIndex;
-      ind++;
-    });
-    (this.parseTable as any).allStates = distinct(this.parseTable.allStates, (a, b) => {
-      return a.index - b.index;
-    });
-
-    return this.phase1Again.pack();
-  }
-
-  prstate(state: GrammarParsingLeafState) {
-    state.serializedTuple = null;
-    this.prscmn(state.common);
-  }
-
-  prscmn(state: GrammarParsingLeafStateCommon) {
-
-    // This kind of object could be shared from the beginning :
-
-    if (state && state["$round"] !== this.roundIdx) {
-      state.serializedTuple = null;
-      state["$round"] = this.roundIdx;
-      this.tra(state.serialStateMap);
-    }
-  }
-
-  tra(trans: GrammarParsingLeafStateTransitions) {
-    var shiftses: [string, RTShift[]][] = Object.entries(trans.map);
-    if (shiftses.length) {
-      shiftses.forEach(([key, shs]) => {
-        shs.forEach(sh => {
-          // 2 - based
-          var state = this.parseTable.allStates[sh.toStateIndex - 2];
-          if (state) {
-            (sh as any).toStateIndex = state.packedIndex;
-          } else {
-            if (sh.toStateIndex) {
-              throw new Error("Non-0-indexed state does not exist : " + sh.toStateIndex);
-            }
-          }
-        })
-      });
-    } else {
-      trans.index = 0;
-    }
-    return shiftses.length;
-  }
-
 }
 
 

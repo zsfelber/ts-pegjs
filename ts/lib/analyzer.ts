@@ -33,7 +33,6 @@ export namespace Analysis {
     ERRORS = 0;
     deferredRules = [];
     localDeferredRules = [];
-    leafStates: GrammarParsingLeafState[] = [];
     leafStateCommons: GrammarParsingLeafStateCommon[] = [];
     leafStateTransitionTables: GrammarParsingLeafStateTransitions[] = [];
     leafStateReduceTables: GrammarParsingLeafStateReduces[] = [];
@@ -56,7 +55,6 @@ export namespace Analysis {
       this.ERRORS = ERRORS;
       this.deferredRules = [].concat(deferredRules);
       this.localDeferredRules = [].concat(localDeferredRules);
-      this.leafStates = [].concat(leafStates);
       this.leafStateCommons = [].concat(leafStateCommons);
       this.leafStateTransitionTables = [].concat(leafStateTransitionTables);
       this.leafStateReduceTables = [].concat(leafStateReduceTables);
@@ -79,7 +77,6 @@ export namespace Analysis {
       ERRORS = this.ERRORS;
       deferredRules = this.deferredRules;
       localDeferredRules = this.localDeferredRules;
-      leafStates = this.leafStates;
       leafStateCommons = this.leafStateCommons;
       leafStateTransitionTables = this.leafStateTransitionTables;
       leafStateReduceTables = this.leafStateReduceTables;
@@ -106,8 +103,6 @@ export namespace Analysis {
   export var deferredRules = [];
 
   export var localDeferredRules = [];
-
-  export var leafStates: GrammarParsingLeafState[] = [];
 
   export var leafStateCommons: GrammarParsingLeafStateCommon[] = [];
 
@@ -155,15 +150,6 @@ export namespace Analysis {
     var ls = leafStateCommons[index];
     if (!ls) {
       leafStateCommons[index] = ls = new GrammarParsingLeafStateCommon();
-      ls.index = index;
-    }
-    return ls;
-  }
-
-  export function leafState(index: number) {
-    var ls = leafStates[index];
-    if (!ls) {
-      leafStates[index] = ls = new GrammarParsingLeafState();
       ls.index = index;
     }
     return ls;
@@ -327,6 +313,7 @@ function hex2(c) {
 
 export abstract class StateNodeCommon {
 
+  parseTable: ParseTableGenerator;
   index: number;
 
   // of state transitions starting from here
@@ -338,11 +325,12 @@ export abstract class StateNodeCommon {
   readonly shiftsAndReduces: ShiftReduce[] = [];
 
   constructor(parseTable: ParseTableGenerator) {
+    this.parseTable = parseTable;
     this.index = Analysis.serializedStateCommonsCnt++;
     parseTable.allLeafStateCommons[this.index] = this;
   }
 
-  abstract generateState(): GrammarParsingLeafStateCommon;
+  abstract generateState(parseTable: ParseTable): GrammarParsingLeafStateCommon;
 
   toString() {
     return "C#" + this.index + "->" + ("->" + this.shiftsAndReduces.length + "s/r");
@@ -352,7 +340,7 @@ export abstract class StateNodeCommon {
 
 class RootStateNodeCommon extends StateNodeCommon {
 
-  generateState() {
+  generateState(parseTable: ParseTable) {
     var result = new GrammarParsingLeafStateCommon(this);
     return result;
   }
@@ -364,7 +352,7 @@ class RootStateNodeCommon extends StateNodeCommon {
 
 export class LeafStateNodeCommon extends StateNodeCommon {
 
-  generateState() {
+  generateState(parseTable: ParseTable) {
     var state = Analysis.leafStateCommon(this.index);
     if (!state.startStateNode) {
       state.startStateNode = this;
@@ -380,6 +368,8 @@ export abstract class StateNodeWithPrefix {
 
   index: number;
 
+  ref?: RefTraverser;
+
   constructor() {
   }
 
@@ -387,7 +377,15 @@ export abstract class StateNodeWithPrefix {
 
   abstract get traverser(): RuleElementTraverser;
 
-  abstract generateState(): GrammarParsingLeafState;
+ 
+  generateState(parseTable: ParseTable) {
+    var state = parseTable.leafState(this.index);
+    if (!state.startStateNode) {
+      state.startStateNode = this;
+      state.startingPoint = this.ref ? this.ref.node : null;
+    }
+    return state;
+  }
 
 }
 
@@ -416,11 +414,6 @@ class RootStateNodeWithPrefix extends StateNodeWithPrefix {
     rootTraversion.traverse(this, TraversionPurpose.FIND_NEXT_TOKENS);
     this.index = 1;
     parser.cntStates = 2;
-  }
-
-  generateState() {
-    var result: GrammarParsingLeafState = new GrammarParsingLeafState(this, null);
-    return result;
   }
 
   toString() {
@@ -455,16 +448,6 @@ export abstract class LeafStateNodeWithPrefix extends StateNodeWithPrefix {
 
     this.index = parser.cntStates;
     parser.cntStates++;
-  }
- 
-  generateState() {
-    var state = Analysis.leafState(this.index);
-    if (!state.startStateNode) {
-      state.startStateNode = this;
-      state.startingPoint = this.ref.node;
-      state.index = this.index;
-    }
-    return state;
   }
 
   abstract get isRule(): boolean;
@@ -730,9 +713,7 @@ export class ParseTableGenerator {
 
   generateParseTable() {
     if (!this.generatedResult) {
-      var start = this.startingStateNode.generateState();
-      var all = this.allLeafStateNodes.map(s => s.generateState());
-      this.generatedResult = new ParseTable(this.rule, start, all);
+      this.generatedResult = new ParseTable(this.rule, this);
     }
     return this.generatedResult;
   }
