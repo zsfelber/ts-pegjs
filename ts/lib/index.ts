@@ -29,14 +29,14 @@ export namespace HyperG {
       this.Env = Env;
       this.serializerStartingIdx = serializerStartingIdx;
       this.serializerCnt = serializerCnt;
-      this.functionTable = functionTable;
-      this.ruleTable = ruleTable;
-      this.ruleInterpreters = ruleInterpreters;
-      this.nodeTable = nodeTable;
-      this.ruleRefTable = ruleRefTable;
-      this.parseTables = parseTables;
+      this.functionTable = [].concat(functionTable);
+      this.ruleTable = [].concat(ruleTable);
+      this.ruleInterpreters = [].concat(ruleInterpreters);
+      this.nodeTable = [].concat(nodeTable);
+      this.ruleRefTable = [].concat(ruleRefTable);
+      this.parseTables = Object.assign({},parseTables);
       this.indent = indent;
-      this.stack = stack;
+      this.stack = [].concat(stack);
     }
 
     save() {
@@ -666,6 +666,45 @@ function checkParseTableIntegrity(parseTable: ParseTable, serializedForm: string
     console.error("Parse table integrity error pass 2 : "+parseTable2);
   } else {
     console.log("Parse table integrity check successful pass 2: "+parseTable);
+  }
+
+}
+
+
+
+
+export class IncVariator {
+
+  K: number = 0;
+  n: number = 0;
+  Ex: number = 0;
+  Ex2: number = 0;
+
+  constructor(from?: IncVariator) {
+    if (from) {
+      this.K=from.K;
+      this.n=from.n;
+      this.Ex=from.Ex;
+      this.Ex2=from.Ex2;
+    }
+  }
+  add(x: number) {
+    if (this.n === 0) this.K = x;
+    this.n++;
+    this.Ex += x - this.K;
+    this.Ex2 += (x - this.K) * (x - this.K);
+  }
+
+  get mean() {
+    return this.K + this.Ex / this.n;
+  }
+
+  get variance() {
+    return (this.Ex2 - (this.Ex * this.Ex) / this.n) / (this.n - 1);
+  }
+
+  get sqrtVariance() {
+    return Math.sqrt(this.variance);
   }
 
 }

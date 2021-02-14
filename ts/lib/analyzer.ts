@@ -1,6 +1,6 @@
 import { EntryPointTraverser, Factory, PNodeKind, RefTraverser, RuleElementTraverser, RuleRefTraverser, TerminalRefTraverser } from '.';
 import { PRule, PRuleRef, PTerminalRef, PValueNode, PNode, PRef, PLogicNode } from './parsers';
-import { CodeTblToHex, HyperG } from './index';
+import { CodeTblToHex, HyperG, IncVariator } from './index';
 import { GrammarParsingLeafState, GrammarParsingLeafStateTransitions, GrammarParsingLeafStateReduces, ParseTable, GrammarParsingLeafStateCommon } from './analyzer-rt';
 import { LinearTraversion, TraversionPurpose } from './analyzer-tra';
 
@@ -46,26 +46,34 @@ export namespace Analysis {
     stack: Backup[] = [];
     serializedStateCommonsCnt = 1;
     parseTables: StrMapLike<ParseTableGenerator> = {};
-
+    varShs = new IncVariator();
+    varShReqs = new IncVariator();
+    varTkns = new IncVariator();
+    varRds = new IncVariator();
+  
 
     load() {
       this.ERRORS = ERRORS;
-      this.deferredRules = deferredRules;
-      this.localDeferredRules = localDeferredRules;
-      this.leafStates = leafStates;
-      this.leafStateCommons = leafStateCommons;
-      this.leafStateTransitionTables = leafStateTransitionTables;
-      this.leafStateReduceTables = leafStateReduceTables;
+      this.deferredRules = [].concat(deferredRules);
+      this.localDeferredRules = [].concat(localDeferredRules);
+      this.leafStates = [].concat(leafStates);
+      this.leafStateCommons = [].concat(leafStateCommons);
+      this.leafStateTransitionTables = [].concat(leafStateTransitionTables);
+      this.leafStateReduceTables = [].concat(leafStateReduceTables);
       this.maxTokenId = maxTokenId;
       this.totalStates = totalStates;
-      this.serializedLeafStates = serializedLeafStates;
-      this.serializedStateCommons = serializedStateCommons;
-      this.serializedTransitions = serializedTransitions;
-      this.serializedReduces = serializedReduces;
-      this.stack = stack;
+      this.serializedLeafStates = Object.assign({}, serializedLeafStates);
+      this.serializedStateCommons = Object.assign({}, serializedStateCommons);
+      this.serializedTransitions = Object.assign({}, serializedTransitions);
+      this.serializedReduces = Object.assign({}, serializedReduces);
+      this.stack = [].concat(stack);
       this.serializedStateCommonsCnt = serializedStateCommonsCnt;
-      this.parseTables = parseTables;
-  
+      this.parseTables = Object.assign({}, parseTables);
+      this.varShs = new IncVariator(varShs);
+      this.varShReqs = new IncVariator(varShReqs);
+      this.varTkns = new IncVariator(varTkns);
+      this.varRds = new IncVariator(varRds);
+    
     }
     save() {
       ERRORS = this.ERRORS;
@@ -84,6 +92,10 @@ export namespace Analysis {
       stack = this.stack;
       serializedStateCommonsCnt = this.serializedStateCommonsCnt;
       parseTables = this.parseTables;
+      varShs = this.varShs;
+      varShReqs = this.varShReqs;
+      varTkns = this.varTkns;
+      varRds = this.varRds;
     }
   }
   
@@ -123,6 +135,11 @@ export namespace Analysis {
 
   export var parseTables: StrMapLike<ParseTableGenerator> = {};
 
+  export var varShs = new IncVariator();
+  export var varShReqs = new IncVariator();
+  export var varTkns = new IncVariator();
+  export var varRds = new IncVariator();
+  
   export function backup() {
     var backup = new Backup();
     backup.load();

@@ -242,7 +242,7 @@ function generate(ast) {
                     var ptg = analyzer_1.Analysis.parseTables[r];
                     var pt = ptg.generateParseTable();
                     var toLog = (round === 1) || (ind === (allstarts.length - 1));
-                    if (pt.pack(toLog)) {
+                    if (pt.pack(round - 1, toLog)) {
                         again = true;
                     }
                     else {

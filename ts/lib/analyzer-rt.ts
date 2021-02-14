@@ -30,23 +30,23 @@ export class ParseTable {
 
   }
 
-  pack(log = true) {
+  pack(roundIdx = 0, log = true) {
     var result: boolean;
     if (!this.packed) {
-      var comp = new CompressParseTable(this);
-      result = comp.pack(log);
+      var comp = new CompressParseTable(this, log);
+      result = comp.pack();
 
       this.packed = true;
     } else {
-      result = this.packagain(log);
+      result = this.packagain(roundIdx, log);
     }
     return result;
   }
 
-  private packagain(log = true) {
+  private packagain(roundIdx = 0, log = true) {
 
-    var comp = new ReindexAndCompressMoreParseTable(this);
-    var result = comp.pack(log);
+    var comp = new ReindexAndCompressMoreParseTable(this, roundIdx, log);
+    var result = comp.pack();
 
     return result;
   }
@@ -127,6 +127,7 @@ export class ParseTable {
 class CompressParseTable {
 
   parseTable: ParseTable;
+  log = true;
   t0: number;
   r0: number;
   sl0: number;
@@ -136,8 +137,9 @@ class CompressParseTable {
   lfidx: number;
   cmnidx: number;
 
-  constructor(parseTable: ParseTable) {
+  constructor(parseTable: ParseTable, log = true) {
     this.parseTable = parseTable;
+    this.log = log;
 
     if (parseTable.allStates.length > Analysis.uniformMaxStateId) {
       throw new Error("State id overflow. Grammar too big. uniformMaxStateId:" + Analysis.uniformMaxStateId + "  Too many states:" + parseTable.allStates.length);
@@ -145,7 +147,7 @@ class CompressParseTable {
 
   }
 
-  pack(log = true): boolean {
+  pack(): boolean {
 
     // !
     Analysis.leafStates = [];
@@ -172,8 +174,8 @@ class CompressParseTable {
     const sts = 1 + this.parseTable.allStates.length;
     Analysis.totalStates += sts;
 
-    if (log) {
-      console.log(this.parseTable.rule.rule + "   states:" + (sts) + "     Total: [ total states:" + Analysis.totalStates + "  distinct:" + (this.lfidx) + "    total states/common:" + varShReqs.n + "   distinct:" + (this.cmnidx) + "    distinct transitions:" + (this.transidx) + "    distinct reduces:" + (this.redidx) + "   jmp.tokens:" + varTkns.mean.toFixed(1) + "+-" + varTkns.sqrtVariance.toFixed(1) + "   shift/tkns:" + varShs.mean.toFixed(1) + "+-" + varShs.sqrtVariance.toFixed(1) + "   rec.shift:" + varShReqs.mean.toFixed(1) + "+-" + varShReqs.sqrtVariance.toFixed(1) + "  reduces:" + varRds.mean.toFixed(1) + "+-" + varRds.sqrtVariance.toFixed(1) + " ]");
+    if (this.log) {
+      console.log(this.parseTable.rule.rule + "   states:" + (sts) + "     Total: [ total states:" + Analysis.totalStates + "  distinct:" + (this.lfidx) + "    total states/common:" + Analysis.varShReqs.n + "   distinct:" + (this.cmnidx) + "    distinct transitions:" + (this.transidx) + "    distinct reduces:" + (this.redidx) + "   jmp.tokens:" + Analysis.varTkns.mean.toFixed(1) + "+-" + Analysis.varTkns.sqrtVariance.toFixed(1) + "   shift/tkns:" + Analysis.varShs.mean.toFixed(1) + "+-" + Analysis.varShs.sqrtVariance.toFixed(1) + "   rec.shift:" + Analysis.varShReqs.mean.toFixed(1) + "+-" + Analysis.varShReqs.sqrtVariance.toFixed(1) + "  reduces:" + Analysis.varRds.mean.toFixed(1) + "+-" + Analysis.varRds.sqrtVariance.toFixed(1) + " ]");
     }
 
     return changed;
@@ -181,16 +183,16 @@ class CompressParseTable {
 
   prstate(state: GrammarParsingLeafState): boolean {
     if (state && !state.serializedTuple) {
-        // lazy
+      // lazy
       state.lazy();
 
       var tots: [number, number, number, number] = [0, 0, 0, 0];
 
       var changed = this.prscmn(state.common);
 
-      var rs1:[number] = [0];
+      var rs1: [number] = [0];
       changed = this.red(state.reduceActions, rs1) || changed;
-      varRds.add(rs1[0]);
+      Analysis.varRds.add(rs1[0]);
 
       var spidx = state.startingPoint ? state.startingPoint.nodeIdx : 0;
       var stcmidx = state.common ? state.common.index : 0;
@@ -229,19 +231,19 @@ class CompressParseTable {
       var [nonreq, nonreqtot, req, reqtot] = tots;
 
       if (nonreq) {
-        varTkns.add(nonreq);
-        varShs.add(nonreqtot / nonreq);
+        Analysis.varTkns.add(nonreq);
+        Analysis.varShs.add(nonreqtot / nonreq);
       }
       if (req) {
         if (req !== 1) {
           throw new Error("req !== 1  " + req + " !== " + 1);
         }
       }
-      varShReqs.add(reqtot);
+      Analysis.varShReqs.add(reqtot);
 
-      var rs1:[number] = [0];
+      var rs1: [number] = [0];
       changed = this.red(state.reduceActions, rs1) || changed;
-      varRds.add(rs1[0]);
+      Analysis.varRds.add(rs1[0]);
 
       var tuple: [number, number] = [state.serialStateMap.index, state.reduceActions.index];
       var tkey = CodeTblToHex(tuple).join("");
@@ -339,14 +341,18 @@ class CompressParseTable {
 class ReindexAndCompressMoreParseTable {
 
   parseTable: ParseTable;
+  roundIdx = 0;
+  log = true;
   phase1Again: CompressParseTable;
 
-  constructor(parseTable: ParseTable) {
+  constructor(parseTable: ParseTable, roundIdx = 0, log = true) {
     if (!parseTable.packed) {
       throw new Error("Not packed");
     }
     this.parseTable = parseTable;
-    this.phase1Again = new CompressParseTable(parseTable);
+    this.roundIdx = roundIdx;
+    this.log = log;
+    this.phase1Again = new CompressParseTable(parseTable, log);
   }
 
 
@@ -356,18 +362,27 @@ class ReindexAndCompressMoreParseTable {
     this.parseTable.allStates.forEach(state => {
       this.prstate(state);
     });
+
     var ind = 1;
+    var state = this.parseTable.startingState;
+    if (state.index !== ind) {
+      throw new Error("state.index !== ind  " + state.index + " !== " + ind);
+    }
+
+    ind = undefined;
     this.parseTable.allStates.forEach(state => {
+      if (ind === undefined) ind = state.index;
       if (state.index !== ind) {
-        throw new Error("state.index !== ind  "+state.index+" !== "+ind);
+        throw new Error("state.index !== ind  " + state.index + " !== " + ind);
       }
       state.index = state.packedIndex;
+      ind++;
     });
-    (this.parseTable as any).allStates = distinct(this.parseTable.allStates, (a,b)=>{
-      return a.index-b.index;
+    (this.parseTable as any).allStates = distinct(this.parseTable.allStates, (a, b) => {
+      return a.index - b.index;
     });
 
-    return this.phase1Again.pack(log);
+    return this.phase1Again.pack();
   }
 
   prstate(state: GrammarParsingLeafState) {
@@ -376,8 +391,12 @@ class ReindexAndCompressMoreParseTable {
   }
 
   prscmn(state: GrammarParsingLeafStateCommon) {
-    if (state) {
+
+    // This kind of object could be shared from the beginning :
+
+    if (state && state["$round"] !== this.roundIdx) {
       state.serializedTuple = null;
+      state["$round"] = this.roundIdx;
       this.tra(state.serialStateMap);
     }
   }
@@ -386,13 +405,14 @@ class ReindexAndCompressMoreParseTable {
     var shiftses: [string, RTShift[]][] = Object.entries(trans.map);
     if (shiftses.length) {
       shiftses.forEach(([key, shs]) => {
-        shs.forEach(sh=>{
-          var state = this.parseTable.allStates[sh.toStateIndex];
+        shs.forEach(sh => {
+          // 2 - based
+          var state = this.parseTable.allStates[sh.toStateIndex - 2];
           if (state) {
             (sh as any).toStateIndex = state.packedIndex;
           } else {
             if (sh.toStateIndex) {
-              throw new Error("Non-0-indexed state does not exist : "+sh.toStateIndex);
+              throw new Error("Non-0-indexed state does not exist : " + sh.toStateIndex);
             }
           }
         })
@@ -852,38 +872,3 @@ export class GrammarParsingLeafState {
 }
 
 
-
-
-
-class IncVariator {
-
-  K: number = 0;
-  n: number = 0;
-  Ex: number = 0;
-  Ex2: number = 0;
-
-  add(x: number) {
-    if (this.n === 0) this.K = x;
-    this.n++;
-    this.Ex += x - this.K;
-    this.Ex2 += (x - this.K) * (x - this.K);
-  }
-
-  get mean() {
-    return this.K + this.Ex / this.n;
-  }
-
-  get variance() {
-    return (this.Ex2 - (this.Ex * this.Ex) / this.n) / (this.n - 1);
-  }
-
-  get sqrtVariance() {
-    return Math.sqrt(this.variance);
-  }
-
-}
-
-var varShs = new IncVariator();
-var varShReqs = new IncVariator();
-var varTkns = new IncVariator();
-var varRds = new IncVariator();
