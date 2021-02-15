@@ -274,6 +274,7 @@ function generate(ast, ...args) {
     allstarts.splice(allstarts.indexOf(options.allowedStartRules[0]), 1);
     allstarts.unshift(options.allowedStartRules[0]);
 
+    
     HyperG.totallyReinitializableTransaction(() => {
       console.log("-- FILL STACK OPENER TRANSITIONS ------------------------------");
 

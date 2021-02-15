@@ -386,7 +386,7 @@ class GenerateParseTableStackOpenerTransitions {
       } else {
 
         var forNode = new GenerateParseTableStackOpenerBoxTransitions(this.parseTable, c, this);
-        c.setFilledWithRecursive(forNode.shifts);
+        forNode.generate();
 
         if (c === this.parseTable.startingState.common) {
           this.shifts = forNode.shifts;
@@ -431,17 +431,19 @@ class GenerateParseTableStackOpenerBoxTransitions {
         }
         var rr = state.startingPoint as PRuleRef;
         if (!this.parent.stack[rr.rule]) {
-          var importedTable = Analysis.parseTables[rr.rule];
-          var forRuleRef = new GenerateParseTableStackOpenerTransitions(importedTable, rr, this.parent);
-          forRuleRef.generate();
-          this.insertStackOpenShifts(shift, forRuleRef, rr);
+          this.insertStackOpenShifts(shift, rr);
         }
       }
     });
+
+    this.common.setFilledWithRecursive(this.shifts);
   }
 
-  insertStackOpenShifts(
-      recursiveShift:RTShift, child: GenerateParseTableStackOpenerTransitions, rr: PRuleRef) {
+  insertStackOpenShifts(recursiveShift:RTShift, rr: PRuleRef) {
+
+    var importedTable = Analysis.parseTables[rr.rule];
+    var child = new GenerateParseTableStackOpenerTransitions(importedTable, rr, this.parent);
+    child.generate();
 
     const es: [string, RTShift[]][] = Object.entries(child.shifts.map);
     var shiftIndex = recursiveShift.shiftIndex;
