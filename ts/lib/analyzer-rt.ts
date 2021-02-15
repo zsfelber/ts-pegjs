@@ -1,5 +1,5 @@
 import { PRule, Analysis, CodeTblToHex, PLogicNode, NumMapLike, HyperG, PRef, Shifts, ShiftReduceKind, Shift, ShiftRecursive, Reduce, RuleElementTraverser, RuleRefTraverser, TerminalRefTraverser, ParseTableGenerator, EntryPointTraverser, Traversing, StateNodeCommon } from '.';
-import { StateNodeWithPrefix, recursionCacheStack, parseTable } from './analyzer';
+import { StateNodeWithPrefix } from './analyzer';
 import { PNodeKind, PRuleRef } from './parsers';
 
 
@@ -40,11 +40,12 @@ export class ParseTable {
 
   }
 
-  fillStackTransitions(log = true) {
+  fillStackOpenerTransitions(log = true) {
     var result;
     if (!this.stackFilled) {
-      var comp = new GenerateParseTableRuleBoxes(this);
-      result = comp.generate();
+      var comp = new GenerateParseTableStackOpenerTransitions(this);
+      comp.generate();
+      this.startingState.common.setFilledWithRecursive(comp.shifts);
 
       this.stackFilled = true;
     }
@@ -352,46 +353,55 @@ class CompressParseTable {
 }
 
 
-class GenerateParseTableRuleBoxes {
+class GenerateParseTableStackOpenerTransitions {
 
-  stack: {[index:string]: GenerateParseTableRuleBoxes} = {};
+  stack: {[index:string]: GenerateParseTableStackOpenerTransitions};
 
   parseTable: ParseTable;
   rr: PRuleRef;
 
   shifts: GrammarParsingLeafStateTransitions;
 
-  constructor(parseTable: ParseTable, rr?:PRuleRef, parent?: GenerateParseTableRuleBox) {
+  constructor(parseTable: ParseTable, rr?:PRuleRef, parent?: GenerateParseTableStackOpenerTransitions) {
     this.parseTable = parseTable;
     this.rr = rr;
+    this.stack = {};
     if (parent) {
-      this.stack = parent.stack;
+      Object.setPrototypeOf(this.stack, parent.stack);
+    } else {
+      Object.setPrototypeOf(this.stack, null);
     }
     this.stack[parseTable.rule.rule] = this;
-    this.shifts = new GrammarParsingLeafStateTransitions();
   }
 
-  generate() {
 
-    this.parseTable.myCommons.forEach(state => {
-      if (state) {
-        var child = new GenerateParseTableRuleBox(this.parseTable, state, this.stack);
-        child.generate();
+  generate() {
+    this.parseTable.myCommons.forEach(c=>{
+      if (c.filledWithRecursive) {
+
+        if (c === this.parseTable.startingState.common) {
+          this.shifts = forNode.shifts;
+        }
+
+      } else {
+
+        var forNode = new GenerateParseTableStackOpenerBoxTransitions(this.parseTable, c, this);
+
+        if (c === this.parseTable.startingState.common) {
+          this.shifts = forNode.shifts;
+        }
       }
     });
 
   }
 
-  insertStackOpenShifts(trans: GrammarParsingLeafStateTransitions, 
-    recursiveShift:RTShift, child: GenerateParseTableRuleBoxes) {
-
-  }
-
 }
 
-class GenerateParseTableRuleBox {
 
-  stack: {[index:string]: GenerateParseTableRuleBoxes};
+
+class GenerateParseTableStackOpenerBoxTransitions {
+
+  parent: GenerateParseTableStackOpenerTransitions;
 
   parseTable: ParseTable;
 
@@ -399,20 +409,18 @@ class GenerateParseTableRuleBox {
 
   shifts: GrammarParsingLeafStateTransitions;
 
-  constructor(parseTable: ParseTable, common: GrammarParsingLeafStateCommon, 
-              stack: {[index:string]: GenerateParseTableRuleBoxes}) {
+  constructor(parseTable: ParseTable, common: GrammarParsingLeafStateCommon, parent: GenerateParseTableStackOpenerTransitions) {
     this.parseTable = parseTable;
     this.common = common;
-    this.stack = stack;
+    this.parent = parent;
   }
+
 
   generate() {
 
     this.shifts = new GrammarParsingLeafStateTransitions(this.common.transitions);
 
-    var trans = this.common.serialStateMap;
-
-    var recursiveShifts = trans.map[0];
+    var recursiveShifts = this.common.recursiveShifts.map[0];
 
     recursiveShifts.forEach(shift=>{
       if (shift.toStateIndex) {
@@ -421,18 +429,18 @@ class GenerateParseTableRuleBox {
           throw new Error("state.startingPoint.kind !== PNodeKind.RULE_REF   "+state.startingPoint.kind+" !== "+PNodeKind.RULE_REF);
         }
         var rr = state.startingPoint as PRuleRef;
-        if (!this.stack[rr.rule]) {
+        if (!this.parent.stack[rr.rule]) {
           var importedTable = Analysis.parseTables[rr.rule];
-          var child = new GenerateParseTableRuleBoxes(importedTable, rr, this);
-          child.generate();
-          this.insertStackOpenShifts(shift, child, rr);
+          var forRuleRef = new GenerateParseTableStackOpenerTransitions(importedTable, rr, this.parent);
+          forRuleRef.generate();
+          this.insertStackOpenShifts(shift, forRuleRef, rr);
         }
       }
     });
   }
 
   insertStackOpenShifts(
-      recursiveShift:RTShift, child: GenerateParseTableRuleBoxes, rr: PRuleRef) {
+      recursiveShift:RTShift, child: GenerateParseTableStackOpenerTransitions, rr: PRuleRef) {
 
     const es: [string, RTShift[]][] = Object.entries(child.shifts.map);
     var shiftIndex = recursiveShift.shiftIndex;
@@ -464,8 +472,8 @@ class GenerateParseTableRuleBox {
     });
 
   }
-}
 
+}
 
 
 export class RTShift {
@@ -715,6 +723,8 @@ export class GrammarParsingLeafStateCommon {
   serialStateMap: GrammarParsingLeafStateTransitions;
   serializedTuple: [number, number];
 
+  filledWithRecursive = false;
+
   constructor(startStateNode?: StateNodeCommon) {
     if (startStateNode) {
       this.index = startStateNode.index;
@@ -804,6 +814,13 @@ export class GrammarParsingLeafStateCommon {
       }
     }
     return this._transitions;
+  }
+
+  setFilledWithRecursive(newSerialStateMap: GrammarParsingLeafStateTransitions) {
+    this._transitions = null;
+    this.recursiveShifts = null;
+    this.serialStateMap = newSerialStateMap;
+    this.filledWithRecursive = true;
   }
 
   ser(buf: number[]): void {

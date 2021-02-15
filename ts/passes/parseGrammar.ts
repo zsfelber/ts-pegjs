@@ -283,7 +283,7 @@ function generate(ast, ...args) {
         var ptg = Analysis.parseTableGens[r];
         var parseTable = Analysis.parseTable(this.rule, ptg);
         var toLog = (ind === (allstarts.length-1));
-        parseTable.fillStackTransitions(toLog);
+        parseTable.fillStackOpenerTransitions(toLog);
         ind++;
       });
     });
