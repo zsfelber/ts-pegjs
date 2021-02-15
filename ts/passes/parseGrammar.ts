@@ -281,7 +281,7 @@ function generate(ast, ...args) {
 
       allstarts.forEach(r => {
         var ptg = Analysis.parseTableGens[r];
-        var parseTable = Analysis.parseTable(this.rule, ptg);
+        var parseTable = Analysis.parseTable(ptg.rule, ptg);
         var toLog = (ind === (allstarts.length-1));
         parseTable.fillStackOpenerTransitions(toLog);
         ind++;
@@ -296,7 +296,7 @@ function generate(ast, ...args) {
 
       allstarts.forEach(r => {
         var ptg = Analysis.parseTableGens[r];
-        var parseTable = Analysis.parseTable(this.rule, ptg);
+        var parseTable = Analysis.parseTable(ptg.rule, ptg);
         var toLog = (ind === (allstarts.length-1));
         parseTable.pack(toLog);
         ind++;

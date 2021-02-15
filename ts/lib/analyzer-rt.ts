@@ -1,6 +1,7 @@
 import { PRule, Analysis, CodeTblToHex, PLogicNode, NumMapLike, HyperG, PRef, Shifts, ShiftReduceKind, Shift, ShiftRecursive, Reduce, RuleElementTraverser, RuleRefTraverser, TerminalRefTraverser, ParseTableGenerator, EntryPointTraverser, Traversing, StateNodeCommon } from '.';
 import { StateNodeWithPrefix } from './analyzer';
 import { PNodeKind, PRuleRef } from './parsers';
+import { distinct } from './index';
 
 
 function slen(arr: any[]) {
@@ -444,33 +445,60 @@ class GenerateParseTableStackOpenerBoxTransitions {
 
     const es: [string, RTShift[]][] = Object.entries(child.shifts.map);
     var shiftIndex = recursiveShift.shiftIndex;
-    var buffer = new GrammarParsingLeafStateTransitions();
 
+    var allShifts: [number,RTShift][] = [];
     es.forEach(([key,shifts])=>{
       var tokenId = Number(key);
-      var bfte = buffer.map[tokenId];
-      if (!bfte) {
-        buffer.map[tokenId] = bfte = [];
-      }
       shifts.forEach(shift=>{
         var newImportedShift = new RTShift(shiftIndex++, recursiveShift.toStateIndex);
         var newStackItem = new RTStackShiftItem(rr, shift.toStateIndex);
         newImportedShift.stepIntoRecursive.push(newStackItem);
         [].push(newImportedShift.stepIntoRecursive, shift.stepIntoRecursive);
-        bfte.push(newImportedShift);
+
+        allShifts.push([tokenId,newImportedShift]);
       });
     });
 
     const esths: [string, RTShift[]][] = Object.entries(this.shifts.map);
     var deltaShiftIndex = shiftIndex - recursiveShift.shiftIndex;
     esths.forEach(([key,shifts])=>{
+      var tokenId = Number(key);
       shifts.forEach(shift=>{
         if (shift.shiftIndex > recursiveShift.shiftIndex) {
           shift.shiftIndex += deltaShiftIndex;
+          allShifts.push([tokenId, shift]);
         }
       });
     });
 
+    var maxsi = 0;
+    var allShifts2 = distinct(allShifts, (a,b)=>{
+      var si1 = a[1].shiftIndex;
+      var si2 = b[1].shiftIndex;
+      if (si1 > maxsi) maxsi = si1;
+      if (si2 > maxsi) maxsi = si2;
+      return si1 - si2;
+    });
+    if (allShifts.length !== allShifts2.length) {
+      throw new Error("allShifts.length !== allShifts2.length    "+allShifts.length+" !== "+allShifts2.length);
+    }
+    if (maxsi !== allShifts2.length-1) {
+      throw new Error("maxsi !== allShifts2.length-1    "+maxsi+" !== "+(allShifts2.length-1));
+    }
+
+    this.shifts = new GrammarParsingLeafStateTransitions();
+    var shis = 1;
+    allShifts2.forEach(([tokenId, shift])=>{
+      if (shift.shiftIndex !== shis) {
+        throw new Error("shift.shiftIndex !== shis   "+shift.shiftIndex+" !== "+shis);
+      }
+      var shs = this.shifts.map[tokenId];
+      if (!shs) {
+        this.shifts.map[tokenId] = shs = [];
+      }
+      shs.push(shift);
+      shis++;
+    });
   }
 
 }

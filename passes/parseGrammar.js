@@ -177,7 +177,6 @@ function generate(ast) {
         lib_1.HyperG.countRuleRefs();
     }
     function createParseTables() {
-        var _this = this;
         var allstarts = [];
         var created = {};
         var ruleMap = {};
@@ -235,7 +234,7 @@ function generate(ast) {
             var ind = 0;
             allstarts.forEach(function (r) {
                 var ptg = analyzer_1.Analysis.parseTableGens[r];
-                var parseTable = analyzer_1.Analysis.parseTable(_this.rule, ptg);
+                var parseTable = analyzer_1.Analysis.parseTable(ptg.rule, ptg);
                 var toLog = (ind === (allstarts.length - 1));
                 parseTable.fillStackOpenerTransitions(toLog);
                 ind++;
@@ -246,7 +245,7 @@ function generate(ast) {
             var ind = 0;
             allstarts.forEach(function (r) {
                 var ptg = analyzer_1.Analysis.parseTableGens[r];
-                var parseTable = analyzer_1.Analysis.parseTable(_this.rule, ptg);
+                var parseTable = analyzer_1.Analysis.parseTable(ptg.rule, ptg);
                 var toLog = (ind === (allstarts.length - 1));
                 parseTable.pack(toLog);
                 ind++;
