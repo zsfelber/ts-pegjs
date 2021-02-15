@@ -355,37 +355,51 @@ class CompressParseTable {
 
 class GenerateParseTableStackOpenerTransitions {
 
-  stack: {[index:string]: GenerateParseTableStackOpenerTransitions};
+  parentStack: {[index:string]: GenerateParseTableStackOpenerTransitions};
 
   parseTable: ParseTable;
   rr: PRuleRef;
 
   shifts: GrammarParsingLeafStateTransitions;
 
-  constructor(parseTable: ParseTable, rr?:PRuleRef, parent?: GenerateParseTableStackOpenerTransitions) {
+  constructor(parseTable: ParseTable, rr?:PRuleRef, parentStack?: {[index:string]: GenerateParseTableStackOpenerTransitions}) {
     this.parseTable = parseTable;
     this.rr = rr;
-    this.stack = {};
-    if (parent) {
-      Object.setPrototypeOf(this.stack, parent.stack);
-    } else {
-      Object.setPrototypeOf(this.stack, null);
-    }
-    this.stack[parseTable.rule.rule] = this;
+    this.parentStack = parentStack ? parentStack : null;
   }
 
 
   generate() {
+    this.parseTable.allStates.forEach(s=>{
+      s.lazy(this.parseTable);
+    });
+
+    var was1st=0, wasNon1st=0;
     this.parseTable.myCommons.forEach(c=>{
       if (c.filledWithRecursive) {
 
         if (c === this.parseTable.startingState.common) {
           this.shifts = forNode.shifts;
+          was1st=1;
+        } else {
+          wasNon1st=1;
         }
 
       } else {
 
-        var forNode = new GenerateParseTableStackOpenerBoxTransitions(this.parseTable, c, this);
+        var childStack = {};
+        Object.setPrototypeOf(childStack, this.parentStack);
+        // indirect leaf boxes from  main/first doesn't include main/first again
+        // indirect boxes from main/* may include once again the main/first
+        // indirect boxes from *,...,X/y doesn't include once again the X/first
+        if (this.rr || c === this.parseTable.startingState.common) {
+          childStack[this.parseTable.rule.rule] = this;
+          was1st=1;
+        } else {
+          wasNon1st=1;
+        }
+
+        var forNode = new GenerateParseTableStackOpenerBoxTransitions(this.parseTable, c, childStack);
         forNode.generate();
 
         if (c === this.parseTable.startingState.common) {
@@ -393,6 +407,11 @@ class GenerateParseTableStackOpenerTransitions {
         }
       }
     });
+    if (wasNon1st) {
+      if (!was1st) {
+        throw new Error("wasNon1st && !was1st");
+      }
+    }
 
   }
 
@@ -402,7 +421,7 @@ class GenerateParseTableStackOpenerTransitions {
 
 class GenerateParseTableStackOpenerBoxTransitions {
 
-  parent: GenerateParseTableStackOpenerTransitions;
+  stack: {[index:string]: GenerateParseTableStackOpenerTransitions};
 
   parseTable: ParseTable;
 
@@ -410,30 +429,70 @@ class GenerateParseTableStackOpenerBoxTransitions {
 
   shifts: GrammarParsingLeafStateTransitions;
 
-  constructor(parseTable: ParseTable, common: GrammarParsingLeafStateCommon, parent: GenerateParseTableStackOpenerTransitions) {
+  allShifts: [number,number,RTShift[]][];
+
+  constructor(parseTable: ParseTable, common: GrammarParsingLeafStateCommon, stack: {[index:string]: GenerateParseTableStackOpenerTransitions}) {
     this.parseTable = parseTable;
     this.common = common;
-    this.parent = parent;
+    this.stack = stack;
   }
-
 
   generate() {
 
-    this.shifts = new GrammarParsingLeafStateTransitions(this.common.transitions);
+    this.allShifts = [];
+
+    var shis = 0;
+    const esths: [string, RTShift[]][] = Object.entries(this.common.transitions.map);
+    esths.forEach(([key,shifts])=>{
+      var tokenId = Number(key);
+      shifts.forEach(shift=>{
+        this.allShifts.push([shis, tokenId, [shift]]);
+        shis++;
+      });
+    });
+
+    this.shifts = new GrammarParsingLeafStateTransitions();
 
     var recursiveShifts = this.common.recursiveShifts.map[0];
 
-    recursiveShifts.forEach(shift=>{
-      if (shift.toStateIndex) {
-        var state = this.parseTable.allStates[shift.toStateIndex];
-        if (state.startingPoint.kind !== PNodeKind.RULE_REF) {
-          throw new Error("state.startingPoint.kind !== PNodeKind.RULE_REF   "+state.startingPoint.kind+" !== "+PNodeKind.RULE_REF);
+    if (recursiveShifts) {
+      
+      recursiveShifts.forEach(shift=>{
+        if (shift.toStateIndex) {
+          var state = this.parseTable.allStates[shift.toStateIndex];
+          if (state.startingPoint.kind !== PNodeKind.RULE_REF) {
+            throw new Error("state.startingPoint.kind !== PNodeKind.RULE_REF   "+state.startingPoint.kind+" !== "+PNodeKind.RULE_REF);
+          }
+          var rr = state.startingPoint as PRuleRef;
+          if (!this.stack[rr.rule]) {
+            this.insertStackOpenShifts(shift, rr);
+          }
         }
-        var rr = state.startingPoint as PRuleRef;
-        if (!this.parent.stack[rr.rule]) {
-          this.insertStackOpenShifts(shift, rr);
+      });
+    }
+    var shifstlen = this.allShifts.length;
+    this.allShifts = distinct(this.allShifts, (a,b)=>{
+      return a[0] - b[0];
+    });
+    if (shifstlen !== this.allShifts.length) {
+      throw new Error("shifstlen !== this.allShifts.length   "+shifstlen+" !== "+this.allShifts.length);
+    }
+
+    var shis = 0;
+    this.allShifts.forEach(([shi, tokenId, shifts])=>{
+      shifts.forEach(shift=>{
+        if (shi !== shis) {
+          throw new Error("shi !== shis   "+shi+" !== "+shis);
         }
-      }
+
+        shift.shiftIndex = shis;
+        var shs = this.shifts.map[tokenId];
+        if (!shs) {
+          this.shifts.map[tokenId] = shs = [];
+        }
+        shs.push(shift);
+        shis++;
+      })
     });
 
     this.common.setFilledWithRecursive(this.shifts);
@@ -442,65 +501,24 @@ class GenerateParseTableStackOpenerBoxTransitions {
   insertStackOpenShifts(recursiveShift:RTShift, rr: PRuleRef) {
 
     var importedTable = Analysis.parseTables[rr.rule];
-    var child = new GenerateParseTableStackOpenerTransitions(importedTable, rr, this.parent);
+    var child = new GenerateParseTableStackOpenerTransitions(importedTable, rr, this.stack);
     child.generate();
 
     const es: [string, RTShift[]][] = Object.entries(child.shifts.map);
-    var shiftIndex = recursiveShift.shiftIndex;
 
-    var allShifts: [number,RTShift][] = [];
     es.forEach(([key,shifts])=>{
       var tokenId = Number(key);
+      var impshifts:RTShift[] = [];
       shifts.forEach(shift=>{
-        var newImportedShift = new RTShift(shiftIndex++, recursiveShift.toStateIndex);
+        var newImportedShift = new RTShift(recursiveShift.shiftIndex, recursiveShift.toStateIndex);
         var newStackItem = new RTStackShiftItem(rr, shift.toStateIndex);
         newImportedShift.stepIntoRecursive.push(newStackItem);
         [].push(newImportedShift.stepIntoRecursive, shift.stepIntoRecursive);
-
-        allShifts.push([tokenId,newImportedShift]);
+        impshifts.push(newImportedShift);
       });
+      this.allShifts.push([recursiveShift.shiftIndex, tokenId, impshifts]);
     });
 
-    const esths: [string, RTShift[]][] = Object.entries(this.shifts.map);
-    var deltaShiftIndex = shiftIndex - recursiveShift.shiftIndex;
-    esths.forEach(([key,shifts])=>{
-      var tokenId = Number(key);
-      shifts.forEach(shift=>{
-        if (shift.shiftIndex > recursiveShift.shiftIndex) {
-          shift.shiftIndex += deltaShiftIndex;
-          allShifts.push([tokenId, shift]);
-        }
-      });
-    });
-
-    var maxsi = 0;
-    var allShifts2 = distinct(allShifts, (a,b)=>{
-      var si1 = a[1].shiftIndex;
-      var si2 = b[1].shiftIndex;
-      if (si1 > maxsi) maxsi = si1;
-      if (si2 > maxsi) maxsi = si2;
-      return si1 - si2;
-    });
-    if (allShifts.length !== allShifts2.length) {
-      throw new Error("allShifts.length !== allShifts2.length    "+allShifts.length+" !== "+allShifts2.length);
-    }
-    if (maxsi !== allShifts2.length-1) {
-      throw new Error("maxsi !== allShifts2.length-1    "+maxsi+" !== "+(allShifts2.length-1));
-    }
-
-    this.shifts = new GrammarParsingLeafStateTransitions();
-    var shis = 1;
-    allShifts2.forEach(([tokenId, shift])=>{
-      if (shift.shiftIndex !== shis) {
-        throw new Error("shift.shiftIndex !== shis   "+shift.shiftIndex+" !== "+shis);
-      }
-      var shs = this.shifts.map[tokenId];
-      if (!shs) {
-        this.shifts.map[tokenId] = shs = [];
-      }
-      shs.push(shift);
-      shis++;
-    });
   }
 
 }
