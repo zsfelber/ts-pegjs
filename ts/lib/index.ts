@@ -16,7 +16,7 @@ export namespace HyperG {
     Env = HyperGEnvType.ANALYZING;
     serializerStartingIdx = 0;
     serializerCnt = 0;
-    functionTable: ((...etc)=>any)[];
+    functionTable: ((...etc) => any)[];
     ruleTable: PRule[];
     ruleInterpreters: EntryPointInterpreter[];
     nodeTable: PNode[] = [];
@@ -34,7 +34,7 @@ export namespace HyperG {
       this.ruleInterpreters = [].concat(ruleInterpreters);
       this.nodeTable = [].concat(nodeTable);
       this.ruleRefTable = [].concat(ruleRefTable);
-      this.parseTables = Object.assign({},parseTables);
+      this.parseTables = Object.assign({}, parseTables);
       this.indent = indent;
       this.stack = [].concat(stack);
     }
@@ -60,7 +60,7 @@ export namespace HyperG {
 
   export var serializerCnt = 0;
 
-  export var functionTable: ((...etc)=>any)[];
+  export var functionTable: ((...etc) => any)[];
 
   export var ruleTable: PRule[];
 
@@ -87,7 +87,7 @@ export namespace HyperG {
     return emptyBackup;
   }
 
-  export function totallyReinitializableTransaction(fun:Function) {
+  export function totallyReinitializableTransaction(fun: Function) {
 
     const bak = Analysis.backup();
     const e = backup();
@@ -101,14 +101,14 @@ export namespace HyperG {
   }
 
   export function countRuleRefs() {
-    ruleTable.forEach(r=>{
+    ruleTable.forEach(r => {
       r.refs = 0;
     });
-    ruleRefTable.forEach(rr=>{
+    ruleRefTable.forEach(rr => {
       ruleTable[rr.ruleIndex].refs++;
     });
   }
-  
+
 }
 
 export interface IFailure {
@@ -463,7 +463,7 @@ export abstract class HyperGParseStream<T extends IToken> {
 export class SourceFilePosUtil {
 
   readonly posDetailsCache: IFilePosition[] = [{ line: 1, column: 1 }];
-  
+
   calculatePosition(buffer: IStringLike, pos: number): IFilePosition {
     let details = this.posDetailsCache[pos];
 
@@ -525,36 +525,60 @@ export function JSstringEscape(s) {
    * it.
    */
   return s
-    .replace(/\\/g,   '\\\\')   // backslash
-    .replace(/"/g,    '\\"')    // closing double quote
-    .replace(/\0/g,   '\\x00')    // null
+    .replace(/\\/g, '\\\\')   // backslash
+    .replace(/"/g, '\\"')    // closing double quote
+    .replace(/\0/g, '\\x00')    // null
     .replace(/\x08/g, '\\b')    // backspace
-    .replace(/\t/g,   '\\t')    // horizontal tab
-    .replace(/\n/g,   '\\n')    // line feed
-    .replace(/\f/g,   '\\f')    // form feed
-    .replace(/\r/g,   '\\r')    // carriage return
-    .replace(/[\x00-\x0F]/g,          function(ch) { return '\\x0' + hex(ch); })
-    .replace(/[\x10-\x1F\x7F-\xFF]/g, function(ch) { return '\\x'  + hex(ch); })
-    .replace(/[\u0100-\u0FFF]/g,      function(ch) { return '\\u0' + hex(ch); })
-    .replace(/[\u1000-\uFFFF]/g,      function(ch) { return '\\u'  + hex(ch); });
+    .replace(/\t/g, '\\t')    // horizontal tab
+    .replace(/\n/g, '\\n')    // line feed
+    .replace(/\f/g, '\\f')    // form feed
+    .replace(/\r/g, '\\r')    // carriage return
+    .replace(/[\x00-\x0F]/g, function (ch) { return '\\x0' + hex(ch); })
+    .replace(/[\x10-\x1F\x7F-\xFF]/g, function (ch) { return '\\x' + hex(ch); })
+    .replace(/[\u0100-\u0FFF]/g, function (ch) { return '\\u0' + hex(ch); })
+    .replace(/[\u1000-\uFFFF]/g, function (ch) { return '\\u' + hex(ch); });
 }
 
 function hex(ch: string): string {
   return ch.charCodeAt(0).toString(16).toUpperCase();
 }
 
-export const DefaultComparator = (a,b)=>{
-  if (a===b) return 0;
-  var r1 = (a?1:0)-(b?1:0);
+export const DefaultComparator = (a, b) => {
+  if (a === b) return 0;
+  var r1 = (a ? 1 : 0) - (b ? 1 : 0);
   if (r1) return r1;
-  if (typeof(a)==="number" && typeof(b)==="number") {
-    return a-b;
+  if (typeof (a) === "number" && typeof (b) === "number") {
+    return a - b;
+  }else if (typeof (a) === "string" && typeof (b) === "string") {
+    return a.localeCompare(b);
   } else {
-    return a.toString().localeCompare(b.toString());
+    return a[UNIQUE_OBJECT_ID].toString().localeCompare(b[UNIQUE_OBJECT_ID].toString());
   }
 };
 
-export function distinct<T>(inparr: T[], cmp?:((a:T, b:T)=>number)) {
+export var UNIQUE_OBJECT_ID = "_uniqueObjId";
+
+// static
+var cnt_uniqueObjId = 1000;
+
+Object.defineProperty(Object.prototype, UNIQUE_OBJECT_ID,
+  {
+    // Using shorthand method names (ES2015 feature).
+    // This is equivalent to:
+    // get: function() { return bValue; },
+    // set: function(newValue) { bValue = newValue; },
+    get() {
+      if (!this.__uniqueObjId) {
+        this.__uniqueObjId = "_oid$¤" + (cnt_uniqueObjId++);
+      }
+      return this.__uniqueObjId;
+    },
+    enumerable: false,
+    configurable: false
+  });
+
+
+export function distinct<T>(inparr: T[], cmp?: ((a: T, b: T) => number)) {
   if (!inparr) return inparr;
   if (!inparr.length) return [];
   if (!cmp) {
@@ -571,7 +595,7 @@ export function distinct<T>(inparr: T[], cmp?:((a:T, b:T)=>number)) {
 }
 
 export function CodeTblToHex(s: number[]) {
-  var r = s.map(c=>{
+  var r = s.map(c => {
     if (!c) return "00";
     else if (c <= 0xf) return '0' + c.toString(16).toUpperCase();
     else if (c <= 0xff) return '' + c.toString(16).toUpperCase();
@@ -608,9 +632,9 @@ export function verySimplePackMany0(raw: string) {
   return result;
 }
 
-export function checkRuleNodesIntegrity(items:[PRule, string][], mode?: HyperGEnvType) {
+export function checkRuleNodesIntegrity(items: [PRule, string][], mode?: HyperGEnvType) {
   HyperG.serializerCnt = HyperG.serializerStartingIdx;
-  items.forEach(([ruleNode, serializedForm])=>{
+  items.forEach(([ruleNode, serializedForm]) => {
     checkRuleNodeIntegrity(ruleNode, serializedForm, mode);
   });
 }
@@ -619,12 +643,12 @@ function checkRuleNodeIntegrity(ruleNode: PRule, serializedForm: string, mode: H
   const code = ruleNode.ser();
   const hex = CodeTblToHex(code).join('');
   if (hex !== serializedForm) {
-    console.error("Rule node integrity error pass 1 : "+ruleNode);
+    console.error("Rule node integrity error pass 1 : " + ruleNode);
   } else {
-    console.log("Rule node integrity check successful pass 1 : "+ruleNode);
+    console.log("Rule node integrity check successful pass 1 : " + ruleNode);
   }
 
-  HyperG.totallyReinitializableTransaction(()=>{
+  HyperG.totallyReinitializableTransaction(() => {
 
     HyperG.serializerCnt = ruleNode.nodeIdx;
     HyperG.indent = "";
@@ -634,25 +658,25 @@ function checkRuleNodeIntegrity(ruleNode: PRule, serializedForm: string, mode: H
     var ruleNode2 = node as PRule;
     ruleNode2.rule = ruleNode.rule;
     if (!ruleNode.diagnosticEqualityCheck(ruleNode2)) {
-      console.error("Rule node integrity error pass 2 : "+ruleNode2);
+      console.error("Rule node integrity error pass 2 : " + ruleNode2);
     } else {
-      console.log("Rule node integrity check successful pass 2: "+ruleNode);
+      console.log("Rule node integrity check successful pass 2: " + ruleNode);
     }
   });
 }
 
-export function checkParseTablesIntegrity(serializedConstTable: string, items:[ParseTable, string][], mode: HyperGEnvType) {
+export function checkParseTablesIntegrity(serializedConstTable: string, items: [ParseTable, string][], mode: HyperGEnvType) {
 
-  HyperG.totallyReinitializableTransaction(()=>{
-    
+  HyperG.totallyReinitializableTransaction(() => {
+
     Analysis.empty().save();
     HyperG.Env = mode ? mode : HyperGEnvType.INTEGRITY_CHECK;
     HyperG.serializerCnt = HyperG.serializerStartingIdx;
 
-    items.forEach(([parseTable, serializedForm])=>{
+    items.forEach(([parseTable, serializedForm]) => {
       checkParseTableIntegrity(parseTable, serializedForm, mode);
     });
-  
+
     var ttbuf: number[] = [];
     Analysis.writeAllSerializedTables(ttbuf);
     var hex = encodeVsimPck(ttbuf);
@@ -661,7 +685,7 @@ export function checkParseTablesIntegrity(serializedConstTable: string, items:[P
     } else {
       console.log("Const table integrity check successful.");
     }
-  
+
   });
 }
 
@@ -669,17 +693,17 @@ function checkParseTableIntegrity(parseTable: ParseTable, serializedForm: string
   var code = parseTable.ser();
   var hex = encodeVsimPck(code);
   if (hex !== serializedForm) {
-    console.error("Parse table integrity error pass 1 : "+parseTable);
+    console.error("Parse table integrity error pass 1 : " + parseTable);
   } else {
-    console.log("Parse table integrity check successful pass 1 : "+parseTable);
+    console.log("Parse table integrity check successful pass 1 : " + parseTable);
   }
 
   var parseTable2 = new ParseTable(parseTable.rule);
   parseTable2.deser(code);
   if (!parseTable.diagnosticEqualityCheck(parseTable2)) {
-    console.error("Parse table integrity error pass 2 : "+parseTable2);
+    console.error("Parse table integrity error pass 2 : " + parseTable2);
   } else {
-    console.log("Parse table integrity check successful pass 2: "+parseTable);
+    console.log("Parse table integrity check successful pass 2: " + parseTable);
   }
 
 }
@@ -696,10 +720,10 @@ export class IncVariator {
 
   constructor(from?: IncVariator) {
     if (from) {
-      this.K=from.K;
-      this.n=from.n;
-      this.Ex=from.Ex;
-      this.Ex2=from.Ex2;
+      this.K = from.K;
+      this.n = from.n;
+      this.Ex = from.Ex;
+      this.Ex2 = from.Ex2;
     }
   }
   add(x: number) {
