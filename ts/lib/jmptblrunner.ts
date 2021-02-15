@@ -1,4 +1,4 @@
-import { Analysis,  IToken, HyperG } from '.';
+import { Analysis, IToken, HyperG } from '.';
 import { IBaseParserProgram, DeferredReduce } from './interpreter';
 import { PRuleRef, PValueNode } from './parsers';
 import { Packrat } from './packrat';
@@ -85,14 +85,14 @@ export class JumpTableRunner {
       const pushShift = (newShifts: RTShift[], stack: StackTuple[], action?: StackAction) => {
         stack.push([currentStates, token, i + 1, owner.inputPos, action]);
         // 1 - based
-        currentStates = newShifts.map(shift => (this.parseTable.allStates[shift.toStateIndex-1]));
+        currentStates = newShifts.map(shift => (this.parseTable.allStates[shift.toStateIndex - 1]));
         token = owner.next();
         i = 0;
       }
 
       const hasRecursionSucceeded = (rsh: RTShift): boolean => {
         // 1 - based
-        var reqstate = (this.parseTable.allStates[rsh.toStateIndex-1]);
+        var reqstate = (this.parseTable.allStates[rsh.toStateIndex - 1]);
         var rr = reqstate.startingPoint as PRuleRef;
 
         const cached = This.packrat.readCacheEntry(HyperG.ruleTable[rr.ruleIndex]);
@@ -163,7 +163,7 @@ export class JumpTableRunner {
           const Lj = rshs[0].length - 1;
           for (var j = 0; j <= Lj; j++) {
             var rsh = rshs[0][j];
-            
+
             var statesBeforeReq: RTShift[];
             // if recursiveShift split to 2 parts:
             // before and after recursiveShift :
@@ -185,7 +185,7 @@ export class JumpTableRunner {
             // Third   shift to recursive if succeeded / statesAfterReq if recursion failed
 
             pushShift(statesBeforeReq, reverseSubStack);
-            pushShift([], reverseSubStack, {fun: conditionalRecursion, args:[rsh, stack]});
+            pushShift([], reverseSubStack, { fun: conditionalRecursion, args: [rsh, stack] });
             if (j === Lj) {
               pushShift(statesAfterReq, reverseSubStack);
             }

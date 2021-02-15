@@ -160,12 +160,13 @@ export namespace Analysis {
   }
 
   export function leafStateCommon(parseTable: ParseTable, index: number) {
-    var ls = leafStateCommons[index];
+    if (!index) return null;
+    var ls = leafStateCommons[index - 1];
     if (!ls) {
-      leafStateCommons[index] = ls = new GrammarParsingLeafStateCommon();
+      leafStateCommons[index - 1] = ls = new GrammarParsingLeafStateCommon();
       ls.index = index;
     }
-    parseTable.myCommons[index] = ls;
+    parseTable.myCommons[index - 1] = ls;
     return ls;
   }
 
@@ -253,58 +254,6 @@ export namespace Analysis {
       throw new Error("pos !== buf.length  "+pos+" !== "+buf.length);
     }
     return pos;
-  }
-}
-
-
-interface TraversionMakerCache extends StrMapLike<RuleElementTraverser> {
-  depth: number;
-  indent: string;
-  upwardBranchCnt: number;
-  parent?: TraversionMakerCache;
-  top?: TraversionMakerCache;
-  item?: RuleElementTraverser;
-}
-
-export namespace Traversing {
-
-  export var active: boolean;
-
-  export var inTraversion: LinearTraversion;
-
-  export var recursionCacheStack: TraversionMakerCache;
-  
-  export var item: RuleElementTraverser;
-
-  var maxdepth = 0;
-
-  export function start(_inTraversion: LinearTraversion, _item: RuleElementTraverser) {
-    inTraversion = _inTraversion;
-    recursionCacheStack = { depth:0, indent: "", upwardBranchCnt:1, item:_item };
-    recursionCacheStack.top = recursionCacheStack;
-    item = recursionCacheStack.item;
-    maxdepth = 0;
-    active = true;
-  }
-  export function finish() {
-    active = false;
-  }
-
-  export function push(child: RuleElementTraverser) {
-    var oldRecursionCacheStack = recursionCacheStack;
-    recursionCacheStack = { depth:oldRecursionCacheStack.depth+1, indent: oldRecursionCacheStack.indent + "  ", upwardBranchCnt: oldRecursionCacheStack.upwardBranchCnt, parent:oldRecursionCacheStack, top:oldRecursionCacheStack.top, item:child };
-    if (recursionCacheStack.depth > maxdepth) {
-      maxdepth = recursionCacheStack.depth;
-      /*if (!(maxdepth%10)) {
-        console.log("Traversal depth:"+recursionCacheStack.depth);
-      }*/
-    }
-    item = recursionCacheStack.item;
-    Object.setPrototypeOf(recursionCacheStack, oldRecursionCacheStack);
-  }
-  export function pop() {
-    recursionCacheStack = recursionCacheStack.parent;
-    item = recursionCacheStack.item;
   }
 }
 

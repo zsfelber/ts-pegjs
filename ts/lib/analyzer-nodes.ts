@@ -1,6 +1,6 @@
-import { Analysis, HyperG, JumpIntoSubroutineLeafStateNode, LeafStateNodeCommon, LEV_CNT_BRANCH_NODES, ParseTableGenerator, PNode, PNodeKind, PRef, PRule, PRuleRef, PTerminalRef, PValueNode, ShiftReduceKind, StrMapLike, TraversedLeafStateNode, Traversing } from '.';
+import { Analysis, HyperG, JumpIntoSubroutineLeafStateNode, LeafStateNodeCommon, LEV_CNT_BRANCH_NODES, ParseTableGenerator, PNode, PNodeKind, PRef, PRule, PRuleRef, PTerminalRef, PValueNode, ShiftReduceKind, StrMapLike, TraversedLeafStateNode } from '.';
 import { CNT_HUB_LEVELS, LEV_CNT_LN_RULE, LeafStateNodeWithPrefix } from './analyzer';
-import { TraversionControl, TraversionCache, TraversionItemKind, TraversionPurpose, TraversionItemActionKind, LinearTraversion } from './analyzer-tra';
+import { TraversionControl, TraversionCache, TraversionItemKind, TraversionPurpose, TraversionItemActionKind, LinearTraversion, Traversing } from './analyzer-tra';
 
 
 export namespace Factory {
