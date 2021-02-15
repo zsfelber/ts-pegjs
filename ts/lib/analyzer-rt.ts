@@ -356,8 +356,10 @@ class CompressParseTable {
 
 class GenerateParseTableStackOpenerTransitions {
 
+  parent: GenerateParseTableStackOpenerTransitions;
   top: GenerateParseTableStackOpenerTransitions;
-  parentStack: { [index: string]: GenerateParseTableStackOpenerTransitions };
+  indent = "";
+  stack: { [index: string]: GenerateParseTableStackOpenerTransitions };
 
   parseTable: ParseTable;
   rr: PRuleRef;
@@ -366,15 +368,24 @@ class GenerateParseTableStackOpenerTransitions {
 
   unresolvedNoTokenProducingRecursiveItems: [GenerateParseTableStackOpenerBoxTransitions, GenerateParseTableStackOpenerTransitions, RTShift, PRuleRef][] = [];
 
-  constructor(top: GenerateParseTableStackOpenerTransitions, parseTable: ParseTable, rr?: PRuleRef, parentStack?: { [index: string]: GenerateParseTableStackOpenerTransitions }) {
-    this.top = top ? top : this;
+  constructor(parent: GenerateParseTableStackOpenerTransitions, parseTable: ParseTable, rr?: PRuleRef) {
     this.parseTable = parseTable;
     this.rr = rr;
-    this.parentStack = parentStack ? parentStack : null;
+    if (parent) {
+      this.parent = parent;
+      this.top = parent.top;
+      this.stack = parent.stack;
+      this.indent = parent.indent+="  ";
+    } else {
+      this.top = this;
+      this.stack = {};
+    }
   }
 
 
   generate() {
+    console.log(this.indent+">"+(this.rr?this.rr:this.parseTable.rule));
+
     this.parseTable.allStates.forEach(s => {
       s.lazy(this.parseTable);
     });
@@ -382,31 +393,21 @@ class GenerateParseTableStackOpenerTransitions {
     var was1st = 0, wasNon1st = 0;
     var top = !this.rr;
 
+    // Trivial items first :
+    this.shifts = this.parseTable.startingState.common.transitions;
+
     this.parseTable.myCommons.forEach(c => {
-      if (c.filledWithRecursive) {
-
-        if (c === this.parseTable.startingState.common) {
-          this.shifts = this.parseTable.startingState.common.serialStateMap;
-          was1st = 1;
-        } else {
-          wasNon1st = 1;
-        }
-
+      if (c === this.parseTable.startingState.common) {
+        was1st = 1;
       } else {
+        wasNon1st = 1;
+      }
 
-        var childStack = {};
-        Object.setPrototypeOf(childStack, this.parentStack);
-        // indirect leaf boxes from  main/first doesn't include main/first again
-        // indirect boxes from main/* may include once again the main/first
-        // indirect boxes from *,...,X/y doesn't include once again the X/first
-        if (!top || c === this.parseTable.startingState.common) {
-          childStack[this.parseTable.rule.rule] = this;
-          was1st = 1;
-        } else {
-          wasNon1st = 1;
-        }
+      if (!c.filledWithRecursive) {
 
-        var forNode = new GenerateParseTableStackOpenerBoxTransitions(this.top, this.parseTable, c, childStack);
+        this.stack[this.parseTable.rule.rule] = this;
+
+        var forNode = new GenerateParseTableStackOpenerBoxTransitions(this, this.parseTable, c);
         forNode.generate();
 
         if (c === this.parseTable.startingState.common) {
@@ -424,17 +425,21 @@ class GenerateParseTableStackOpenerTransitions {
     if (this.shifts.map[0]) {
       throw new Error("this.shifts.map[0]  len:" + Object.keys(this.shifts.map).length);
     }
+    console.log(this.indent+"<"+(this.rr?this.rr:this.parseTable.rule));
 
     if (top) {
+      console.log("Adding again : "+this.unresolvedNoTokenProducingRecursiveItems.length);
       var childrenAffctd: GenerateParseTableStackOpenerBoxTransitions[] = [];
       this.unresolvedNoTokenProducingRecursiveItems.forEach(tuple => {
         tuple[0].postfixInsertUnresolvedNoTokenProducing(tuple[1], tuple[2], tuple[3]);
         childrenAffctd.push(tuple[0]);
       });
       childrenAffctd = distinct(childrenAffctd);
+      console.log("Affected distinct : "+childrenAffctd.length+"  generating shifts again...");
       childrenAffctd.forEach(chbox => {
         chbox.generateShiftsAgain();
       });
+      console.log("Finished");
     }
   }
 
@@ -446,7 +451,7 @@ class GenerateParseTableStackOpenerBoxTransitions {
 
   top: GenerateParseTableStackOpenerTransitions;
 
-  stack: { [index: string]: GenerateParseTableStackOpenerTransitions };
+  parent: GenerateParseTableStackOpenerTransitions;
 
   parseTable: ParseTable;
 
@@ -458,11 +463,11 @@ class GenerateParseTableStackOpenerBoxTransitions {
 
   uniqShIdx = [];
 
-  constructor(top: GenerateParseTableStackOpenerTransitions, parseTable: ParseTable, common: GrammarParsingLeafStateCommon, stack: { [index: string]: GenerateParseTableStackOpenerTransitions }) {
-    this.top = top;
+  constructor(parent: GenerateParseTableStackOpenerTransitions, parseTable: ParseTable, common: GrammarParsingLeafStateCommon) {
+    this.parent = parent;
+    this.top = parent.top;
     this.parseTable = parseTable;
     this.common = common;
-    this.stack = stack;
   }
 
   generate() {
@@ -509,30 +514,31 @@ class GenerateParseTableStackOpenerBoxTransitions {
     this.uniqShIdx[oldShift.shiftIndex] = 1;
 
     var buf = [];
-    theShifts.forEach(theShift=>{
-      buf.push(theShift[0]);
-      buf.push(theShift[1].toStateIndex);
-      theShift[1].serStackItms(buf);
+    theShifts.forEach(([tokenId, shift])=>{
+      buf.push(tokenId);
+      buf.push(shift.toStateIndex);
+      shift.serStackItms(buf);
     });
     var key = CodeTblToHex(buf).join("");
 
     var olditm = this.allShifts[key];
     if (olditm) {
-      throw new Error("Shift action already produced !   shiftIndex:"+oldShift.shiftIndex+"  old shiftIndex:"+olditm[0]);
+      //throw new Error("Shift action already produced !   shiftIndex:"+oldShift.shiftIndex+"  old shiftIndex:"+olditm[0]);
+    } else {
+      this.allShifts[key] = [oldShift.shiftIndex, theShifts];
     }
-    this.allShifts[key] = [oldShift.shiftIndex, theShifts];
   }
 
   private generateShifts() {
     this.shifts = new GrammarParsingLeafStateTransitions();
 
-    var shifstlen = this.allShifts.length;
     var asvals = Object.values(this.allShifts);
+    var shifstlen = asvals.length;
     asvals = distinct(asvals, (a, b) => {
       return a[0] - b[0];
     });
-    if (shifstlen !== this.allShifts.length) {
-      throw new Error("shifstlen !== this.allShifts.length   " + shifstlen + " !== " + this.allShifts.length);
+    if (shifstlen !== asvals.length) {
+      throw new Error("shifstlen !== asvals.length   " + shifstlen + " !== " + asvals.length);
     }
 
     var shis = 0;
@@ -567,9 +573,12 @@ class GenerateParseTableStackOpenerBoxTransitions {
     }
 
     var rr = state.startingPoint as PRuleRef;
-    if (this.stack[rr.rule]) {
+    if (this.parent.stack[rr.rule]) {
 
-      this.top.unresolvedNoTokenProducingRecursiveItems.push([this, this.stack[rr.rule], recursiveShift, rr]);
+      // Trivial items :
+      this.appendChild(this.parent.stack[rr.rule], recursiveShift, rr);
+
+      this.top.unresolvedNoTokenProducingRecursiveItems.push([this, this.parent.stack[rr.rule], recursiveShift, rr]);
 
     } else {
 
@@ -578,7 +587,7 @@ class GenerateParseTableStackOpenerBoxTransitions {
         throw new Error("rr.rule !== importedTable.rule.rule   " + rr.rule + " !== " + importedTable.rule.rule);
       }
 
-      var child = new GenerateParseTableStackOpenerTransitions(this.top, importedTable, rr, this.stack);
+      var child = new GenerateParseTableStackOpenerTransitions(this.parent, importedTable, rr);
       child.generate();
 
       this.appendChild(child, recursiveShift, rr);
