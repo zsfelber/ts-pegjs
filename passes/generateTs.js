@@ -469,6 +469,7 @@ function generateTS(ast) {
         return res.join('\n');
     }
     function generateParseTable() {
+        var _this = this;
         var ri = 0;
         var ruleMap = {};
         ast.rules.forEach(function (r) { ruleMap[r.name] = ri++; });
@@ -481,8 +482,8 @@ function generateTS(ast) {
                 console.error("Something wrong '" + r + "' != '" + rule.rule + "'");
                 throw new Error();
             }
-            var g = lib_1.ParseTableGenerator.createForRule(rule);
-            var parseTable = g.generateParseTable();
+            var ptg = lib_1.ParseTableGenerator.createForRule(rule);
+            var parseTable = lib_1.Analysis.parseTable(_this.rule, ptg);
             parseTbl.push("const peg$PrsTbl" + r + ' = "' + lib_1.encodePrsTbl(parseTable) + '";');
         };
         allstarts.forEach(function (r) {

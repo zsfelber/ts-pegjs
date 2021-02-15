@@ -582,8 +582,8 @@ function pushc(cache: any, item: any): any {
         console.error("Something wrong '" + r + "' != '" + rule.rule + "'");
         throw new Error();
       }
-      var g = ParseTableGenerator.createForRule(rule);
-      var parseTable = g.generateParseTable();
+      var ptg = ParseTableGenerator.createForRule(rule);
+      var parseTable = Analysis.parseTable(this.rule, ptg);
 
       parseTbl.push("const peg$PrsTbl" + r + ' = "' + encodePrsTbl(parseTable) + '";');
     };

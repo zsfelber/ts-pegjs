@@ -228,7 +228,8 @@ function generate(ast, ...args) {
         ri = ruleMap[r];
         var rule = grammar.children[ri] as PRule;
 
-        var g = ParseTableGenerator.createForRule(rule);
+        var ptg = ParseTableGenerator.createForRule(rule);
+        var pt = Analysis.parseTable(rule, ptg);
         return true;
       }
     };
@@ -274,20 +275,35 @@ function generate(ast, ...args) {
     allstarts.unshift(options.allowedStartRules[0]);
 
     HyperG.totallyReinitializableTransaction(() => {
-      console.log("----------------------------------------------------------");
+      console.log("-- FILL STACK OPENER TRANSITIONS ------------------------------");
 
       var ind = 0;
 
       allstarts.forEach(r => {
-        var ptg = Analysis.parseTables[r];
-        var pt = ptg.generateParseTable();
+        var ptg = Analysis.parseTableGens[r];
+        var parseTable = Analysis.parseTable(this.rule, ptg);
         var toLog = (ind === (allstarts.length-1));
-        pt.pack(toLog);
+        parseTable.fillStackTransitions(toLog);
         ind++;
       });
     });
 
-    
+
+    HyperG.totallyReinitializableTransaction(() => {
+      console.log("-- PACK --------------------------------------------------------");
+
+      var ind = 0;
+
+      allstarts.forEach(r => {
+        var ptg = Analysis.parseTableGens[r];
+        var parseTable = Analysis.parseTable(this.rule, ptg);
+        var toLog = (ind === (allstarts.length-1));
+        parseTable.pack(toLog);
+        ind++;
+      });
+    });
+
+
     ast.allstarts = allstarts;
   }
 

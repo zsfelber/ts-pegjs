@@ -177,6 +177,7 @@ function generate(ast) {
         lib_1.HyperG.countRuleRefs();
     }
     function createParseTables() {
+        var _this = this;
         var allstarts = [];
         var created = {};
         var ruleMap = {};
@@ -188,7 +189,8 @@ function generate(ast) {
                 created[r] = 1;
                 ri = ruleMap[r];
                 var rule = grammar.children[ri];
-                var g = analyzer_1.ParseTableGenerator.createForRule(rule);
+                var ptg = analyzer_1.ParseTableGenerator.createForRule(rule);
+                var pt = analyzer_1.Analysis.parseTable(rule, ptg);
                 return true;
             }
         };
@@ -232,10 +234,10 @@ function generate(ast) {
             console.log("----------------------------------------------------------");
             var ind = 0;
             allstarts.forEach(function (r) {
-                var ptg = analyzer_1.Analysis.parseTables[r];
-                var pt = ptg.generateParseTable();
+                var ptg = analyzer_1.Analysis.parseTableGens[r];
+                var parseTable = analyzer_1.Analysis.parseTable(_this.rule, ptg);
                 var toLog = (ind === (allstarts.length - 1));
-                pt.pack(toLog);
+                parseTable.pack(toLog);
                 ind++;
             });
         });

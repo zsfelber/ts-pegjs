@@ -44,7 +44,8 @@ export namespace Analysis {
     serializedReduces: {[index: string]:GrammarParsingLeafStateReduces} = {};
     stack: Backup[] = [];
     serializedStateCommonsCnt = 1;
-    parseTables: StrMapLike<ParseTableGenerator> = {};
+    parseTableGens: StrMapLike<ParseTableGenerator> = {};
+    parseTables: StrMapLike<ParseTable> = {};
     varShs = new IncVariator();
     varShReqs = new IncVariator();
     varTkns = new IncVariator();
@@ -66,6 +67,7 @@ export namespace Analysis {
       this.serializedReduces = Object.assign({}, serializedReduces);
       this.stack = [].concat(stack);
       this.serializedStateCommonsCnt = serializedStateCommonsCnt;
+      this.parseTableGens = Object.assign({}, parseTableGens);
       this.parseTables = Object.assign({}, parseTables);
       this.varShs = new IncVariator(varShs);
       this.varShReqs = new IncVariator(varShReqs);
@@ -88,6 +90,7 @@ export namespace Analysis {
       serializedReduces = this.serializedReduces;
       stack = this.stack;
       serializedStateCommonsCnt = this.serializedStateCommonsCnt;
+      parseTableGens = this.parseTableGens;
       parseTables = this.parseTables;
       varShs = this.varShs;
       varShReqs = this.varShReqs;
@@ -128,7 +131,8 @@ export namespace Analysis {
 
   export var serializedStateCommonsCnt = 1;
 
-  export var parseTables: StrMapLike<ParseTableGenerator> = {};
+  export var parseTableGens: StrMapLike<ParseTableGenerator> = {};
+  export var parseTables: StrMapLike<ParseTable> = {};
 
   export var varShs = new IncVariator();
   export var varShReqs = new IncVariator();
@@ -144,6 +148,15 @@ export namespace Analysis {
   export function empty() {
     var emptyBackup = new Backup();
     return emptyBackup;
+  }
+
+  export function parseTable(rule: PRule, g?: ParseTableGenerator) {
+    var parseTable: ParseTable = parseTables[rule.rule];
+    if (!parseTable) {
+      parseTable = new ParseTable(rule, g);
+      parseTables[rule.rule] = parseTable;
+    }
+    return parseTable;
   }
 
   export function leafStateCommon(parseTable: ParseTable, index: number) {
@@ -636,13 +649,11 @@ export class ParseTableGenerator {
   // 1 based index
   cntStates = 1;
   
-  generatedResult: ParseTable;
-
   static createForRule(rule: PRule) {
-    var parseTable: ParseTableGenerator = Analysis.parseTables[rule.rule];
+    var parseTable: ParseTableGenerator = Analysis.parseTableGens[rule.rule];
     if (!parseTable) {
       parseTable = new ParseTableGenerator(rule);
-      Analysis.parseTables[rule.rule] = parseTable;
+      Analysis.parseTableGens[rule.rule] = parseTable;
     }
     return parseTable;
   }
@@ -704,13 +715,6 @@ export class ParseTableGenerator {
       this.entryPoints[node.rule] = rule;
     }
     return rule;
-  }
-
-  generateParseTable() {
-    if (!this.generatedResult) {
-      this.generatedResult = new ParseTable(this.rule, this);
-    }
-    return this.generatedResult;
   }
 
 }
