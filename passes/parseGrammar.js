@@ -229,28 +229,34 @@ function generate(ast) {
         allstarts.sort();
         allstarts.splice(allstarts.indexOf(options.allowedStartRules[0]), 1);
         allstarts.unshift(options.allowedStartRules[0]);
-        lib_1.HyperG.totallyReinitializableTransaction(function () {
-            console.log("-- FILL STACK OPENER TRANSITIONS ------------------------------");
-            var ind = 0;
-            allstarts.forEach(function (r) {
-                var ptg = analyzer_1.Analysis.parseTableGens[r];
-                var parseTable = analyzer_1.Analysis.parseTable(ptg.rule, ptg);
-                var toLog = (ind === (allstarts.length - 1));
-                parseTable.fillStackOpenerTransitions(toLog);
-                ind++;
+        console.log("-- PACK STAGES ------------------------------");
+        for (var phase = -3; phase < 5; phase++) {
+            console.log("Phase " + phase);
+            if (phase >= 0) {
+                lib_1.HyperG.totallyReinitializableTransaction(function () {
+                    var ind = 0;
+                    console.log("-- GENERATE STACK OPENERS --");
+                    allstarts.forEach(function (r) {
+                        var ptg = analyzer_1.Analysis.parseTableGens[r];
+                        var parseTable = analyzer_1.Analysis.parseTable(ptg.rule, ptg);
+                        var toLog = (ind === (allstarts.length - 1));
+                        parseTable.fillStackOpenerTransitions(phase, toLog);
+                        ind++;
+                    });
+                });
+            }
+            lib_1.HyperG.totallyReinitializableTransaction(function () {
+                console.log("-- PACK --");
+                var ind = 0;
+                allstarts.forEach(function (r) {
+                    var ptg = analyzer_1.Analysis.parseTableGens[r];
+                    var parseTable = analyzer_1.Analysis.parseTable(ptg.rule, ptg);
+                    var toLog = (ind === (allstarts.length - 1));
+                    parseTable.packAgain(toLog);
+                    ind++;
+                });
             });
-        });
-        lib_1.HyperG.totallyReinitializableTransaction(function () {
-            console.log("-- PACK --------------------------------------------------------");
-            var ind = 0;
-            allstarts.forEach(function (r) {
-                var ptg = analyzer_1.Analysis.parseTableGens[r];
-                var parseTable = analyzer_1.Analysis.parseTable(ptg.rule, ptg);
-                var toLog = (ind === (allstarts.length - 1));
-                parseTable.pack(toLog);
-                ind++;
-            });
-        });
+        }
         ast.allstarts = allstarts;
     }
     parseGrammarAst(null, ast);

@@ -274,35 +274,41 @@ function generate(ast, ...args) {
     allstarts.splice(allstarts.indexOf(options.allowedStartRules[0]), 1);
     allstarts.unshift(options.allowedStartRules[0]);
 
-    
-    HyperG.totallyReinitializableTransaction(() => {
-      console.log("-- FILL STACK OPENER TRANSITIONS ------------------------------");
+    console.log("-- PACK STAGES ------------------------------");
 
-      var ind = 0;
+    for (var phase = -3; phase < 5; phase++) {
+      console.log("Phase " + phase);
 
-      allstarts.forEach(r => {
-        var ptg = Analysis.parseTableGens[r];
-        var parseTable = Analysis.parseTable(ptg.rule, ptg);
-        var toLog = (ind === (allstarts.length-1));
-        parseTable.fillStackOpenerTransitions(toLog);
-        ind++;
+      if (phase >= 0) {
+        HyperG.totallyReinitializableTransaction(() => {
+
+          var ind = 0;
+  
+          console.log("-- GENERATE STACK OPENERS --");
+          allstarts.forEach(r => {
+            var ptg = Analysis.parseTableGens[r];
+            var parseTable = Analysis.parseTable(ptg.rule, ptg);
+            var toLog = (ind === (allstarts.length - 1));
+            parseTable.fillStackOpenerTransitions(phase, toLog);
+            ind++;
+          });
+        });
+      }
+
+      HyperG.totallyReinitializableTransaction(() => {
+        console.log("-- PACK --");
+
+        var ind = 0;
+
+        allstarts.forEach(r => {
+          var ptg = Analysis.parseTableGens[r];
+          var parseTable = Analysis.parseTable(ptg.rule, ptg);
+          var toLog = (ind === (allstarts.length - 1));
+          parseTable.packAgain(toLog);
+          ind++;
+        });
       });
-    });
-
-
-    HyperG.totallyReinitializableTransaction(() => {
-      console.log("-- PACK --------------------------------------------------------");
-
-      var ind = 0;
-
-      allstarts.forEach(r => {
-        var ptg = Analysis.parseTableGens[r];
-        var parseTable = Analysis.parseTable(ptg.rule, ptg);
-        var toLog = (ind === (allstarts.length-1));
-        parseTable.pack(toLog);
-        ind++;
-      });
-    });
+    }
 
 
     ast.allstarts = allstarts;
