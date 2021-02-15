@@ -230,7 +230,7 @@ function generate(ast) {
         allstarts.splice(allstarts.indexOf(options.allowedStartRules[0]), 1);
         allstarts.unshift(options.allowedStartRules[0]);
         console.log("-- PACK STAGES ------------------------------");
-        for (var phase = -3; phase < 5; phase++) {
+        for (var phase = -2; phase <= 5; phase++) {
             console.log("Phase " + phase);
             if (phase >= 0) {
                 lib_1.HyperG.totallyReinitializableTransaction(function () {

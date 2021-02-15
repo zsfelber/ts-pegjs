@@ -276,7 +276,7 @@ function generate(ast, ...args) {
 
     console.log("-- PACK STAGES ------------------------------");
 
-    for (var phase = -3; phase < 5; phase++) {
+    for (var phase = -2; phase <= 5; phase++) {
       console.log("Phase " + phase);
 
       if (phase >= 0) {
