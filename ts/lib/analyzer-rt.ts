@@ -379,7 +379,7 @@ class GenerateParseTableStackOpenerTransitions {
       if (c.filledWithRecursive) {
 
         if (c === this.parseTable.startingState.common) {
-          this.shifts = forNode.shifts;
+          this.shifts = this.parseTable.startingState.common.serialStateMap;
           was1st=1;
         } else {
           wasNon1st=1;
@@ -441,13 +441,11 @@ class GenerateParseTableStackOpenerBoxTransitions {
 
     this.allShifts = [];
 
-    var shis = 0;
     const esths: [string, RTShift[]][] = Object.entries(this.common.transitions.map);
     esths.forEach(([key,shifts])=>{
       var tokenId = Number(key);
       shifts.forEach(shift=>{
-        this.allShifts.push([shis, tokenId, [shift]]);
-        shis++;
+        this.allShifts.push([shift.shiftIndex, tokenId, [shift]]);
       });
     });
 
@@ -478,13 +476,13 @@ class GenerateParseTableStackOpenerBoxTransitions {
       throw new Error("shifstlen !== this.allShifts.length   "+shifstlen+" !== "+this.allShifts.length);
     }
 
+    var oldshis = 0;
     var shis = 0;
     this.allShifts.forEach(([shi, tokenId, shifts])=>{
+      if (shi !== oldshis) {
+        throw new Error("shi !== oldshis   "+shi+" !== "+oldshis);
+      }
       shifts.forEach(shift=>{
-        if (shi !== shis) {
-          throw new Error("shi !== shis   "+shi+" !== "+shis);
-        }
-
         shift.shiftIndex = shis;
         var shs = this.shifts.map[tokenId];
         if (!shs) {
@@ -493,6 +491,7 @@ class GenerateParseTableStackOpenerBoxTransitions {
         shs.push(shift);
         shis++;
       })
+      oldshis++;
     });
 
     this.common.setFilledWithRecursive(this.shifts);
