@@ -231,7 +231,18 @@ function generate(ast) {
         allstarts.splice(allstarts.indexOf(options.allowedStartRules[0]), 1);
         allstarts.unshift(options.allowedStartRules[0]);
         lib_1.HyperG.totallyReinitializableTransaction(function () {
-            console.log("----------------------------------------------------------");
+            console.log("-- FILL STACK OPENER TRANSITIONS ------------------------------");
+            var ind = 0;
+            allstarts.forEach(function (r) {
+                var ptg = analyzer_1.Analysis.parseTableGens[r];
+                var parseTable = analyzer_1.Analysis.parseTable(_this.rule, ptg);
+                var toLog = (ind === (allstarts.length - 1));
+                parseTable.fillStackOpenerTransitions(toLog);
+                ind++;
+            });
+        });
+        lib_1.HyperG.totallyReinitializableTransaction(function () {
+            console.log("-- PACK --------------------------------------------------------");
             var ind = 0;
             allstarts.forEach(function (r) {
                 var ptg = analyzer_1.Analysis.parseTableGens[r];

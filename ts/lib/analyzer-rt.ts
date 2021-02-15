@@ -45,7 +45,6 @@ export class ParseTable {
     if (!this.stackFilled) {
       var comp = new GenerateParseTableStackOpenerTransitions(this);
       comp.generate();
-      this.startingState.common.setFilledWithRecursive(comp.shifts);
 
       this.stackFilled = true;
     }
@@ -386,6 +385,7 @@ class GenerateParseTableStackOpenerTransitions {
       } else {
 
         var forNode = new GenerateParseTableStackOpenerBoxTransitions(this.parseTable, c, this);
+        c.setFilledWithRecursive(forNode.shifts);
 
         if (c === this.parseTable.startingState.common) {
           this.shifts = forNode.shifts;
@@ -455,8 +455,8 @@ class GenerateParseTableStackOpenerBoxTransitions {
       shifts.forEach(shift=>{
         var newImportedShift = new RTShift(shiftIndex++, recursiveShift.toStateIndex);
         var newStackItem = new RTStackShiftItem(rr, shift.toStateIndex);
-        newImportedShift.items.push(newStackItem);
-        [].push(newImportedShift.items, shift.items);
+        newImportedShift.stepIntoRecursive.push(newStackItem);
+        [].push(newImportedShift.stepIntoRecursive, shift.stepIntoRecursive);
         bfte.push(newImportedShift);
       });
     });
@@ -482,11 +482,27 @@ export class RTShift {
 
   readonly toStateIndex: number;
 
-  readonly items: RTStackShiftItem[] = [];
+  readonly stepIntoRecursive: RTStackShiftItem[] = [];
 
   constructor(shiftIndex: number, toStateIndex: number) {
     this.shiftIndex = shiftIndex;
     this.toStateIndex = toStateIndex;
+  }
+
+  serStackItms(buf: number[]): void {
+    buf.push(this.stepIntoRecursive.length);
+    [].push.apply(buf, this.stepIntoRecursive.map(item=>item.toStateIndex));
+  }
+
+  deserStackItms(buf: number[], pos: number): number {
+    var itmlen = buf[pos++];
+    var stp: RTStackShiftItem;
+    for (var i=0; i<itmlen; i++) {
+      var tost = buf[pos++];
+      stp = new RTStackShiftItem(null, tost);
+      this.stepIntoRecursive.push(stp);
+    }
+    return pos;
   }
 
   diagnosticEqualityCheck(table: RTShift) {
@@ -501,13 +517,25 @@ export class RTShift {
 
 export class RTStackShiftItem {
 
+  parent: RTStackShiftItem;
+
   enter: PRuleRef;
 
   toStateIndex: number;
 
-  constructor(enter: PRuleRef, toStateIndex: number) {
+  constructor(enter: PRuleRef, toStateIndex: number, parent?: RTStackShiftItem) {
     this.enter = enter;
     this.toStateIndex = toStateIndex;
+    this.parent = parent;
+  }
+
+  lazyRule(parseTable?: ParseTable, shift0?: RTShift) {
+    if (parseTable) {
+      this.enter = parseTable.allStates[shift0.toStateIndex].startingPoint as PRuleRef;
+    } else {
+      parseTable = Analysis.parseTables[this.parent.enter.rule];
+      this.enter = parseTable.allStates[this.parent.toStateIndex].startingPoint as PRuleRef;
+    }
   }
 }
 
@@ -551,12 +579,14 @@ export class GrammarParsingLeafStateTransitions {
 
   ser(buf: number[]): void {
 
-    var ord: [number, number, number][] = [];
+    var ord: number[][] = [];
     var es = Object.entries(this.map);
     es.forEach(([key, shifts]: [string, RTShift[]]) => {
       var tokenId = Number(key);
       shifts.forEach(shift => {
-        ord.push([shift.shiftIndex, shift.toStateIndex, tokenId]);
+        var buf = [shift.shiftIndex, shift.toStateIndex, tokenId];
+        shift.serStackItms(buf);
+        ord.push(buf);
       });
     });
     ord.sort((a, b) => {
@@ -574,13 +604,15 @@ export class GrammarParsingLeafStateTransitions {
 
     var idx = 0;
 
-    ord.forEach(([shi, sti, tki]) => {
+    ord.forEach(numbers => {
+      var shi = numbers[0];
       if (shi !== idx) {
         throw new Error("shi !== idx   " + shi + " !== " + idx);
       }
-
-      buf.push(sti);
-      buf.push(tki);
+      // 0 - not
+      for (var i = 1; i<numbers.length; i++) {
+        buf.push(numbers[i]);
+      }
       idx++;
     });
 
@@ -602,7 +634,8 @@ export class GrammarParsingLeafStateTransitions {
         this.map[tki] = shs = [];
       }
 
-      var shift = new RTShift(idx, sti)
+      var shift = new RTShift(idx, sti);
+      pos = shift.deserStackItms(buf, pos);
       shs.push(shift);
     }
     return pos;
