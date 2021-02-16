@@ -32,10 +32,13 @@ declare class GenerateParseTableStackMainGen {
     readonly parseTable: ParseTable;
     readonly rr: PRuleRef;
     shifts: GrammarParsingLeafStateTransitions;
-    unresolvedRecursiveItems: UnresolvedTuple[];
+    unresolvedRecursiveBoxes: UnresolvedTuple[];
     children: GenerateParseTableStackBox[];
     dependants: DependantTuple[];
     constructor(parent: GenerateParseTableStackBox, parseTable: ParseTable, rr?: PRuleRef);
+    addAsUnresolved(stack: {
+        [index: string]: GenerateParseTableStackMainGen;
+    }): void;
     generate(phase: number): void;
 }
 declare class GenerateParseTableStackBox {
@@ -58,6 +61,9 @@ declare class GenerateParseTableStackBox {
     });
     generate(phase: number): void;
     generateShiftsAgain(phase: number): void;
+    addAsUnresolved(stack: {
+        [index: string]: GenerateParseTableStackMainGen;
+    }): void;
     private newShift;
     private generateShifts;
     insertStackOpenShifts(phase: number, recursiveShift: RTShift): void;

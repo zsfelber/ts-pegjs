@@ -278,26 +278,22 @@ function generate(ast, ...args) {
 
     var savedStack = [];
 
-    for (var phase = -2; phase <= 5; phase++) {
+    for (var phase = 0; phase <= 10; phase++) {
       console.log("Phase " + phase);
 
-      if (phase >= 0) {
-        HyperG.totallyReinitializableTransaction(() => {
-
-          var ind = 0;
-  
-          console.log("-- GENERATE STACK OPENERS --");
-          allstarts.forEach(r => {
-            var ptg = Analysis.parseTableGens[r];
-            var parseTable = Analysis.parseTable(ptg.rule, ptg);
-            var toLog = (ind === (allstarts.length - 1));
-            parseTable.fillStackOpenerTransitions(phase, toLog);
-            ind++;
-          });
-        });
-      }
-
       HyperG.totallyReinitializableTransaction(() => {
+
+        var ind = 0;
+
+        console.log("-- GENERATE STACK OPENERS --");
+        allstarts.forEach(r => {
+          var ptg = Analysis.parseTableGens[r];
+          var parseTable = Analysis.parseTable(ptg.rule, ptg);
+          var toLog = (ind === (allstarts.length - 1));
+          parseTable.fillStackOpenerTransitions(phase, toLog);
+          ind++;
+        });
+
         console.log("-- PACK --");
 
         var ind = 0;
@@ -310,9 +306,7 @@ function generate(ast, ...args) {
           ind++;
         });
 
-        if (phase >= 0) {
-          savedStack.push(Analysis.backup());
-        }
+        savedStack.push(Analysis.backup());
       });
     }
 

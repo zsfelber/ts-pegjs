@@ -575,7 +575,7 @@ function pushc(cache: any, item: any): any {
 
     HyperG.ruleTable = grammar.rules;
 
-    for (var i = 0; i <= 5; i++) {
+    for (var i = 0; i <= 10; i++) {
 
       HyperG.totallyReinitializableTransaction(() => {
 

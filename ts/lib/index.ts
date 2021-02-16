@@ -572,6 +572,10 @@ Object.defineProperty(Object.prototype, UNIQUE_OBJECT_ID,
     configurable: false
   });
 
+Object.prototype.toString =
+function() {
+  return (this.constructor?this.constructor.name:"object")+"@"+this[UNIQUE_OBJECT_ID];
+};
 
 export function distinct<T>(inparr: T[], cmp?: ((a: T, b: T) => number)) {
   if (!inparr) return inparr;
