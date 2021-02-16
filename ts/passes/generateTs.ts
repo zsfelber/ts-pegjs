@@ -583,7 +583,7 @@ function pushc(cache: any, item: any): any {
         throw new Error();
       }
       var ptg = ParseTableGenerator.createForRule(rule);
-      var parseTable = Analysis.parseTable(this.rule, ptg);
+      var parseTable = Analysis.parseTable(ptg.rule, ptg);
 
       parseTbl.push("const peg$PrsTbl" + r + ' = "' + encodePrsTbl(parseTable) + '";');
     };
