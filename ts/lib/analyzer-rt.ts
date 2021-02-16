@@ -370,6 +370,7 @@ class CompressParseTable {
 
 type UnresolvedTuple = [GenerateParseTableStackBox, GenerateParseTableStackMainGen, RTShift, PRuleRef];
 type DependantTuple = [GenerateParseTableStackBox, RTShift, PRuleRef];
+type BoxImportTuple = [GenerateParseTableStackMainGen, RTShift, PRuleRef];
 type ShiftTuple = [number, [number, RTShift][]];
 
 class GenerateParseTableStackMainGen {
@@ -497,9 +498,9 @@ class GenerateParseTableStackMainGen {
   
             console.log("ROUND " + phase + " "+this.rule.rule+". Postifx adding unresolved rule refs : " + unresolvedRecursiveItems.length);
             var childrenAffctd: GenerateParseTableStackBox[] = [];
-            unresolvedRecursiveItems.forEach(tuple => {
-              tuple[0].postfixInsertUnresolvedRule(tuple[1], tuple[2], tuple[3]);
-              childrenAffctd.push(tuple[0]);
+            unresolvedRecursiveItems.forEach(([importer, child, recshift, rr]) => {
+              importer.appendChild(child, recshift, rr);
+              childrenAffctd.push(importer);
             });
   
             childrenAffctd = distinct(childrenAffctd);
@@ -511,8 +512,8 @@ class GenerateParseTableStackMainGen {
               if (phase===10) {
                 console.log("Stopped. Last phase reached. Still existing unresolved rule refs : " + unresolvedRecursiveItems.length);
               }
-            } else if (!unresolvedRecursiveItems.length) {
-              console.log("Finished. Not producing more stack shifts.");
+            } else {
+              console.log("Finished. Not producing more tokens.");
             }
   
           } 
@@ -546,7 +547,7 @@ class GenerateParseTableStackBox {
 
   allShifts: { [index: string]: ShiftTuple; }
 
-  children: [GenerateParseTableStackMainGen, RTShift, PRuleRef][] = [];
+  children: BoxImportTuple[] = [];
 
   recursiveShifts: RTShift[];
 
@@ -584,22 +585,22 @@ class GenerateParseTableStackBox {
             this.newShift(shift.shiftIndex, [[tokenId, shift]]);
           });
         });
-        this.children.forEach(child => {
-          child[0].generate(phase);
+        this.children.forEach(([ruleMain, shift, rr]) => {
+          ruleMain.generate(phase);
         });
 
-        // Trivial shifts only but no recursion everywhere after ROUND 1
+        // Trivial shifts copied  but no recursion anywhere after ROUND 1
         this.generateShifts(phase);
         break;
 
       case 2:
       case 3:
       case 4:
-        this.children.forEach(child => {
-          child[0].generate(phase);
+        this.children.forEach(([ruleMain, shift, rr]) => {
+          ruleMain.generate(phase);
         });
-        this.children.forEach(child => {
-          this.appendChild(child[0], child[1], child[2]);
+        this.children.forEach(([ruleMain, shift, rr]) => {
+          this.appendChild(ruleMain, shift, rr);
         });
 
         // maybe re-generated but duplicates are excluded
@@ -632,24 +633,11 @@ class GenerateParseTableStackBox {
 
   private newShift(expectedShiftIndex: number, theShifts: [number, RTShift][]) {
 
-    var buf = [];
-    theShifts.forEach(([tokenId, shift]) => {
-      if (shift.shiftIndex !== expectedShiftIndex) {
-        throw new Error("shift.shiftIndex !== expectedShiftIndex   "+shift.shiftIndex+" !== "+expectedShiftIndex);
-      }
-      buf.push(tokenId);
-      buf.push(shift.toStateIndex);
-      shift.serStackItms(buf);
-    });
-
     var olditm = this.allShifts[expectedShiftIndex];
-    if (olditm) {
-      if (olditm[0] !== expectedShiftIndex) {
-        throw new Error("olditm[0] !== expectedShiftIndex   "+olditm[0]+" !== "+expectedShiftIndex);
-      }
-    } else {
-      this.allShifts[expectedShiftIndex] = [expectedShiftIndex, theShifts];
+    if (olditm && olditm[0] !== expectedShiftIndex) {
+      throw new Error("olditm[0] !== expectedShiftIndex   "+olditm[0]+" !== "+expectedShiftIndex);
     }
+    this.allShifts[expectedShiftIndex] = [expectedShiftIndex, theShifts];
   }
 
   private generateShifts(phase: number) {
@@ -734,24 +722,20 @@ class GenerateParseTableStackBox {
     }
   }
 
-  postfixInsertUnresolvedRule(child: GenerateParseTableStackMainGen, recursiveShift: RTShift, rr: PRuleRef) {
-    this.appendChild(child, recursiveShift, rr);
-  }
+  appendChild(child: GenerateParseTableStackMainGen, recursiveShift: RTShift, rr: PRuleRef) {
 
-  private appendChild(child: GenerateParseTableStackMainGen, recursiveShift: RTShift, rr: PRuleRef) {
-
-    const es: [string, RTShift[]][] = Object.entries(child.shifts.map);
+    const child_es: [string, RTShift[]][] = Object.entries(child.shifts.map);
 
     var impshifts: [number, RTShift][] = [];
 
-    es.forEach(([key, shifts]) => {
+    child_es.forEach(([key, childShifts]) => {
       var tokenId = Number(key);
-      shifts.forEach(shift => {
-        var newImportedShift = new RTShift(recursiveShift.shiftIndex, recursiveShift.toStateIndex);
-        var newStackItem = new RTStackShiftItem(rr, shift.toStateIndex);
-        newImportedShift.stepIntoRecursive.push(newStackItem);
-        [].push(newImportedShift.stepIntoRecursive, shift.stepIntoRecursive);
-        impshifts.push([tokenId, newImportedShift]);
+      childShifts.forEach(childShift => {
+        var newImportShift = new RTShift(recursiveShift.shiftIndex, recursiveShift.toStateIndex);
+        var newStackItem = new RTStackShiftItem(rr, childShift.toStateIndex);
+        newImportShift.stepIntoRecursive =  
+          [newStackItem].concat(childShift.stepIntoRecursive);
+        impshifts.push([tokenId, newImportShift]);
       });
     });
     if (impshifts.length) {
@@ -768,7 +752,7 @@ export class RTShift {
 
   readonly toStateIndex: number;
 
-  readonly stepIntoRecursive: RTStackShiftItem[] = [];
+  stepIntoRecursive: RTStackShiftItem[] = [];
 
   constructor(shiftIndex: number, toStateIndex: number) {
     this[UNIQUE_OBJECT_ID];

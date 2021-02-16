@@ -231,23 +231,25 @@ function generate(ast) {
         allstarts.unshift(options.allowedStartRules[0]);
         console.log("-- PACK STAGES ------------------------------");
         var savedStack = [];
-        for (var phase = 0; phase <= 10; phase++) {
+        for (var phase = -1; phase <= 10; phase++) {
             console.log("Phase " + phase);
             lib_1.HyperG.totallyReinitializableTransaction(function () {
-                var ind = 0;
-                allstarts.forEach(function (r) {
-                    var ptg = analyzer_1.Analysis.parseTableGens[r];
-                    var parseTable = analyzer_1.Analysis.parseTable(ptg.rule, ptg);
-                    parseTable.resetOptimization();
-                });
-                var ind = 0;
-                console.log("-- STACKS GEN --");
-                allstarts.forEach(function (r) {
-                    var ptg = analyzer_1.Analysis.parseTableGens[r];
-                    var parseTable = analyzer_1.Analysis.parseTable(ptg.rule, ptg);
-                    parseTable.fillStackOpenerTransitions(phase);
-                    ind++;
-                });
+                if (phase >= 0) {
+                    var ind = 0;
+                    allstarts.forEach(function (r) {
+                        var ptg = analyzer_1.Analysis.parseTableGens[r];
+                        var parseTable = analyzer_1.Analysis.parseTable(ptg.rule, ptg);
+                        parseTable.resetOptimization();
+                    });
+                    var ind = 0;
+                    console.log("-- STACKS GEN --");
+                    allstarts.forEach(function (r) {
+                        var ptg = analyzer_1.Analysis.parseTableGens[r];
+                        var parseTable = analyzer_1.Analysis.parseTable(ptg.rule, ptg);
+                        parseTable.fillStackOpenerTransitions(phase);
+                        ind++;
+                    });
+                }
                 console.log("-- PACK --");
                 var ind = 0;
                 allstarts.forEach(function (r) {
@@ -257,7 +259,7 @@ function generate(ast) {
                     parseTable.pack(toLog);
                     ind++;
                 });
-                savedStack.push(analyzer_1.Analysis.backup());
+                savedStack[phase] = analyzer_1.Analysis.backup();
             });
         }
         analyzer_1.Analysis.stack = savedStack;

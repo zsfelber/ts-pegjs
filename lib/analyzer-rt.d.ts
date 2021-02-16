@@ -21,6 +21,7 @@ export declare class ParseTable {
 }
 declare type UnresolvedTuple = [GenerateParseTableStackBox, GenerateParseTableStackMainGen, RTShift, PRuleRef];
 declare type DependantTuple = [GenerateParseTableStackBox, RTShift, PRuleRef];
+declare type BoxImportTuple = [GenerateParseTableStackMainGen, RTShift, PRuleRef];
 declare type ShiftTuple = [number, [number, RTShift][]];
 declare class GenerateParseTableStackMainGen {
     readonly parent: GenerateParseTableStackBox;
@@ -54,7 +55,7 @@ declare class GenerateParseTableStackBox {
     allShifts: {
         [index: string]: ShiftTuple;
     };
-    children: [GenerateParseTableStackMainGen, RTShift, PRuleRef][];
+    children: BoxImportTuple[];
     recursiveShifts: RTShift[];
     constructor(parent: GenerateParseTableStackMainGen, parseTable: ParseTable, common: GrammarParsingLeafStateCommon, stack: {
         [index: string]: GenerateParseTableStackMainGen;
@@ -67,13 +68,12 @@ declare class GenerateParseTableStackBox {
     private newShift;
     private generateShifts;
     insertStackOpenShifts(phase: number, recursiveShift: RTShift): void;
-    postfixInsertUnresolvedRule(child: GenerateParseTableStackMainGen, recursiveShift: RTShift, rr: PRuleRef): void;
-    private appendChild;
+    appendChild(child: GenerateParseTableStackMainGen, recursiveShift: RTShift, rr: PRuleRef): void;
 }
 export declare class RTShift {
     shiftIndex: number;
     readonly toStateIndex: number;
-    readonly stepIntoRecursive: RTStackShiftItem[];
+    stepIntoRecursive: RTStackShiftItem[];
     constructor(shiftIndex: number, toStateIndex: number);
     serStackItms(buf: number[]): void;
     deserStackItms(buf: number[], pos: number): number;
