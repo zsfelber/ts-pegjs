@@ -51,14 +51,25 @@ function generateTT(ast, ...args) {
     if (main !== main2) throw new Error();
 
     var expectedStateId = 2;
-    var leaves = g.allLeafStateNodes.map(itm => {
+    var rleaves = [];
+    var leaves = [];
+    g.allLeafStateNodes.forEach(itm => {
       if (itm.index !== expectedStateId) {
         throw new Error("Expected stateId:" + expectedStateId + " missed for leaf :" + itm);
       }
       var tnode = itm.traverser;
-      tnode["$leaf$"] = 1;
+      if (tnode.node.kind === PNodeKind.CHOICE) {
+        tnode.children.forEach(child=>{
+          child["$leaf$"] = 1;
+          leaves.push(child);
+        });        
+        rleaves.push(tnode);
+      } else {
+        tnode["$leaf$"] = 1;
+        leaves.push(tnode);
+        rleaves.push(tnode);
+      }
       expectedStateId++;
-      return tnode;
     });
 
     // Checked ordered, it is ok:
@@ -83,7 +94,7 @@ function generateTT(ast, ...args) {
     countVisualizerTree(vtree);
     vtree.numleaves = leaves.length;
     vtree.numlevels = i;
-    vtree.leaf1id = "0"+leaves[0]["stateNode"].index;
+    vtree.leaf1id = "0"+rleaves[0]["stateNode"].index;
     var j = tothingyjson(vtree);
 
     const fnm = "../www/ast/pnodes-graph-" + rule.rule + ".json";
@@ -103,7 +114,7 @@ function generateTT(ast, ...args) {
 function shortenTreeUpwards(tnode: RuleElementTraverser, parents: RuleElementTraverser[]) {
   var p$, n$;
   if (!(n$ = tnode["$$$"])) {
-    tnode["$$$"] = n$ = { name: tnode.shortLabel, n: 1, kind: tnode.node.kind, id: "0"+tnode["stateNode"].index };
+    tnode["$$$"] = n$ = { name: tnode.shortLabel, n: 1, kind: tnode.node.kind, id: tnodeId(tnode) };
   }
   if (!tnode.parent) {
     return;
@@ -155,11 +166,19 @@ function shortenTreeUpwards(tnode: RuleElementTraverser, parents: RuleElementTra
         p0 = p;
       }
     }
-    p["$$$"] = p$ = { name: plab, kind: pkind, n: 1, id: p0.node.nodeIdx };
+    p["$$$"] = p$ = { name: plab, kind: pkind, n: 1, id: tnodeId(p0) };
     parents.push(p);
   }
   if (p["$leaf$"]) {
     throw new Error("Bad leaf with children : " + p);
+  }
+}
+
+function tnodeId(tnode: RuleElementTraverser) {
+  if (tnode["stateNode"]) {
+    return "0"+tnode["stateNode"].index;
+  } else {
+    return tnode.node.nodeIdx;
   }
 }
 
