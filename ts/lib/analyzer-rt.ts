@@ -1,7 +1,7 @@
 import { PRule, Analysis, CodeTblToHex, PLogicNode, NumMapLike, HyperG, PRef, Shifts, ShiftReduceKind, Shift, ShiftRecursive, Reduce, RuleElementTraverser, RuleRefTraverser, TerminalRefTraverser, ParseTableGenerator, EntryPointTraverser, StateNodeCommon } from '.';
 import { StateNodeWithPrefix } from './analyzer';
 import { PNodeKind, PRuleRef, PValueNode, PNode } from './parsers';
-import { distinct, UNIQUE_OBJECT_ID } from './index';
+import { distinct, UNIQUE_OBJECT_ID, IncVariator } from './index';
 
 
 function slen(arr: any[]) {
@@ -204,10 +204,10 @@ class CompressParseTable {
     Analysis.totalStates += sts;
 
     if (this.log) {
-      console.log("Total: [ total states:" + Analysis.totalStates + "  distinct:" + (this.lfidx) + "    total states/common:" + Analysis.varShReqs.n + "   distinct:" + (this.cmnidx) + "    distinct transitions:" + (this.transidx) + "    distinct reduces:" + (this.redidx) + "   jmp.tokens:" + Analysis.varTkns.mean.toFixed(1) + "+-" + Analysis.varTkns.sqrtVariance.toFixed(1) + "   shift/tkns:" + Analysis.varShs.mean.toFixed(1) + "+-" + Analysis.varShs.sqrtVariance.toFixed(1) + "   rec.shift:" + Analysis.varShReqs.mean.toFixed(1) + "+-" + Analysis.varShReqs.sqrtVariance.toFixed(1) + "  reduces:" + Analysis.varRds.mean.toFixed(1) + "+-" + Analysis.varRds.sqrtVariance.toFixed(1) + " ]");
+      console.log("Total: [ total states:" + Analysis.totalStates + "  distinct:" + (this.lfidx)  + "   distinct states/common:" + (this.cmnidx) + "    distinct transitions:" + (this.transidx) + "    distinct reduces:" + (this.redidx) + "    rec shifts:" + Analysis.varShReqs+ "   jmp.tokens:" + Analysis.varTkns + "   shift/tkns:" + Analysis.varShs + "  reduces:" + Analysis.varRds + " ]");
     }
 
-    return changed;
+    return changed; 
   }
 
   prstate(state: GrammarParsingLeafState): boolean {
@@ -433,11 +433,16 @@ class GenerateParseTableStackMainGen {
     //console.log(this.indent + phase + ">" + (this.rr ? this.rr : this.parseTable.rule+"#0"));
 
     var top = !this.rr;
+    const deepStats = 0;
 
     switch (phase) {
       case 0:
         this.parseTable.allStates.forEach(s => {
           s.lazy(this.parseTable);
+        });
+        this.parseTable.myCommons.forEach(s => {
+          // lazy
+          s.transitions;
         });
 
         var was1st = 0, wasNon1st = 0;
@@ -496,7 +501,9 @@ class GenerateParseTableStackMainGen {
             var unresolvedRecursiveItems = this.unresolvedRecursiveBoxes;
             this.unresolvedRecursiveBoxes = [];
   
-            console.log("ROUND " + phase + " "+this.rule.rule+". Postifx adding unresolved rule refs : " + unresolvedRecursiveItems.length);
+            if (deepStats) {
+              console.log("ROUND " + phase + " "+this.rule.rule+". Postifx adding unresolved rule refs : " + unresolvedRecursiveItems.length);
+            }
             var childrenAffctd: GenerateParseTableStackBox[] = [];
             unresolvedRecursiveItems.forEach(([importer, child, recshift, rr]) => {
               importer.appendChild(child, recshift, rr);
@@ -504,17 +511,14 @@ class GenerateParseTableStackMainGen {
             });
   
             childrenAffctd = distinct(childrenAffctd);
-            console.log("Affected distinct : " + childrenAffctd.length + "  generating shifts again...");
+            if (deepStats) {
+              console.log("Affected distinct : " + childrenAffctd.length + "  generating shifts again...");
+            }
             childrenAffctd.forEach(chbox => {
               chbox.generateShiftsAgain(phase);
             });
-            if (this.unresolvedRecursiveBoxes.length) {
-              if (phase===10) {
-                console.log("Stopped. Last phase reached. Still existing unresolved rule refs : " + unresolvedRecursiveItems.length);
-              }
-            } else {
-              console.log("Finished. Not producing more tokens.");
-            }
+
+            console.log("Additional cyclic dependencies fixed : "+unresolvedRecursiveItems.length);
   
           } 
         }
@@ -526,7 +530,42 @@ class GenerateParseTableStackMainGen {
     if (this.shifts.map[0]) {
       throw new Error("this.shifts.map[0]  len:" + Object.keys(this.shifts.map).length);
     }
-    //console.log(this.indent + phase + "<" + (this.rr ? this.rr : this.parseTable.rule));
+
+    if (top && deepStats) {
+      const sum = () => {
+        return {
+          vShifts: new IncVariator(),
+          vRecs: new IncVariator(),
+          vPrep: new IncVariator()
+        }
+      };
+
+      const summ = (sum: any, shifts: GrammarParsingLeafStateTransitions, box: GenerateParseTableStackBox) => {
+        var es: [string, RTShift[]][] = Object.entries(shifts.map);
+
+        if (box) {
+          sum.vPrep.add(Object.keys(box.allShifts).length);
+        }
+        es.forEach(([key, shifts])=>{
+          sum.vShifts.add(shifts.length);
+          shifts.forEach(shift=>{
+            sum.vRecs.add(shift.stepIntoRecursive.length);
+          })
+        });
+      };
+
+      var s0 = sum();
+      var s = sum();
+      summ(s0, this.shifts, null);
+      this.children.forEach(box => {
+        box.common["$phase$"] = phase;
+        summ(s, box.shifts, box);
+      });
+      console.log(this.indent + "Phase "+phase+" "+this.rule.rule + " :   mainRule    tokens:"+" shifts:"+s0.vShifts+"  recursive deep shifts:"+s0.vRecs);
+      console.log(this.indent + "Phase "+phase+" "+this.rule.rule + " :   child boxes tokens:"+" shifts:"+s.vShifts+"  recursive deep shifts:"+s.vRecs+"  prep.tokens:"+s.vPrep);
+    }
+
+    //console.log(this.indent + phase + "<" + this.rule.rule);
   }
 
 }
@@ -568,6 +607,9 @@ class GenerateParseTableStackBox {
     switch (phase) {
       case 0:
 
+        // lazy
+        this.common.transitions;
+
         this.recursiveShifts = this.common.recursiveShifts.map[0];
 
         if (this.recursiveShifts) {
@@ -596,6 +638,7 @@ class GenerateParseTableStackBox {
       case 2:
       case 3:
       case 4:
+
         this.children.forEach(([ruleMain, shift, rr]) => {
           ruleMain.generate(phase);
         });
@@ -663,6 +706,7 @@ class GenerateParseTableStackBox {
           throw new Error("shift.shiftIndex !== shi   " + shift_0.shiftIndex + " !== " + shi);
         }
         var shift = new RTShift(shis, shift_0.toStateIndex);
+        shift.stepIntoRecursive = shift_0.stepIntoRecursive;
         var shs = this.shifts.map[tokenId];
         if (!shs) {
           this.shifts.map[tokenId] = shs = [];

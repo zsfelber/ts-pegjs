@@ -744,6 +744,9 @@ export class IncVariator {
     return Math.sqrt(this.variance);
   }
 
+  toString(fractionDecimals=1) {
+    return this.n+"*(avg:"+this.mean.toFixed(fractionDecimals)+"+-var:"+this.sqrtVariance.toFixed(fractionDecimals)+")";
+  }
 }
 
 export * from "./parsers";

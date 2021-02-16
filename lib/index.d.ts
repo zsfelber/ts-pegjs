@@ -158,6 +158,7 @@ export declare class IncVariator {
     get mean(): number;
     get variance(): number;
     get sqrtVariance(): number;
+    toString(fractionDecimals?: number): string;
 }
 export * from "./parsers";
 export * from "./analyzer";
