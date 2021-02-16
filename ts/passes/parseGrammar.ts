@@ -285,12 +285,19 @@ function generate(ast, ...args) {
 
         var ind = 0;
 
-        console.log("-- GENERATE STACK OPENERS --");
         allstarts.forEach(r => {
           var ptg = Analysis.parseTableGens[r];
           var parseTable = Analysis.parseTable(ptg.rule, ptg);
-          var toLog = (ind === (allstarts.length - 1));
-          parseTable.fillStackOpenerTransitions(phase, toLog);
+          parseTable.resetOptimization();
+        });
+
+        var ind = 0;
+
+        console.log("-- STACKS GEN --");
+        allstarts.forEach(r => {
+          var ptg = Analysis.parseTableGens[r];
+          var parseTable = Analysis.parseTable(ptg.rule, ptg);
+          parseTable.fillStackOpenerTransitions(phase);
           ind++;
         });
 
@@ -302,7 +309,7 @@ function generate(ast, ...args) {
           var ptg = Analysis.parseTableGens[r];
           var parseTable = Analysis.parseTable(ptg.rule, ptg);
           var toLog = (ind === (allstarts.length - 1));
-          parseTable.packAgain(toLog);
+          parseTable.pack(toLog);
           ind++;
         });
 

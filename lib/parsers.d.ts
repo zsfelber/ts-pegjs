@@ -28,7 +28,9 @@ export declare abstract class PNode {
     children: PNode[];
     nodeIdx: number;
     label?: string;
+    _tokenId?: number;
     get action(): PFunction;
+    get tokenId(): number;
     static xkind: PNodeKind;
     constructor(parent: PNode);
     static deserialize(arr: number[]): PNode;
@@ -103,6 +105,7 @@ export declare class PTerminalRef extends PRef {
     kind: PNodeKind;
     terminal?: string;
     value?: number;
+    get tokenId(): number;
     get symbol(): string;
     ser(): number[];
     deser(arr: number[], pos: number): number;

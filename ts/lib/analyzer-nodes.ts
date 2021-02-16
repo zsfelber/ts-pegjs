@@ -1,5 +1,5 @@
 import { Analysis, HyperG, JumpIntoSubroutineLeafStateNode, LeafStateNodeCommon, LEV_CNT_BRANCH_NODES, ParseTableGenerator, PNode, PNodeKind, PRef, PRule, PRuleRef, PTerminalRef, PValueNode, ShiftReduceKind, StrMapLike, TraversedLeafStateNode } from '.';
-import { CNT_HUB_LEVELS, LEV_CNT_LN_RULE, LeafStateNodeWithPrefix, START_STATE } from './analyzer';
+import { CNT_HUB_LEVELS, LEV_CNT_LN_RULE, LeafStateNodeWithPrefix, START_STATE, TerminalChoiceLeafStateNode } from './analyzer';
 import { TraversionControl, TraversionCache, TraversionItemKind, TraversionPurpose, TraversionItemActionKind, LinearTraversion, Traversing } from './analyzer-tra';
 
 
@@ -141,7 +141,7 @@ export class ChoiceTraverser extends RuleElementTraverser {
 
   readonly optionalBranch: boolean;
   readonly terminalChoice: boolean;
-  stateNode: TraversedLeafStateNode;
+  stateNode: TerminalChoiceLeafStateNode;
   traverserPosition: number;
 
   constructor(parser: ParseTableGenerator, parent: RuleElementTraverser, node: PNode) {
@@ -161,10 +161,16 @@ export class ChoiceTraverser extends RuleElementTraverser {
   traversionGeneratorEnter(inTraversion: LinearTraversion) {
     if (this.stateNode) throw new Error("There is a stateNode already : " + this + "  stateNode:" + this.stateNode);
 
-    this.stateNode = new TraversedLeafStateNode(this);
-    this.traverserPosition = inTraversion.length;
-    this.parser.allLeafStateNodes.push(this.stateNode);
-    return true;
+    if (this.terminalChoice) {
+      this.stateNode = new TerminalChoiceLeafStateNode(this);
+      this.traverserPosition = inTraversion.length;
+      this.parser.allLeafStateNodes.push(this.stateNode);
+      this.node._tokenId = --Analysis.cntChoiceTknIds;
+      Analysis.choiceTokens[-this.node._tokenId] = this.node;
+      return false;
+    } else {
+      return true;
+    }
   }
 
   traversionActions(inTraversion: LinearTraversion, step: TraversionControl, cache: TraversionCache) {
@@ -172,7 +178,9 @@ export class ChoiceTraverser extends RuleElementTraverser {
       case TraversionItemKind.NODE_START:
         switch (inTraversion.purpose) {
           case TraversionPurpose.FIND_NEXT_TOKENS:
-            cache.intoState.common.shiftsAndReduces.push({ kind: ShiftReduceKind.SHIFT, item: this });
+            if (this.stateNode) {
+              cache.intoState.common.shiftsAndReduces.push({ kind: ShiftReduceKind.SHIFT, item: this });
+            }
             break;
           case TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN:
             break;
@@ -694,11 +702,15 @@ export class TerminalRefTraverser extends RefTraverser {
   traversionGeneratorEnter(inTraversion: LinearTraversion) {
     if (this.stateNode) throw new Error("There is a stateNode already : " + this + "  stateNode:" + this.stateNode);
 
-    this.stateNode = new TraversedLeafStateNode(this);
-    this.parser.allLeafStateNodes.push(this.stateNode);
-
-    this.traverserPosition = inTraversion.length;
-    return true;
+    if (this.parent.isTerminalRefOrChoice) {
+      return false;
+    } else {
+      this.stateNode = new TraversedLeafStateNode(this);
+      this.parser.allLeafStateNodes.push(this.stateNode);
+  
+      this.traverserPosition = inTraversion.length;
+      return true;
+    }
   }
 
   traversionActions(inTraversion: LinearTraversion, step: TraversionControl, cache: TraversionCache) {

@@ -37,8 +37,10 @@ export namespace Analysis {
     leafStateCommons: GrammarParsingLeafStateCommon[] = [];
     leafStateTransitionTables: GrammarParsingLeafStateTransitions[] = [];
     leafStateReduceTables: GrammarParsingLeafStateReduces[] = [];
+    choiceTokens: PValueNode[] = [];
     maxTokenId: number;
     totalStates = 0;
+    cntChoiceTknIds = -1;
     serializedLeafStates: {[index: string]:GrammarParsingLeafState} = {};
     serializedStateCommons: {[index: string]:GrammarParsingLeafStateCommon} = {};
     serializedTransitions: {[index: string]:GrammarParsingLeafStateTransitions} = {};
@@ -60,8 +62,10 @@ export namespace Analysis {
       this.leafStateCommons = [].concat(leafStateCommons);
       this.leafStateTransitionTables = [].concat(leafStateTransitionTables);
       this.leafStateReduceTables = [].concat(leafStateReduceTables);
+      this.choiceTokens = [].concat(choiceTokens);
       this.maxTokenId = maxTokenId;
       this.totalStates = totalStates;
+      this.cntChoiceTknIds = cntChoiceTknIds;
       this.serializedLeafStates = Object.assign({}, serializedLeafStates);
       this.serializedStateCommons = Object.assign({}, serializedStateCommons);
       this.serializedTransitions = Object.assign({}, serializedTransitions);
@@ -83,8 +87,10 @@ export namespace Analysis {
       leafStateCommons = this.leafStateCommons;
       leafStateTransitionTables = this.leafStateTransitionTables;
       leafStateReduceTables = this.leafStateReduceTables;
+      choiceTokens = this.choiceTokens;
       maxTokenId = this.maxTokenId;
       totalStates = this.totalStates;
+      cntChoiceTknIds = this.cntChoiceTknIds;
       serializedLeafStates = this.serializedLeafStates;
       serializedStateCommons = this.serializedStateCommons;
       serializedTransitions = this.serializedTransitions;
@@ -114,9 +120,13 @@ export namespace Analysis {
 
   export var leafStateReduceTables: GrammarParsingLeafStateReduces[] = [];
 
+  export var choiceTokens: PValueNode[] = [];
+
   export var maxTokenId: number;
 
   export var totalStates = 0;
+  
+  export var cntChoiceTknIds = -1;
 
   export const uniformMaxStateId = 0xe000;
 
@@ -193,6 +203,7 @@ export namespace Analysis {
     buf.push(sreds.length);
     buf.push(slf.length);
     buf.push(scmn.length);
+    buf.push(choiceTokens.length);
 
     var i = 1;
     strans.forEach(s=>{
@@ -226,16 +237,20 @@ export namespace Analysis {
       }
       i++;
     });
+    for (var i = 1; i < choiceTokens.length; i++) {
+      buf.push(choiceTokens[i].nodeIdx);
+    }
   }
 
   export function readAllSerializedTables(buf: number[]): number {
 
     var pos = 0;
-    var [stransln,sredsln,scmnln] = [buf[pos++], buf[pos++], buf[pos++]];
+    var [stransln,sredsln,scmnln,ctks] = [buf[pos++], buf[pos++], buf[pos++], buf[pos++]];
 
     leafStateTransitionTables.push(null);
     leafStateReduceTables.push(null);
     leafStateCommons.push(null);
+    choiceTokens.push(null);
     for (var i=1; i<=stransln; i++) {
       var trans = new GrammarParsingLeafStateTransitions();
       pos = trans.deser(i, buf, pos);
@@ -250,6 +265,11 @@ export namespace Analysis {
       var cmn = new GrammarParsingLeafStateCommon();
       pos = cmn.deser(i, buf, pos);
       leafStateCommons.push(cmn);
+    }
+    for (var i=1; i<=ctks; i++) {
+      var ndx = buf[pos++];
+      var ctk = HyperG.nodeTable[ndx];
+      choiceTokens[i] = ctk;
     }
     if (pos !== buf.length) {
       throw new Error("pos !== buf.length  "+pos+" !== "+buf.length);
@@ -428,6 +448,22 @@ export class TraversedLeafStateNode extends LeafStateNodeWithPrefix {
 
 }
 
+
+export class TerminalChoiceLeafStateNode extends LeafStateNodeWithPrefix {
+
+  ref: ChoiceTraverser;
+
+  constructor(ref: ChoiceTraverser) {
+    super(ref);
+  }
+
+  get isRule(): boolean {
+    return false;
+  }
+
+
+}
+
 export class JumpIntoSubroutineLeafStateNode extends LeafStateNodeWithPrefix {
 
   ref: RuleRefTraverser;
@@ -454,14 +490,14 @@ export class ShiftReduce {
 }
 
 export class Shifts extends ShiftReduce {
-  item: RefTraverser;
+  item: (RefTraverser|ChoiceTraverser);
 }
 
 export class Shift extends Shifts {
 
   kind = ShiftReduceKind.SHIFT;
 
-  item: TerminalRefTraverser;
+  item: (TerminalRefTraverser|ChoiceTraverser);
 }
 
 export class ShiftRecursive extends Shifts {

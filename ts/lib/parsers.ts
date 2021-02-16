@@ -83,9 +83,13 @@ export abstract class PNode {
   children: PNode[] = [];
   nodeIdx: number;
   label?: string;
+  _tokenId?: number;
 
   get action(): PFunction {
     return undefined;
+  }
+  get tokenId() {
+    return this._tokenId;
   }
 
   static xkind = PNodeKind.GRAMMAR;
@@ -406,6 +410,10 @@ export class PTerminalRef extends PRef {
   terminal?: string;
 
   value?: number;
+
+  get tokenId() {
+    return this.value;
+  }
 
   get symbol() {
     return this.terminal;

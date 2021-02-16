@@ -9,9 +9,9 @@ export declare class ParseTable {
     openerTrans: GenerateParseTableStackMainGen;
     packed: boolean;
     constructor(rule: PRule, g?: ParseTableGenerator);
+    resetOptimization(log?: boolean): void;
     fillStackOpenerTransitions(phase: number, log?: boolean): void;
     pack(log?: boolean): boolean;
-    packAgain(log?: boolean): void;
     static deserialize(rule: PRule, buf: number[]): ParseTable;
     leafState(index: number): GrammarParsingLeafState;
     ser(): number[];

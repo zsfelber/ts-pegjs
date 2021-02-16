@@ -1,5 +1,5 @@
 import { EntryPointTraverser, RefTraverser, RuleElementTraverser, RuleRefTraverser, TerminalRefTraverser } from '.';
-import { PRule } from './parsers';
+import { PRule, PValueNode } from './parsers';
 import { IncVariator } from './index';
 import { GrammarParsingLeafState, GrammarParsingLeafStateTransitions, GrammarParsingLeafStateReduces, ParseTable, GrammarParsingLeafStateCommon } from './analyzer-rt';
 import { LinearTraversion } from './analyzer-tra';
@@ -23,8 +23,10 @@ export declare namespace Analysis {
         leafStateCommons: GrammarParsingLeafStateCommon[];
         leafStateTransitionTables: GrammarParsingLeafStateTransitions[];
         leafStateReduceTables: GrammarParsingLeafStateReduces[];
+        choiceTokens: PValueNode[];
         maxTokenId: number;
         totalStates: number;
+        cntChoiceTknIds: number;
         serializedLeafStates: {
             [index: string]: GrammarParsingLeafState;
         };
@@ -54,8 +56,10 @@ export declare namespace Analysis {
     export var leafStateCommons: GrammarParsingLeafStateCommon[];
     export var leafStateTransitionTables: GrammarParsingLeafStateTransitions[];
     export var leafStateReduceTables: GrammarParsingLeafStateReduces[];
+    export var choiceTokens: PValueNode[];
     export var maxTokenId: number;
     export var totalStates: number;
+    export var cntChoiceTknIds: number;
     export const uniformMaxStateId = 57344;
     export var serializedLeafStates: {
         [index: string]: GrammarParsingLeafState;
@@ -129,6 +133,11 @@ export declare class TraversedLeafStateNode extends LeafStateNodeWithPrefix {
     constructor(ref: TerminalRefTraverser | ChoiceTraverser);
     get isRule(): boolean;
 }
+export declare class TerminalChoiceLeafStateNode extends LeafStateNodeWithPrefix {
+    ref: ChoiceTraverser;
+    constructor(ref: ChoiceTraverser);
+    get isRule(): boolean;
+}
 export declare class JumpIntoSubroutineLeafStateNode extends LeafStateNodeWithPrefix {
     ref: RuleRefTraverser;
     constructor(ref: RuleRefTraverser);
@@ -140,11 +149,11 @@ export declare class ShiftReduce {
     intoRule?: JumpIntoSubroutineLeafStateNode;
 }
 export declare class Shifts extends ShiftReduce {
-    item: RefTraverser;
+    item: (RefTraverser | ChoiceTraverser);
 }
 export declare class Shift extends Shifts {
     kind: ShiftReduceKind;
-    item: TerminalRefTraverser;
+    item: (TerminalRefTraverser | ChoiceTraverser);
 }
 export declare class ShiftRecursive extends Shifts {
     kind: ShiftReduceKind;
