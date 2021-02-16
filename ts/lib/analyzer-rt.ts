@@ -501,9 +501,6 @@ class GenerateParseTableStackMainGen {
             var unresolvedRecursiveItems = this.unresolvedRecursiveBoxes;
             this.unresolvedRecursiveBoxes = [];
   
-            if (deepStats) {
-              console.log("ROUND " + phase + " "+this.rule.rule+". Postifx adding unresolved rule refs : " + unresolvedRecursiveItems.length);
-            }
             var childrenAffctd: GenerateParseTableStackBox[] = [];
             unresolvedRecursiveItems.forEach(([importer, child, recshift, rr]) => {
               importer.appendChild(child, recshift, rr);
@@ -512,13 +509,13 @@ class GenerateParseTableStackMainGen {
   
             childrenAffctd = distinct(childrenAffctd);
             if (deepStats) {
-              console.log("Affected distinct : " + childrenAffctd.length + "  generating shifts again...");
+              console.log("Phase " + phase + " "+this.rule.rule+". Affected distinct : " + childrenAffctd.length + "  generating shifts again...");
             }
             childrenAffctd.forEach(chbox => {
               chbox.generateShiftsAgain(phase);
             });
 
-            console.log("Additional cyclic dependencies fixed : "+unresolvedRecursiveItems.length);
+            console.log("Phase " + phase + " "+this.rule.rule+". Additional cyclic dependencies fixed : "+unresolvedRecursiveItems.length);
   
           } 
         }
