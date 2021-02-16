@@ -2,7 +2,7 @@ import { RuleElementTraverser, RuleRefTraverser, TerminalRefTraverser, StateNode
 import { StateNodeWithPrefix, StrMapLike } from './analyzer';
 
 export enum TraversionItemKind {
-  RULE, DEFERRED_RULE, REPEAT, OPTIONAL, TERMINAL, NODE_START, NODE_END, CHILD_SEPARATOR, NEGATE
+  NODE_START, NODE_END, CHILD_SEPARATOR, NEGATE
 }
 
 
@@ -24,14 +24,14 @@ export namespace Traversing {
   export var inTraversion: LinearTraversion;
 
   export var recursionCacheStack: TraversionMakerCache;
-  
+
   export var item: RuleElementTraverser;
 
   var maxdepth = 0;
 
   export function start(_inTraversion: LinearTraversion, _item: RuleElementTraverser) {
     inTraversion = _inTraversion;
-    recursionCacheStack = { depth:0, indent: "", upwardBranchCnt:1, item:_item };
+    recursionCacheStack = { depth: 0, indent: "", upwardBranchCnt: 1, item: _item };
     recursionCacheStack.top = recursionCacheStack;
     item = recursionCacheStack.item;
     maxdepth = 0;
@@ -43,7 +43,7 @@ export namespace Traversing {
 
   export function push(child: RuleElementTraverser) {
     var oldRecursionCacheStack = recursionCacheStack;
-    recursionCacheStack = { depth:oldRecursionCacheStack.depth+1, indent: oldRecursionCacheStack.indent + "  ", upwardBranchCnt: oldRecursionCacheStack.upwardBranchCnt, parent:oldRecursionCacheStack, top:oldRecursionCacheStack.top, item:child };
+    recursionCacheStack = { depth: oldRecursionCacheStack.depth + 1, indent: oldRecursionCacheStack.indent + "  ", upwardBranchCnt: oldRecursionCacheStack.upwardBranchCnt, parent: oldRecursionCacheStack, top: oldRecursionCacheStack.top, item: child };
     if (recursionCacheStack.depth > maxdepth) {
       maxdepth = recursionCacheStack.depth;
       /*if (!(maxdepth%10)) {
@@ -67,41 +67,18 @@ export class TraversionControl {
   kind: TraversionItemKind;
   item: RuleElementTraverser;
 
-  rule: RuleRefTraverser;
-  terminal: TerminalRefTraverser;
   child: RuleElementTraverser;
   previousChild: RuleElementTraverser;
+  start: TraversionControl;
+  end: TraversionControl;
 
   fromPosition: number;
   toPosition: number;
 
-  private _set_itm(itm: RuleElementTraverser) {
-    this.item = itm;
-    switch (this.kind) {
-      case TraversionItemKind.RULE:
-      case TraversionItemKind.DEFERRED_RULE:
-        this.rule = itm as any;
-        break;
-      case TraversionItemKind.TERMINAL:
-        this.terminal = itm as any;
-        break;
-      case TraversionItemKind.REPEAT:
-      case TraversionItemKind.OPTIONAL:
-      case TraversionItemKind.NODE_START:
-      case TraversionItemKind.NODE_END:
-      case TraversionItemKind.CHILD_SEPARATOR:
-      case TraversionItemKind.NEGATE:
-
-        break;
-      default:
-        throw new Error("Bad kind:" + this + ":" + TraversionItemKind[this.kind]);
-    }
-  }
-
   constructor(parent: LinearTraversion, kind: TraversionItemKind, itm: RuleElementTraverser) {
     this.parent = parent;
     this.kind = kind;
-    this._set_itm(itm);
+    this.item = itm;
     this.fromPosition = this.toPosition = parent.length;
   }
 
@@ -187,22 +164,22 @@ export class LinearTraversion {
       throw new Error("This how : " + item + "  in:" + this);
     }
 
+    var startnode = new TraversionControl(this, TraversionItemKind.NODE_START, item);
+    startnode.start = startnode;
+    this.pushControl(startnode);
 
     if (item.traversionGeneratorEnter(this)) {
 
       //if (recursionCacheStack.indent.length<30) {
       //   console.log("createRecursively"+newRecursionStack.indent+item);
       //}
-      var startnode = new TraversionControl(this, TraversionItemKind.NODE_START, item);
-      this.pushControl(startnode);
-
-      item.pushPrefixControllerItem(this);
 
       var i = 0;
       var previousChild = null;
 
       Traversing.recursionCacheStack.upwardBranchCnt *= item.children.length;
 
+      var seps = [];
       item.children.forEach(child => {
         //console.log("iterate "+i+"."+newRecursionStack.indent+child);
 
@@ -210,8 +187,10 @@ export class LinearTraversion {
         if (i > 0) {
           separator = new TraversionControl(this, TraversionItemKind.CHILD_SEPARATOR, item);
           separator.child = child;
+          separator.start = startnode;
           separator.previousChild = previousChild;
           this.pushControl(separator);
+          seps.push(separator);
         }
 
         Traversing.push(child);
@@ -225,12 +204,17 @@ export class LinearTraversion {
         i++;
       });
 
-      item.pushPostfixControllerItem(this);
-
       var endnode = new TraversionControl(this, TraversionItemKind.NODE_END, item);
       endnode.previousChild = previousChild;
       this.pushControl(endnode);
-  
+
+      endnode.fromPosition = startnode.fromPosition;
+      startnode.toPosition = endnode.toPosition;
+      endnode.start = startnode;
+      endnode.end = endnode;
+      startnode.end = endnode;
+      seps.forEach(sep => { sep.end = endnode });
+
       item.traversionGeneratorExited(this);
     }
 
@@ -276,7 +260,7 @@ export class LinearTraversion {
       case TraversionItemKind.CHILD_SEPARATOR:
         switch (this.purpose) {
           case TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN:
-            this.execute(TraversionItemActionKind.OMIT_SUBTREE, step);
+            this.execute(TraversionItemActionKind.OMIT_SUBTREE, step.end);
             break;
         }
         break;
@@ -341,7 +325,10 @@ export class LinearTraversion {
   execute(action: TraversionItemActionKind, step: TraversionControl, ...etc) {
     switch (action) {
       case TraversionItemActionKind.OMIT_SUBTREE:
-        if (step.kind !== TraversionItemKind.CHILD_SEPARATOR) {
+        if (step.kind !== TraversionItemKind.CHILD_SEPARATOR &&
+            step.kind !== TraversionItemKind.NODE_START &&
+            step.kind !== TraversionItemKind.NODE_END
+            ) {
           throw new Error("Unknown here:" + step + " in " + this);
         }
         this.position = step.toPosition;

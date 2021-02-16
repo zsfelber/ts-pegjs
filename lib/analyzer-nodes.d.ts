@@ -2,7 +2,7 @@ import { JumpIntoSubroutineLeafStateNode, LeafStateNodeCommon, ParseTableGenerat
 import { LeafStateNodeWithPrefix } from './analyzer';
 import { TraversionControl, TraversionCache, LinearTraversion } from './analyzer-tra';
 export declare namespace Factory {
-    function createTraverser(parser: ParseTableGenerator, parent: RuleElementTraverser, node: PNode): TerminalRefTraverser | RuleRefTraverser | ChoiceTraverser | SequenceTraverser | OptionalTraverser | SemanticAndTraverser | SemanticNotTraverser | ZeroOrMoreTraverser | OneOrMoreTraverser;
+    function createTraverser(parser: ParseTableGenerator, parent: RuleElementTraverser, node: PNode): TerminalRefTraverser | ChoiceTraverser | RuleRefTraverser | SequenceTraverser | OptionalTraverser | SemanticAndTraverser | SemanticNotTraverser | ZeroOrMoreTraverser | OneOrMoreTraverser;
 }
 export declare abstract class RuleElementTraverser {
     readonly allNodes: RuleElementTraverser[];
@@ -18,6 +18,7 @@ export declare abstract class RuleElementTraverser {
     common: LeafStateNodeCommon;
     constructor(parser: ParseTableGenerator, parent: RuleElementTraverser, node: PNode);
     get isReducable(): boolean;
+    get isTerminalRefOrChoice(): boolean;
     get top(): EntryPointTraverser;
     get importPoint(): CopiedRuleTraverser;
     get topRule(): RuleTraverser;
@@ -26,17 +27,21 @@ export declare abstract class RuleElementTraverser {
     findRuleNodeParent(rule: string, incl?: boolean): any;
     traversionGeneratorEnter(inTraversion: LinearTraversion): boolean;
     traversionGeneratorExited(inTraversion: LinearTraversion): void;
-    pushPrefixControllerItem(inTraversion: LinearTraversion): void;
-    pushPostfixControllerItem(inTraversion: LinearTraversion): void;
     traversionActions(inTraversion: LinearTraversion, step: TraversionControl, cache: TraversionCache): void;
     toString(): string;
     get shortLabel(): string;
 }
 export declare class ChoiceTraverser extends RuleElementTraverser {
     readonly optionalBranch: boolean;
+    readonly terminalChoice: boolean;
+    stateNode: TraversedLeafStateNode;
+    traverserPosition: number;
     constructor(parser: ParseTableGenerator, parent: RuleElementTraverser, node: PNode);
     get isReducable(): boolean;
+    get isTerminalRefOrChoice(): boolean;
+    traversionGeneratorEnter(inTraversion: LinearTraversion): boolean;
     traversionActions(inTraversion: LinearTraversion, step: TraversionControl, cache: TraversionCache): void;
+    get shortLabel(): string;
 }
 export declare class SequenceTraverser extends RuleElementTraverser {
     readonly optionalBranch: boolean;
@@ -62,9 +67,6 @@ export declare class OptionalTraverser extends SingleTraverser {
 }
 export declare class OrMoreTraverser extends SingleCollectionTraverser {
     get isReducable(): boolean;
-    crrTrItem: TraversionControl;
-    pushPrefixControllerItem(inTraversion: LinearTraversion): void;
-    pushPostfixControllerItem(inTraversion: LinearTraversion): void;
     traversionActions(inTraversion: LinearTraversion, step: TraversionControl, cache: TraversionCache): void;
 }
 export declare class ZeroOrMoreTraverser extends OrMoreTraverser {
@@ -78,8 +80,8 @@ export declare class OneOrMoreTraverser extends OrMoreTraverser {
 export declare class RefTraverser extends EmptyTraverser {
     child: RuleElementTraverser;
     node: PRef;
-    traverserStep: TraversionControl;
     stateNode: LeafStateNodeWithPrefix;
+    traverserPosition: number;
 }
 export declare class RuleRefTraverser extends RefTraverser {
     node: PRuleRef;
@@ -106,8 +108,9 @@ export declare class TerminalRefTraverser extends RefTraverser {
     stateNode: TraversedLeafStateNode;
     constructor(parser: ParseTableGenerator, parent: RuleElementTraverser, node: PTerminalRef);
     get isReducable(): boolean;
+    get isTerminalRefOrChoice(): boolean;
     checkConstructFailed(): number;
-    pushPrefixControllerItem(inTraversion: LinearTraversion): void;
+    traversionGeneratorEnter(inTraversion: LinearTraversion): boolean;
     traversionActions(inTraversion: LinearTraversion, step: TraversionControl, cache: TraversionCache): void;
     get shortLabel(): string;
 }

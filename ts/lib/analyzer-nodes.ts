@@ -1,5 +1,5 @@
 import { Analysis, HyperG, JumpIntoSubroutineLeafStateNode, LeafStateNodeCommon, LEV_CNT_BRANCH_NODES, ParseTableGenerator, PNode, PNodeKind, PRef, PRule, PRuleRef, PTerminalRef, PValueNode, ShiftReduceKind, StrMapLike, TraversedLeafStateNode } from '.';
-import { CNT_HUB_LEVELS, LEV_CNT_LN_RULE, LeafStateNodeWithPrefix } from './analyzer';
+import { CNT_HUB_LEVELS, LEV_CNT_LN_RULE, LeafStateNodeWithPrefix, START_STATE } from './analyzer';
 import { TraversionControl, TraversionCache, TraversionItemKind, TraversionPurpose, TraversionItemActionKind, LinearTraversion, Traversing } from './analyzer-tra';
 
 
@@ -83,6 +83,9 @@ export abstract class RuleElementTraverser {
   get isReducable() {
     return false;
   }
+  get isTerminalRefOrChoice() {
+    return false;
+  }
   get top(): EntryPointTraverser {
     return this.parent.top;
   }
@@ -120,12 +123,6 @@ export abstract class RuleElementTraverser {
   traversionGeneratorExited(inTraversion: LinearTraversion) {
   }
 
-  pushPrefixControllerItem(inTraversion: LinearTraversion) {
-  }
-
-  pushPostfixControllerItem(inTraversion: LinearTraversion) {
-  }
-
   traversionActions(inTraversion: LinearTraversion, step: TraversionControl, cache: TraversionCache) {
   }
 
@@ -143,21 +140,39 @@ export abstract class RuleElementTraverser {
 export class ChoiceTraverser extends RuleElementTraverser {
 
   readonly optionalBranch: boolean;
+  readonly terminalChoice: boolean;
+  stateNode: TraversedLeafStateNode;
+  traverserPosition: number;
 
   constructor(parser: ParseTableGenerator, parent: RuleElementTraverser, node: PNode) {
     super(parser, parent, node);
     this.optionalBranch = this.children.some(itm => itm.optionalBranch);
+    this.terminalChoice = !this.children.some(itm => !itm.isTerminalRefOrChoice);
   }
 
   get isReducable() {
     return true;
   }
+  get isTerminalRefOrChoice() {
+    return this.terminalChoice;
+  }
+
+  
+  traversionGeneratorEnter(inTraversion: LinearTraversion) {
+    if (this.stateNode) throw new Error("There is a stateNode already : " + this + "  stateNode:" + this.stateNode);
+
+    this.stateNode = new TraversedLeafStateNode(this);
+    this.traverserPosition = inTraversion.length;
+    this.parser.allLeafStateNodes.push(this.stateNode);
+    return true;
+  }
 
   traversionActions(inTraversion: LinearTraversion, step: TraversionControl, cache: TraversionCache) {
     switch (step.kind) {
-      case TraversionItemKind.CHILD_SEPARATOR:
+      case TraversionItemKind.NODE_START:
         switch (inTraversion.purpose) {
           case TraversionPurpose.FIND_NEXT_TOKENS:
+            cache.intoState.common.shiftsAndReduces.push({ kind: ShiftReduceKind.SHIFT, item: this });
             break;
           case TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN:
             break;
@@ -166,6 +181,11 @@ export class ChoiceTraverser extends RuleElementTraverser {
       default:
     }
   }
+
+  get shortLabel() {
+    return (this.stateNode ? "#" + this.stateNode.index : "");
+  }
+
 
 }
 
@@ -235,7 +255,7 @@ export class SequenceTraverser extends RuleElementTraverser {
               if (step.kind === TraversionItemKind.NODE_END) {
                 // skip ok
               } else if (!step.previousChild.optionalBranch) {
-                inTraversion.execute(TraversionItemActionKind.OMIT_SUBTREE, step);
+                inTraversion.execute(TraversionItemActionKind.OMIT_SUBTREE, step.end);
               }
             }
 
@@ -334,22 +354,11 @@ export class OrMoreTraverser extends SingleCollectionTraverser {
     return true;
   }
 
-  crrTrItem: TraversionControl;
-
-  pushPrefixControllerItem(inTraversion: LinearTraversion) {
-    this.crrTrItem = new TraversionControl(inTraversion, TraversionItemKind.REPEAT, this);
-  }
-  pushPostfixControllerItem(inTraversion: LinearTraversion) {
-    this.crrTrItem.toPosition = inTraversion.length;
-    inTraversion.pushControl(this.crrTrItem);
-    this.crrTrItem = null;
-  }
-
   traversionActions(inTraversion: LinearTraversion, step: TraversionControl, cache: TraversionCache) {
     var traverseLocals = cache.nodeLocal(this);
 
     switch (step.kind) {
-      case TraversionItemKind.REPEAT:
+      case TraversionItemKind.NODE_END:
         switch (inTraversion.purpose) {
           case TraversionPurpose.FIND_NEXT_TOKENS:
 
@@ -430,10 +439,9 @@ export class RefTraverser extends EmptyTraverser {
 
   node: PRef;
 
-  traverserStep: TraversionControl;
-
   stateNode: LeafStateNodeWithPrefix;
 
+  traverserPosition: number;
 }
 
 export class RuleRefTraverser extends RefTraverser {
@@ -498,7 +506,7 @@ export class RuleRefTraverser extends RefTraverser {
 
     var recursiveRule = Traversing.recursionCacheStack["rule_ref#" + this.targetRule.nodeIdx];
 
-    if (this.traverserStep) throw new Error("There is a traverserStep already : " + this + "  traverserStep:" + this.traverserStep);
+    if (this.stateNode) throw new Error("There is a stateNode already : " + this + "  stateNode:" + this.stateNode);
 
     var deferred = Analysis.deferredRules.indexOf(this.targetRule.rule) !== -1;
 
@@ -523,7 +531,7 @@ export class RuleRefTraverser extends RefTraverser {
 
     }
 
-    if (this.traverserStep) throw new Error("There is a traverserStep already : " + this + "  traverserStep:" + this.traverserStep);
+    if (this.stateNode) throw new Error("There is a stateNode already : " + this + "  stateNode:" + this.stateNode);
 
 
     if (!this.isDeferred) {
@@ -581,10 +589,9 @@ export class RuleRefTraverser extends RefTraverser {
 
     }
 
-    if (this.isDeferred) {
+    this.traverserPosition = inTraversion.length;
 
-      this.traverserStep = new TraversionControl(inTraversion, TraversionItemKind.DEFERRED_RULE, this);
-      inTraversion.pushControl(this.traverserStep);
+    if (this.isDeferred) {
 
       this.stateNode = new JumpIntoSubroutineLeafStateNode(this);
       this.parser.allLeafStateNodes.push(this.stateNode);
@@ -605,9 +612,6 @@ export class RuleRefTraverser extends RefTraverser {
       this.child = this.ownRuleEntry;
       this.children.push(this.ownRuleEntry);
 
-      this.traverserStep = new TraversionControl(inTraversion, TraversionItemKind.RULE, this);
-      inTraversion.pushControl(this.traverserStep);
-
       return true;
     }
   }
@@ -624,11 +628,13 @@ export class RuleRefTraverser extends RefTraverser {
 
   traversionActions(inTraversion: LinearTraversion, step: TraversionControl, cache: TraversionCache) {
     switch (step.kind) {
-      case TraversionItemKind.DEFERRED_RULE:
+      case TraversionItemKind.NODE_START:
         switch (inTraversion.purpose) {
           case TraversionPurpose.FIND_NEXT_TOKENS:
 
-            cache.intoState.common.shiftsAndReduces.push({ kind: ShiftReduceKind.SHIFT_RECURSIVE, item: this });
+            if (this.stateNode) {
+              cache.intoState.common.shiftsAndReduces.push({ kind: ShiftReduceKind.SHIFT_RECURSIVE, item: this });
+            }
 
             break;
           case TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN:
@@ -672,6 +678,9 @@ export class TerminalRefTraverser extends RefTraverser {
   get isReducable() {
     return true;
   }
+  get isTerminalRefOrChoice() {
+    return true;
+  }
 
   checkConstructFailed() {
     var dirty = super.checkConstructFailed();
@@ -682,22 +691,24 @@ export class TerminalRefTraverser extends RefTraverser {
     return dirty;
   }
 
-  pushPrefixControllerItem(inTraversion: LinearTraversion) {
-    if (this.traverserStep) throw new Error("There is a traverserStep already : " + this + "  traverserStep:" + this.traverserStep);
-
-    this.traverserStep = new TraversionControl(inTraversion, TraversionItemKind.TERMINAL, this);
-    inTraversion.pushControl(this.traverserStep);
+  traversionGeneratorEnter(inTraversion: LinearTraversion) {
+    if (this.stateNode) throw new Error("There is a stateNode already : " + this + "  stateNode:" + this.stateNode);
 
     this.stateNode = new TraversedLeafStateNode(this);
     this.parser.allLeafStateNodes.push(this.stateNode);
+
+    this.traverserPosition = inTraversion.length;
+    return true;
   }
 
   traversionActions(inTraversion: LinearTraversion, step: TraversionControl, cache: TraversionCache) {
     switch (step.kind) {
-      case TraversionItemKind.TERMINAL:
+      case TraversionItemKind.NODE_START:
         switch (inTraversion.purpose) {
           case TraversionPurpose.FIND_NEXT_TOKENS:
-            cache.intoState.common.shiftsAndReduces.push({ kind: ShiftReduceKind.SHIFT, item: this });
+            if (this.stateNode) {
+              cache.intoState.common.shiftsAndReduces.push({ kind: ShiftReduceKind.SHIFT, item: this });
+            }
             break;
           case TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN:
             break;
@@ -708,7 +719,7 @@ export class TerminalRefTraverser extends RefTraverser {
   }
 
   get shortLabel() {
-    return this.node.terminal + "#" + this.stateNode.index;
+    return this.node.terminal + (this.stateNode ? "#" + this.stateNode.index : "");
   }
 
 }
@@ -849,11 +860,12 @@ class PredicateNotTraverser extends PredicateTraverser {
     this.optionalBranch = !this.child.optionalBranch;
   }
 
-  pushPrefixControllerItem(inTraversion: LinearTraversion) {
+  traversionGeneratorEnter(inTraversion: LinearTraversion) {
     var action = new TraversionControl(inTraversion, TraversionItemKind.NEGATE, this);
     inTraversion.pushControl(action);
+    return true;
   }
-  pushPostfixControllerItem(inTraversion: LinearTraversion) {
+  traversionGeneratorExited(inTraversion: LinearTraversion) {
     var action = new TraversionControl(inTraversion, TraversionItemKind.NEGATE, this);
     inTraversion.pushControl(action);
   }

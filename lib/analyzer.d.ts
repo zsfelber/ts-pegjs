@@ -3,6 +3,7 @@ import { PRule } from './parsers';
 import { IncVariator } from './index';
 import { GrammarParsingLeafState, GrammarParsingLeafStateTransitions, GrammarParsingLeafStateReduces, ParseTable, GrammarParsingLeafStateCommon } from './analyzer-rt';
 import { LinearTraversion } from './analyzer-tra';
+import { ChoiceTraverser } from './analyzer-nodes';
 export declare const FAIL_STATE = 0;
 export declare const START_STATE = 1;
 export declare const CNT_HUB_LEVELS = 1;
@@ -100,7 +101,7 @@ export declare class LeafStateNodeCommon extends StateNodeCommon {
 export declare abstract class StateNodeWithPrefix {
     common: StateNodeCommon;
     index: number;
-    ref?: RefTraverser;
+    ref?: RefTraverser | ChoiceTraverser;
     constructor();
     readonly reduces: Reduce[];
     abstract get traverser(): RuleElementTraverser;
@@ -116,16 +117,16 @@ declare class RootStateNodeWithPrefix extends StateNodeWithPrefix {
 }
 export declare abstract class LeafStateNodeWithPrefix extends StateNodeWithPrefix {
     common: LeafStateNodeCommon;
-    ref: RefTraverser;
-    constructor(ref: RefTraverser);
+    ref: RefTraverser | ChoiceTraverser;
+    constructor(ref: RefTraverser | ChoiceTraverser);
     get traverser(): RuleElementTraverser;
     generateTransitions(parser: ParseTableGenerator, rootTraversion: LinearTraversion): void;
     abstract get isRule(): boolean;
     toString(): string;
 }
 export declare class TraversedLeafStateNode extends LeafStateNodeWithPrefix {
-    ref: TerminalRefTraverser;
-    constructor(ref: TerminalRefTraverser);
+    ref: TerminalRefTraverser | ChoiceTraverser;
+    constructor(ref: TerminalRefTraverser | ChoiceTraverser);
     get isRule(): boolean;
 }
 export declare class JumpIntoSubroutineLeafStateNode extends LeafStateNodeWithPrefix {

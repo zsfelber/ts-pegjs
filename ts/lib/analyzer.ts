@@ -3,6 +3,7 @@ import { PRule, PRuleRef, PTerminalRef, PValueNode, PNode, PRef, PLogicNode } fr
 import { CodeTblToHex, HyperG, IncVariator } from './index';
 import { GrammarParsingLeafState, GrammarParsingLeafStateTransitions, GrammarParsingLeafStateReduces, ParseTable, GrammarParsingLeafStateCommon } from './analyzer-rt';
 import { LinearTraversion, TraversionPurpose } from './analyzer-tra';
+import { ChoiceTraverser } from './analyzer-nodes';
 
 
 export const FAIL_STATE = 0;
@@ -325,7 +326,7 @@ export abstract class StateNodeWithPrefix {
 
   index: number;
 
-  ref?: RefTraverser;
+  ref?: RefTraverser|ChoiceTraverser;
 
   constructor() {
   }
@@ -383,9 +384,9 @@ export abstract class LeafStateNodeWithPrefix extends StateNodeWithPrefix {
 
   common: LeafStateNodeCommon;
 
-  ref: RefTraverser;
+  ref: RefTraverser|ChoiceTraverser;
 
-  constructor(ref: RefTraverser) {
+  constructor(ref: RefTraverser|ChoiceTraverser) {
     super();
     this.ref = ref;
   }
@@ -397,11 +398,8 @@ export abstract class LeafStateNodeWithPrefix extends StateNodeWithPrefix {
   
   generateTransitions(parser: ParseTableGenerator, rootTraversion: LinearTraversion) {
 
-    var ts = this.ref.traverserStep;
-    if (!ts || ts.parent !== rootTraversion) throw new Error("bad traversion params " + this + "  traverserStep:" + ts);
-
     rootTraversion.traverse(this, TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN,
-      [TraversionPurpose.FIND_NEXT_TOKENS], ts.toPosition);
+      [TraversionPurpose.FIND_NEXT_TOKENS], this.ref.traverserPosition);
 
     this.index = parser.cntStates;
     parser.cntStates++;
@@ -417,9 +415,9 @@ export abstract class LeafStateNodeWithPrefix extends StateNodeWithPrefix {
 
 export class TraversedLeafStateNode extends LeafStateNodeWithPrefix {
 
-  ref: TerminalRefTraverser;
+  ref: TerminalRefTraverser|ChoiceTraverser;
 
-  constructor(ref: TerminalRefTraverser) {
+  constructor(ref: TerminalRefTraverser|ChoiceTraverser) {
     super(ref);
   }
 

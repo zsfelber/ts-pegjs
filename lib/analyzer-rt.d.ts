@@ -1,6 +1,6 @@
 import { PRule, PLogicNode, NumMapLike, PRef, ParseTableGenerator, StateNodeCommon } from '.';
 import { StateNodeWithPrefix } from './analyzer';
-import { PRuleRef } from './parsers';
+import { PRuleRef, PValueNode } from './parsers';
 export declare class ParseTable {
     readonly rule: PRule;
     startingState: GrammarParsingLeafState;
@@ -31,6 +31,7 @@ declare class GenerateParseTableStackMainGen {
     };
     readonly parseTable: ParseTable;
     readonly rr: PRuleRef;
+    readonly rule: PRule | PRuleRef;
     shifts: GrammarParsingLeafStateTransitions;
     unresolvedRecursiveBoxes: UnresolvedTuple[];
     children: GenerateParseTableStackBox[];
@@ -50,10 +51,9 @@ declare class GenerateParseTableStackBox {
         [index: string]: GenerateParseTableStackMainGen;
     };
     shifts: GrammarParsingLeafStateTransitions;
-    allShiftsChk: {
+    allShifts: {
         [index: string]: ShiftTuple;
     };
-    allShifts: ShiftTuple[];
     children: [GenerateParseTableStackMainGen, RTShift, PRuleRef][];
     recursiveShifts: RTShift[];
     constructor(parent: GenerateParseTableStackMainGen, parseTable: ParseTable, common: GrammarParsingLeafStateCommon, stack: {
@@ -129,7 +129,7 @@ export declare class GrammarParsingLeafStateCommon {
 export declare class GrammarParsingLeafState {
     index: number;
     packedIndex: number;
-    startingPoint: PRef;
+    startingPoint: PRef | PValueNode;
     startStateNode: StateNodeWithPrefix;
     common: GrammarParsingLeafStateCommon;
     reduceActions: GrammarParsingLeafStateReduces;

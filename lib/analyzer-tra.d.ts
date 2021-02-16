@@ -1,15 +1,10 @@
-import { RuleElementTraverser, RuleRefTraverser, TerminalRefTraverser, ParseTableGenerator, EntryPointTraverser } from ".";
+import { RuleElementTraverser, ParseTableGenerator, EntryPointTraverser } from ".";
 import { StateNodeWithPrefix, StrMapLike } from './analyzer';
 export declare enum TraversionItemKind {
-    RULE = 0,
-    DEFERRED_RULE = 1,
-    REPEAT = 2,
-    OPTIONAL = 3,
-    TERMINAL = 4,
-    NODE_START = 5,
-    NODE_END = 6,
-    CHILD_SEPARATOR = 7,
-    NEGATE = 8
+    NODE_START = 0,
+    NODE_END = 1,
+    CHILD_SEPARATOR = 2,
+    NEGATE = 3
 }
 interface TraversionMakerCache extends StrMapLike<RuleElementTraverser> {
     depth: number;
@@ -33,13 +28,12 @@ export declare class TraversionControl {
     readonly parent: LinearTraversion;
     kind: TraversionItemKind;
     item: RuleElementTraverser;
-    rule: RuleRefTraverser;
-    terminal: TerminalRefTraverser;
     child: RuleElementTraverser;
     previousChild: RuleElementTraverser;
+    start: TraversionControl;
+    end: TraversionControl;
     fromPosition: number;
     toPosition: number;
-    private _set_itm;
     constructor(parent: LinearTraversion, kind: TraversionItemKind, itm: RuleElementTraverser);
     toString(): string;
 }

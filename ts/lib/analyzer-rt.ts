@@ -1,6 +1,6 @@
 import { PRule, Analysis, CodeTblToHex, PLogicNode, NumMapLike, HyperG, PRef, Shifts, ShiftReduceKind, Shift, ShiftRecursive, Reduce, RuleElementTraverser, RuleRefTraverser, TerminalRefTraverser, ParseTableGenerator, EntryPointTraverser, StateNodeCommon } from '.';
 import { StateNodeWithPrefix } from './analyzer';
-import { PNodeKind, PRuleRef } from './parsers';
+import { PNodeKind, PRuleRef, PValueNode } from './parsers';
 import { distinct, UNIQUE_OBJECT_ID } from './index';
 
 
@@ -379,6 +379,7 @@ class GenerateParseTableStackMainGen {
 
   readonly parseTable: ParseTable;
   readonly rr: PRuleRef;
+  readonly rule: PRule|PRuleRef;
 
   shifts: GrammarParsingLeafStateTransitions;
 
@@ -391,15 +392,22 @@ class GenerateParseTableStackMainGen {
   constructor(parent: GenerateParseTableStackBox, parseTable: ParseTable, rr?: PRuleRef) {
     this.parseTable = parseTable;
     this.rr = rr;
+    this.rule = rr ? rr : parseTable.rule;
+
+    this.stack = {};
+    this.stack[this.rule.rule] = this;
+
     if (parent) {
       this.parent = parent;
       this.top = parent.top;
-      this.stack = parent.stack;
+      Object.setPrototypeOf(this.stack, parent.stack);
       this.indent = parent.parent.indent + "  ";
     } else {
-      this.stack = {};
       this.top = this;
     }
+
+    this.top.stack[this.rule.rule] = this;
+
   }
 
   addAsUnresolved(stack: { [index: string]: GenerateParseTableStackMainGen }) {
@@ -419,7 +427,7 @@ class GenerateParseTableStackMainGen {
 
 
   generate(phase: number) {
-    console.log(this.indent + phase + ">" + (this.rr ? this.rr : this.parseTable.rule));
+    console.log(this.indent + phase + ">" + (this.rr ? this.rr : this.parseTable.rule+"#0")+" item:"+this.stack[this.rule.rule]);
 
     var top = !this.rr;
 
@@ -443,14 +451,11 @@ class GenerateParseTableStackMainGen {
 
           if (!c.filledWithRecursive) {
 
-            var stack = {};
-            stack[this.parseTable.rule.rule] = this;
-            Object.setPrototypeOf(stack, this.stack);
-            if (stack[this.parseTable.rule.rule] !== this) {
-              throw new Error("stack[this.parseTable.rule.rule:'"+this.parseTable.rule.rule+"'] !== this   "+stack[this.parseTable.rule.rule]+" !== "+this);
+            if (this.stack[this.rule.rule] !== this) {
+              throw new Error("this.stack[this.parseTable.rule.rule:'"+this.rule.rule+"'] !== this   "+this.stack[this.parseTable.rule.rule]+" !== "+this);
             }
  
-            var forNode = new GenerateParseTableStackBox(this, this.parseTable, c, stack);
+            var forNode = new GenerateParseTableStackBox(this, this.parseTable, c, this.stack);
             this.children.push(forNode);
             if (c === this.parseTable.startingState.common) {
               this.shifts = forNode.shifts;
@@ -537,8 +542,7 @@ class GenerateParseTableStackBox {
 
   shifts: GrammarParsingLeafStateTransitions;
 
-  allShiftsChk: { [index: string]: ShiftTuple; }
-  allShifts: ShiftTuple[];
+  allShifts: { [index: string]: ShiftTuple; }
 
   children: [GenerateParseTableStackMainGen, RTShift, PRuleRef][] = [];
 
@@ -553,8 +557,7 @@ class GenerateParseTableStackBox {
 
     this.shifts = new GrammarParsingLeafStateTransitions();
 
-    this.allShiftsChk = {};
-    this.allShifts = [];
+    this.allShifts = {};
   }
 
   generate(phase: number) {
@@ -565,8 +568,8 @@ class GenerateParseTableStackBox {
         this.recursiveShifts = this.common.recursiveShifts.map[0];
 
         if (this.recursiveShifts) {
-          this.recursiveShifts.forEach(shift => {
-            this.insertStackOpenShifts(phase, shift);
+          this.recursiveShifts.forEach(rshift => {
+            this.insertStackOpenShifts(phase, rshift);
           });
         }
         break;
@@ -629,21 +632,23 @@ class GenerateParseTableStackBox {
 
     var buf = [];
     theShifts.forEach(([tokenId, shift]) => {
+      if (shift.shiftIndex !== expectedShiftIndex) {
+        throw new Error("shift.shiftIndex !== expectedShiftIndex   "+shift.shiftIndex+" !== "+expectedShiftIndex);
+      }
       buf.push(tokenId);
       buf.push(shift.toStateIndex);
       shift.serStackItms(buf);
     });
     var key = CodeTblToHex(buf).join("");
 
-    var olditm = this.allShiftsChk[key];
+    var olditm = this.allShifts[key];
     if (olditm) {
       if (olditm[0] !== expectedShiftIndex) {
         throw new Error("Shift action already produced under another shiftIndex !   new shiftIndex:" + expectedShiftIndex + "  old shiftIndex:" + olditm[0]);
       }
       //throw new Error("Shift action already produced !   shiftIndex:"+oldShift.shiftIndex+"  old shiftIndex:"+olditm[0]);
     } else {
-      this.allShiftsChk[key] = [expectedShiftIndex, theShifts];
-      this.allShifts[expectedShiftIndex] = [expectedShiftIndex, theShifts];
+      this.allShifts[key] = [expectedShiftIndex, theShifts];
     }
   }
 
@@ -652,16 +657,17 @@ class GenerateParseTableStackBox {
     // doing it in-place to avoid updates over and over
     this.shifts.clear();
 
-    var shifstlen = this.allShifts.length;
-    this.allShifts = distinct(this.allShifts, (a, b) => {
+    var shiftvals = Object.values(this.allShifts);
+    var shifstlen = shiftvals.length;
+    shiftvals = distinct(shiftvals, (a, b) => {
       return a[0] - b[0];
     });
-    if (shifstlen !== this.allShifts.length) {
-      throw new Error("shifstlen !== asvals.length   " + shifstlen + " !== " + this.allShifts.length);
+    if (shifstlen !== shiftvals.length) {
+      throw new Error("shifstlen !== asvals.length   " + shifstlen + " !== " + shiftvals.length);
     }
 
     var shis = 0;
-    this.allShifts.forEach(([shi, tkshs]) => {
+    shiftvals.forEach(([shi, tkshs]) => {
       tkshs.forEach(tksh => {
         var tokenId = tksh[0];
         var shift = tksh[1];
@@ -716,9 +722,10 @@ class GenerateParseTableStackBox {
           ruleMain = new GenerateParseTableStackMainGen(this, importedTable, rr);
           ruleMain.dependants.push([this, recursiveShift, rr]);
 
+          this.children.push([ruleMain, recursiveShift, rr]);
+
           // phase 0:
           ruleMain.generate(phase);
-          this.children.push([ruleMain, recursiveShift, rr]);
         }
         break;
 
@@ -1179,7 +1186,7 @@ export class GrammarParsingLeafState {
   index: number;
   packedIndex: number;
 
-  startingPoint: PRef;
+  startingPoint: PRef|PValueNode;
   startStateNode: StateNodeWithPrefix;
 
   common: GrammarParsingLeafStateCommon;
