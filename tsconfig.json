@@ -5,7 +5,8 @@
         "outDir": ".",
         "sourceMap": true,
         "target": "ES5",
-        "resolveJsonModule": true
+        "resolveJsonModule": true,
+        "declaration": true
     },
     "exclude": [],
     "include": ["./ts/**/*.ts"]

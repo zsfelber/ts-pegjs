@@ -461,6 +461,7 @@ class GenerateParseTableStackMainGen {
       case 5:
 
         if (top) {
+          var unresolvedRecursiveItems0 = this.unresolvedRecursiveItems;
           for (var i = 1; i<=10 && this.unresolvedRecursiveItems.length; i++) {
             var unresolvedRecursiveItems = this.unresolvedRecursiveItems;
             this.unresolvedRecursiveItems = [];
@@ -478,7 +479,7 @@ class GenerateParseTableStackMainGen {
           }
           if (this.unresolvedRecursiveItems.length) {
             console.log("Stopped. Maximum lookahead of 10 reached. Still existing unresolved rule refs : " + unresolvedRecursiveItems.length);
-          } else {
+          } else if (unresolvedRecursiveItems0.length) {
             console.log("Finished. Not producing more stack shifts.");
           }
         }
