@@ -230,6 +230,7 @@ function generate(ast) {
         allstarts.splice(allstarts.indexOf(options.allowedStartRules[0]), 1);
         allstarts.unshift(options.allowedStartRules[0]);
         console.log("-- PACK STAGES ------------------------------");
+        var savedStack = [];
         for (var phase = -2; phase <= 5; phase++) {
             console.log("Phase " + phase);
             if (phase >= 0) {
@@ -255,8 +256,12 @@ function generate(ast) {
                     parseTable.packAgain(toLog);
                     ind++;
                 });
+                if (phase >= 0) {
+                    savedStack.push(analyzer_1.Analysis.backup());
+                }
             });
         }
+        analyzer_1.Analysis.stack = savedStack;
         ast.allstarts = allstarts;
     }
     parseGrammarAst(null, ast);

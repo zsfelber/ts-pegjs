@@ -377,9 +377,9 @@ function generateTS(ast) {
             '  }',
             '',
             '',
-            '  run(silent: boolean, startRuleIndex: RuleId = 0): IFailure {',
+            '  run(silent: boolean, startRuleIndex: RuleId = 0, parseOptLevelId = 0): IFailure {',
             '',
-            '    var parseTable = peg$PrsTbls[startRuleIndex] as ParseTable;',
+            '    var parseTable = parseTablesStack[parseOptLevelId][startRuleIndex] as ParseTable;',
             '',
             '    const runner = new JumpTableRunner(this, parseTable);',
             '',
@@ -474,41 +474,49 @@ function generateTS(ast) {
         ast.rules.forEach(function (r) { ruleMap[r.name] = ri++; });
         var parseTbl = [];
         lib_1.HyperG.ruleTable = grammar.rules;
-        var doit = function (r) {
-            ri = ruleMap[r];
-            var rule = grammar.children[ri];
-            if (rule.rule !== r) {
-                console.error("Something wrong '" + r + "' != '" + rule.rule + "'");
-                throw new Error();
-            }
-            var ptg = lib_1.ParseTableGenerator.createForRule(rule);
-            var parseTable = lib_1.Analysis.parseTable(ptg.rule, ptg);
-            parseTbl.push("const peg$PrsTbl" + r + ' = "' + lib_1.encodePrsTbl(parseTable) + '";');
-        };
-        allstarts.forEach(function (r) {
-            doit(r);
-        });
-        var ttbuf = [];
-        lib_1.Analysis.writeAllSerializedTables(ttbuf);
+        for (var i = 0; i <= 5; i++) {
+            lib_1.HyperG.totallyReinitializableTransaction(function () {
+                lib_1.Analysis.stack[i].save();
+                parseTbl.push("");
+                parseTbl.push("namespace parseTableStack_" + i + " {");
+                var doit = function (r) {
+                    ri = ruleMap[r];
+                    var rule = grammar.children[ri];
+                    if (rule.rule !== r) {
+                        console.error("Something wrong '" + r + "' != '" + rule.rule + "'");
+                        throw new Error();
+                    }
+                    var ptg = lib_1.ParseTableGenerator.createForRule(rule);
+                    var parseTable = lib_1.Analysis.parseTable(ptg.rule, ptg);
+                    parseTbl.push("  const peg$PrsTbl" + r + ' = "' + lib_1.encodePrsTbl(parseTable) + '";');
+                };
+                allstarts.forEach(function (r) {
+                    doit(r);
+                });
+                var ttbuf = [];
+                lib_1.Analysis.writeAllSerializedTables(ttbuf);
+                parseTbl.push("");
+                parseTbl.push("  const peg$PrsTblBuf = '" + lib_1.encodeVsimPck(ttbuf) + "';");
+                parseTbl.push("");
+                parseTbl.push("  const peg$PrsTblTbls = peg$decodePrsTblTbls(peg$PrsTblBuf);");
+                parseTbl.push("");
+                parseTbl.push("  const peg$PrsTbls = {" + allstarts.map(function (r) { return ruleMap[r] + ": peg$decodePrsTbl(" + ruleMap[r] + ", peg$PrsTbl" + r + ")"; }).join(", ") + "};");
+                var ri = 0;
+                parseTbl.push(['  export const peg$checkParseTablesIntegrity = function(mode: HyperGEnvType) {', "    checkParseTablesIntegrity(peg$PrsTblBuf, [ " +
+                        allstarts.map(function (r) {
+                            return '[ peg$PrsTbls[' + ruleMap[r] + '], peg$PrsTbl' + r + ' ]';
+                        }).join(", ") + " ], mode);", "};"].join('\n'));
+                parseTbl.push("}");
+            });
+        }
         parseTbl.push("");
-        parseTbl.push("const peg$PrsTblBuf = '" + lib_1.encodeVsimPck(ttbuf) + "';");
+        parseTbl.push("const parseTablesStack = [parseTableStack_0, parseTableStack_1, parseTableStack_2, parseTableStack_3, parseTableStack_4, parseTableStack_5];");
         parseTbl.push("");
-        parseTbl.push("const peg$PrsTblTbls = peg$decodePrsTblTbls(peg$PrsTblBuf);");
-        parseTbl.push("");
-        parseTbl.push("const peg$PrsTbls = {" + allstarts.map(function (r) { return ruleMap[r] + ": peg$decodePrsTbl(" + ruleMap[r] + ", peg$PrsTbl" + r + ")"; }).join(", ") + "};");
-        var ri = 0;
-        parseTbl.push(['const peg$checkParseTablesIntegrity = function(mode: HyperGEnvType) {', "    checkParseTablesIntegrity(peg$PrsTblBuf, [" +
-                allstarts.map(function (r) {
-                    return '[ peg$PrsTbls[' + ruleMap[r] + '], peg$PrsTbl' + r + ' ]';
-                }).join(", "), "    ], mode);",
-            "};"].join('\n'));
-        parseTbl.push([
-            'HyperG.parseTables = peg$PrsTbls;',
-            "",
-        ].join('\n'));
         parseTbl.push(['HyperGParser.checkAllDataIntegrity = function(mode?: HyperGEnvType) {',
             "    peg$checkRuleNodesIntegrity(mode);",
-            "    peg$checkParseTablesIntegrity(mode);",
+            "    parseTablesStack.forEach(stk=>{",
+            "      stk.peg$checkParseTablesIntegrity(mode);",
+            "    });",
             "};"
         ].join('\n'));
         if (lib_1.Analysis.ERRORS) {

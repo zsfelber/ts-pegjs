@@ -21,7 +21,6 @@ export namespace HyperG {
     ruleInterpreters: EntryPointInterpreter[];
     nodeTable: PNode[] = [];
     ruleRefTable: PRuleRef[] = [];
-    parseTables: { [index: number]: ParseTable };
     indent = "";
     stack: Backup[] = [];
 
@@ -34,7 +33,6 @@ export namespace HyperG {
       this.ruleInterpreters = [].concat(ruleInterpreters);
       this.nodeTable = [].concat(nodeTable);
       this.ruleRefTable = [].concat(ruleRefTable);
-      this.parseTables = Object.assign({}, parseTables);
       this.indent = indent;
       this.stack = [].concat(stack);
     }
@@ -48,7 +46,6 @@ export namespace HyperG {
       ruleInterpreters = this.ruleInterpreters;
       nodeTable = this.nodeTable;
       ruleRefTable = this.ruleRefTable;
-      parseTables = this.parseTables;
       indent = this.indent;
       stack = this.stack;
     }
@@ -69,8 +66,6 @@ export namespace HyperG {
   export var nodeTable: PNode[] = [];
 
   export var ruleRefTable: PRuleRef[] = [];
-
-  export var parseTables: { [index: number]: ParseTable };
 
   export var indent = "";
 

@@ -276,6 +276,8 @@ function generate(ast, ...args) {
 
     console.log("-- PACK STAGES ------------------------------");
 
+    var savedStack = [];
+
     for (var phase = -2; phase <= 5; phase++) {
       console.log("Phase " + phase);
 
@@ -307,8 +309,14 @@ function generate(ast, ...args) {
           parseTable.packAgain(toLog);
           ind++;
         });
+
+        if (phase >= 0) {
+          savedStack.push(Analysis.backup());
+        }
       });
     }
+
+    Analysis.stack = savedStack;
 
 
     ast.allstarts = allstarts;

@@ -20,9 +20,6 @@ export declare namespace HyperG {
         ruleInterpreters: EntryPointInterpreter[];
         nodeTable: PNode[];
         ruleRefTable: PRuleRef[];
-        parseTables: {
-            [index: number]: ParseTable;
-        };
         indent: string;
         stack: Backup[];
         load(): void;
@@ -36,9 +33,6 @@ export declare namespace HyperG {
     export var ruleInterpreters: EntryPointInterpreter[];
     export var nodeTable: PNode[];
     export var ruleRefTable: PRuleRef[];
-    export var parseTables: {
-        [index: number]: ParseTable;
-    };
     export var indent: string;
     export var stack: Backup[];
     export function backup(): Backup;

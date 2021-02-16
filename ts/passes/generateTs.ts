@@ -11,7 +11,7 @@ import * as ppack from 'pegjs/package.json';
 import {
   JSstringEscape, CodeTblToHex, PGrammar, PRule, PFunction,
   PNodeKind, PActionKind, PRuleRef, PTerminalRef, HyperG,
-  ParseTableGenerator, encodePrsTbl, encodeVsimPck, 
+  ParseTableGenerator, encodePrsTbl, encodeVsimPck,
   Analysis, verySimplePackMany0
 } from "../lib";
 import { Console } from 'console';
@@ -186,7 +186,7 @@ function generateTS(ast, ...args) {
         '  maxFailExpected: Expectation[] = [];',
         '  maxFailPos: number;',
         '',
-        '  static checkAllDataIntegrity: Function;', 
+        '  static checkAllDataIntegrity: Function;',
         ''
       ].join('\n')
     );
@@ -438,9 +438,9 @@ function generateTS(ast, ...args) {
       '  }',
       '',
       '',
-      '  run(silent: boolean, startRuleIndex: RuleId = 0): IFailure {',
+      '  run(silent: boolean, startRuleIndex: RuleId = 0, parseOptLevelId = 0): IFailure {',
       '',
-      '    var parseTable = peg$PrsTbls[startRuleIndex] as ParseTable;',
+      '    var parseTable = parseTablesStack[parseOptLevelId][startRuleIndex] as ParseTable;',
       '',
       '    const runner = new JumpTableRunner(this, parseTable);',
       '',
@@ -575,51 +575,64 @@ function pushc(cache: any, item: any): any {
 
     HyperG.ruleTable = grammar.rules;
 
-    const doit = (r) => {
-      ri = ruleMap[r];
-      var rule = grammar.children[ri] as PRule;
-      if (rule.rule !== r) {
-        console.error("Something wrong '" + r + "' != '" + rule.rule + "'");
-        throw new Error();
-      }
-      var ptg = ParseTableGenerator.createForRule(rule);
-      var parseTable = Analysis.parseTable(ptg.rule, ptg);
+    for (var i = 0; i <= 5; i++) {
 
-      parseTbl.push("const peg$PrsTbl" + r + ' = "' + encodePrsTbl(parseTable) + '";');
-    };
+      HyperG.totallyReinitializableTransaction(() => {
 
-    allstarts.forEach(r => {
-      doit(r);
-    });
+        Analysis.stack[i].save();
 
-    var ttbuf: number[] = [];
-    Analysis.writeAllSerializedTables(ttbuf);
+        parseTbl.push("");
+        parseTbl.push("namespace parseTableStack_" + i + " {");
+        const doit = (r) => {
+          ri = ruleMap[r];
+          var rule = grammar.children[ri] as PRule;
+          if (rule.rule !== r) {
+            console.error("Something wrong '" + r + "' != '" + rule.rule + "'");
+            throw new Error();
+          }
+          var ptg = ParseTableGenerator.createForRule(rule);
+          var parseTable = Analysis.parseTable(ptg.rule, ptg);
+
+          parseTbl.push("  const peg$PrsTbl" + r + ' = "' + encodePrsTbl(parseTable) + '";');
+        };
+
+        allstarts.forEach(r => {
+          doit(r);
+        });
+        var ttbuf: number[] = [];
+        Analysis.writeAllSerializedTables(ttbuf);
+
+        parseTbl.push("");
+        parseTbl.push("  const peg$PrsTblBuf = '" + encodeVsimPck(ttbuf) + "';");
+        parseTbl.push("");
+        parseTbl.push("  const peg$PrsTblTbls = peg$decodePrsTblTbls(peg$PrsTblBuf);");
+        parseTbl.push("");
+        parseTbl.push("  const peg$PrsTbls = {" + allstarts.map(r => ruleMap[r] + ": peg$decodePrsTbl(" + ruleMap[r] + ", peg$PrsTbl" + r + ")").join(", ") + "};");
+        var ri = 0;
+        parseTbl.push(
+          ['  export const peg$checkParseTablesIntegrity = function(mode: HyperGEnvType) {',
+            "    checkParseTablesIntegrity(peg$PrsTblBuf, [ " +
+            allstarts.map(r =>
+              '[ peg$PrsTbls[' + ruleMap[r] + '], peg$PrsTbl' + r + ' ]'
+            ).join(", ") + " ], mode);",
+            "};"
+          ].join('\n'));
+        parseTbl.push("}");
+      });
+
+    }
 
     parseTbl.push("");
-    parseTbl.push("const peg$PrsTblBuf = '" + encodeVsimPck(ttbuf) + "';");
+    parseTbl.push("const parseTablesStack = [parseTableStack_0, parseTableStack_1, parseTableStack_2, parseTableStack_3, parseTableStack_4, parseTableStack_5];");
     parseTbl.push("");
-    parseTbl.push("const peg$PrsTblTbls = peg$decodePrsTblTbls(peg$PrsTblBuf);");
-    parseTbl.push("");
-    parseTbl.push("const peg$PrsTbls = {" + allstarts.map(r => ruleMap[r] + ": peg$decodePrsTbl(" + ruleMap[r] + ", peg$PrsTbl" + r + ")").join(", ") + "};");
-    var ri = 0;
-    parseTbl.push(
-      ['const peg$checkParseTablesIntegrity = function(mode: HyperGEnvType) {',
-        "    checkParseTablesIntegrity(peg$PrsTblBuf, [" + 
-          allstarts.map(r =>
-            '[ peg$PrsTbls[' + ruleMap[r] + '], peg$PrsTbl' + r + ' ]'
-          ).join(", "),
-        "    ], mode);",
-        "};"
-      ].join('\n'));
-      parseTbl.push([
-      'HyperG.parseTables = peg$PrsTbls;',
-      "",
-    ].join('\n'));
+
     parseTbl.push(
       ['HyperGParser.checkAllDataIntegrity = function(mode?: HyperGEnvType) {',
-      "    peg$checkRuleNodesIntegrity(mode);",
-      "    peg$checkParseTablesIntegrity(mode);",
-      "};"
+        "    peg$checkRuleNodesIntegrity(mode);",
+        "    parseTablesStack.forEach(stk=>{",
+        "      stk.peg$checkParseTablesIntegrity(mode);",
+        "    });",
+        "};"
       ].join('\n'));
 
     if (Analysis.ERRORS) {
@@ -726,7 +739,7 @@ function pushc(cache: any, item: any): any {
     }
 
     tables.push(
-      [ 'const $y = HyperGParser.prototype;',
+      ['const $y = HyperGParser.prototype;',
         'const peg$functions = [',
         "    " + grammar.actions.map(action => {
           var name = "";
@@ -742,7 +755,7 @@ function pushc(cache: any, item: any): any {
       'HyperG.functionTable = peg$functions;',
       "",
     ].join('\n'));
-  
+
     HyperG.serializerCnt = grammar.nodeIdx + 1;
     // peg$rules
     tables.push(
@@ -756,7 +769,7 @@ function pushc(cache: any, item: any): any {
     tables.push(
       ['const peg$rules = [',
         "    " + grammar.rules.map(rule =>
-          'peg$decodeRule("'+rule.rule+'", peg$ruleCodes['+(ri++)+'])'
+          'peg$decodeRule("' + rule.rule + '", peg$ruleCodes[' + (ri++) + '])'
         ).join(", "),
         "];"
       ].join('\n'));
@@ -776,10 +789,10 @@ function pushc(cache: any, item: any): any {
     var ri = 0;
     tables.push(
       ['const peg$checkRuleNodesIntegrity = function(mode: HyperGEnvType) {',
-        "    checkRuleNodesIntegrity([" + 
-          grammar.rules.map(rule =>
-            '[ peg$rules[' + (ri) + '], peg$ruleCodes[' + (ri++) + '] ]'
-          ).join(", "),
+        "    checkRuleNodesIntegrity([" +
+        grammar.rules.map(rule =>
+          '[ peg$rules[' + (ri) + '], peg$ruleCodes[' + (ri++) + '] ]'
+        ).join(", "),
         "    ], mode);",
         "};"
       ].join('\n'));
@@ -787,7 +800,7 @@ function pushc(cache: any, item: any): any {
       'HyperG.ruleInterpreters = peg$ruleInterpreters;',
       "",
     ].join('\n'));
-  
+
     tables.push("");
     tables.push("");
     tables = tables.concat(generateParseTable());

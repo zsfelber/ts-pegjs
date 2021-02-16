@@ -23,13 +23,15 @@ type StackTuple = [GrammarParsingLeafState[], IToken, number, number, StackActio
 export class JumpTableRunner {
 
   owner: IJumpTableProgram;
+  parseTables: { [index: number]: ParseTable };
   parseTable: ParseTable;
   packrat: Packrat;
   numRules: number;
   reduce: { [index: number]: DeferredReduce };
 
-  constructor(owner: IJumpTableProgram, parseTable: ParseTable, packrat?: Packrat) {
+  constructor(owner: IJumpTableProgram, parseTables: { [index: number]: ParseTable }, parseTable: ParseTable, packrat?: Packrat) {
     this.owner = owner;
+    this.parseTables = parseTables;
     this.parseTable = parseTable;
     this.packrat = packrat ? packrat : new Packrat(owner);
     this.numRules = owner.numRules;
@@ -108,8 +110,8 @@ export class JumpTableRunner {
             return true;
           }
         } else {
-          var ruleRefTbl = HyperG.parseTables[rr.ruleIndex];
-          var childRunner = new JumpTableRunner(owner, ruleRefTbl, This.packrat);
+          var ruleRefTbl = this.parseTables[rr.ruleIndex];
+          var childRunner = new JumpTableRunner(owner, this.parseTables, ruleRefTbl, This.packrat);
 
           // TODO deferred( with {} parser) / immedate ( with regular parser )
           if (childRunner.run(token)) {

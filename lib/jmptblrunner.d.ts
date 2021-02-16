@@ -8,13 +8,18 @@ export interface IJumpTableProgram extends IBaseParserProgram {
 }
 export declare class JumpTableRunner {
     owner: IJumpTableProgram;
+    parseTables: {
+        [index: number]: ParseTable;
+    };
     parseTable: ParseTable;
     packrat: Packrat;
     numRules: number;
     reduce: {
         [index: number]: DeferredReduce;
     };
-    constructor(owner: IJumpTableProgram, parseTable: ParseTable, packrat?: Packrat);
+    constructor(owner: IJumpTableProgram, parseTables: {
+        [index: number]: ParseTable;
+    }, parseTable: ParseTable, packrat?: Packrat);
     get result(): DeferredReduce;
     reduceBefore(currentState: GrammarParsingLeafState): void;
     reduceAfter(newState: GrammarParsingLeafState): void;
