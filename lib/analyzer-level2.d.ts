@@ -43,6 +43,7 @@ export declare class GenerateParseTableStackBox {
     parseTable: ParseTable;
     common: GrammarParsingLeafStateCommon;
     trivial: GrammarParsingLeafStateTransitions;
+    lastTokens: string;
     stack: StrMapLike<GenerateParseTableStackMainGen>;
     allShifts: StrMapLike<TknShiftTuple>;
     allShiftsByToken: NumMapLike<RTShift[]>;

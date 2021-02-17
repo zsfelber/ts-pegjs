@@ -1,4 +1,5 @@
 import { ParseTable, Analysis, GrammarParsingLeafState, CodeTblToHex, GrammarParsingLeafStateCommon, GrammarParsingLeafStateTransitions, RTShift, GrammarParsingLeafStateReduces, PRuleRef, StrMapLike, PRule, UNIQUE_OBJECT_ID, distinct, IncVariator, NumMapLike, PNodeKind, minimum, RTStackShiftItem } from ".";
+import { DefaultComparator } from './index';
 
 
 
@@ -487,6 +488,7 @@ export class GenerateParseTableStackBox {
 
   common: GrammarParsingLeafStateCommon;
   trivial: GrammarParsingLeafStateTransitions;
+  lastTokens: string;
 
   stack: StrMapLike<GenerateParseTableStackMainGen>;
 
@@ -584,11 +586,11 @@ export class GenerateParseTableStackBox {
 
   generateShiftsAgain(phase: number) {
 
-    var tokens = Object.keys(this.common.serialStateMap.map).join(",");
+    var tokens = this.lastTokens;
 
     this.generateShifts(phase);
 
-    var tokens2 = Object.keys(this.common.serialStateMap.map).join(",");
+    var tokens2 = this.lastTokens;
 
     if (tokens !== tokens2) {
       this.addAsUnresolved({});
@@ -629,7 +631,7 @@ export class GenerateParseTableStackBox {
         tshs.push(shift);
         var n = tshs.length;
         this.allShiftsByToken[tokenId] = tshs = distinct(tshs, (a, b) => {
-          return a.shiftIndex - b.shiftIndex;
+          return a.generationSecondaryIndex - b.generationSecondaryIndex;
         });
         if (tshs.length !== n) {
           throw new Error("tshs.length !== n   " + tshs.length + " !== " + n);
@@ -646,21 +648,22 @@ export class GenerateParseTableStackBox {
     var es: [string, RTShift[]][] = Object.entries(this.allShiftsByToken);
 
     var shi = 0;
-    es.forEach(([key, shs]) => {
+    es.forEach(([key, shs0]) => {
       var tokenId = Number(key);
       var shs = shifts.map[tokenId];
       if (!shs) {
         shifts.map[tokenId] = shs = [];
       }
-      shs.forEach(sh => {
-        var sh2 = new RTShift(sh.generationSecondaryIndex, sh.toStateIndex, sh.stepIntoRecursive);
-        shs.push(sh2);
-        if (shi !== sh2.shiftIndex) {
-          throw new Error("shi !== sh2.shiftIndex   "+shi+" !== "+sh2.shiftIndex);
-        }
+      shs0.forEach(sh0 => {
+        var sh = new RTShift(shi, sh0.toStateIndex, sh0.stepIntoRecursive);
+        shs.push(sh);
         shi++;
       });
     });
+
+    var lastTokens = Object.keys(shifts.map);
+    lastTokens.sort(DefaultComparator);
+    this.lastTokens = lastTokens.join(",");
 
     this.common.replace(shifts);
   }
