@@ -234,6 +234,7 @@ function generate(ast) {
         for (var phase = -1; phase <= 10; phase++) {
             console.log("Phase " + phase);
             lib_1.HyperG.totallyReinitializableTransaction(function () {
+                console.log("initial no.leafStateCommons:" + analyzer_1.Analysis.leafStateCommons.length);
                 if (phase >= 0) {
                     var ind = 0;
                     allstarts.forEach(function (r) {

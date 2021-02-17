@@ -142,6 +142,7 @@ export declare function JSstringEscape(s: any): any;
 export declare const DefaultComparator: (a: any, b: any) => any;
 export declare var UNIQUE_OBJECT_ID: string;
 export declare function minimum<T>(inparr: T[], cmp?: ((a: T, b: T) => number)): [number, T];
+export declare function maximum<T>(inparr: T[], cmp?: ((a: T, b: T) => number)): [number, T];
 export declare function distinct<T>(inparr: T[], cmp?: ((a: T, b: T) => number)): T[];
 export declare function CodeTblToHex(s: number[]): string[];
 export declare function encodePrsTbl(parseTable: ParseTable): string;

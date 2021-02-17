@@ -283,6 +283,7 @@ function generate(ast, ...args) {
       console.log("Phase " + phase);
 
       HyperG.totallyReinitializableTransaction(() => {
+        console.log("initial no.leafStateCommons:"+Analysis.leafStateCommons.length);
 
         if (phase >= 0) {
           var ind = 0;

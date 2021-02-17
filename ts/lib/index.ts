@@ -594,12 +594,32 @@ export function minimum<T>(inparr: T[], cmp?: ((a: T, b: T) => number)): [number
   }
   return [mini, min];
 }
+
+export function maximum<T>(inparr: T[], cmp?: ((a: T, b: T) => number)): [number,T] {
+  if (!inparr) return [-1, undefined];
+  if (!inparr.length) return [-1, undefined];
+  if (!cmp) {
+    cmp = DefaultComparator;
+  }
+  var maxi = 0;
+  var max = inparr[0];
+  for (var i = 1; i < inparr.length; i++) {
+    var d = inparr[i];
+    if (cmp(d, max)>0) {
+      maxi = i;
+      max = d;
+    }
+  }
+  return [maxi, max];
+}
+
 export function distinct<T>(inparr: T[], cmp?: ((a: T, b: T) => number)) {
   if (!inparr) return inparr;
   if (!inparr.length) return [];
   if (!cmp) {
     cmp = DefaultComparator;
   }
+  inparr = [].concat(inparr);
   inparr.sort(cmp);
   var pd = inparr[0];
   var resarr = [pd];
