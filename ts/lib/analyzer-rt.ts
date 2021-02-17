@@ -1176,7 +1176,14 @@ export class GrammarParsingLeafStateCommon {
         this.serialStateMap = new GrammarParsingLeafStateTransitions();
         this.reduceActions = new GrammarParsingLeafStateReduces();
 
-        const pushToMap = (s: Shifts, tokenId: number, map: GrammarParsingLeafStateTransitions) => {
+        var chkUniqShi = {};
+        const pushToMap = (s: Shifts, tokenId: number, map: GrammarParsingLeafStateTransitions, chkUniqShi?: any) => {
+          if (chkUniqShi) {
+            if (chkUniqShi[s.item.stateNode.index]) {
+              throw new Error("shift index not unique : "+s.item.stateNode.index);
+            }
+            chkUniqShi[s.item.stateNode.index] = 1;
+          }
           var ts = map.map[tokenId];
           if (!ts) {
             map.map[tokenId] = ts = [];
@@ -1193,7 +1200,7 @@ export class GrammarParsingLeafStateCommon {
 
               var s = nextTerm as Shift;
               pushToMap(s, s.item.node.tokenId, this._transitions)
-              pushToMap(s, s.item.node.tokenId, this.serialStateMap)
+              pushToMap(s, s.item.node.tokenId, this.serialStateMap, chkUniqShi)
               shiftIndex++;
               break;
 
@@ -1204,7 +1211,7 @@ export class GrammarParsingLeafStateCommon {
 
               var sr = nextTerm as ShiftRecursive;
               pushToMap(sr, 0, this.recursiveShifts)
-              pushToMap(sr, 0, this.serialStateMap)
+              pushToMap(sr, 0, this.serialStateMap, chkUniqShi)
               shiftIndex++;
 
               break;
