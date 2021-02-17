@@ -1,8 +1,7 @@
 import { PRule, Analysis, CodeTblToHex, PLogicNode, NumMapLike, HyperG, PRef, Shifts, ShiftReduceKind, Shift, ShiftRecursive, Reduce, RuleElementTraverser, RuleRefTraverser, TerminalRefTraverser, ParseTableGenerator, EntryPointTraverser, StateNodeCommon } from '.';
 import { StateNodeWithPrefix } from './analyzer';
-import { PNodeKind, PRuleRef, PValueNode, PNode } from './parsers';
-import { distinct, UNIQUE_OBJECT_ID, IncVariator, minimum } from './index';
-import { StrMapLike } from './analyzer';
+import { PRuleRef, PValueNode, PNode } from './parsers';
+import { distinct, UNIQUE_OBJECT_ID } from './index';
 import { GenerateParseTableStackMainGen, CompressParseTable } from './analyzer-level2';
 
 
@@ -64,7 +63,9 @@ export class ParseTable {
         s.packedIndex = undefined;
         s.serializedTuple = null;
         s.reduceActions = null;
-        s.replace(null);
+        // when it is null, it reinitializes
+        // when it is finished, lets pack() use the result:
+        s.replace(s.finishedResults);
       }
     });
 

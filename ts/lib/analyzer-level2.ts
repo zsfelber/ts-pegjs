@@ -390,9 +390,11 @@ export class GenerateParseTableStackMainGen {
 
             var childrenAffctd: GenerateParseTableStackBox[] = [];
             unresolvedRecursiveBoxesNow.forEach(([importer, child, recshift, rr]) => {
-              // NOTE precondition ok : dependants updated
-              importer.appendChild(child, recshift, rr);
-              childrenAffctd.push(importer);
+              if (!importer.common.finishedResults) {
+                // NOTE precondition ok : dependants updated
+                importer.appendChild(child, recshift, rr);
+                childrenAffctd.push(importer);
+              }
             });
 
             childrenAffctd = distinct(childrenAffctd);
