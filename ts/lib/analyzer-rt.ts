@@ -451,17 +451,18 @@ class GenerateParseTableStackMainGen {
     var top = !this.rr;
     const deepStats = 0;
 
+    this.parseTable.allStates.forEach(s => {
+      if (s) s.lazy(this.parseTable);
+    });
+    this.parseTable.myCommons.forEach(s => {
+      if (s) {
+        // lazy
+        s.transitions;
+      }
+    });
+
     switch (phase) {
       case 0:
-        this.parseTable.allStates.forEach(s => {
-          if (s) s.lazy(this.parseTable);
-        });
-        this.parseTable.myCommons.forEach(s => {
-          if (s) {
-            // lazy
-            s.transitions;
-          }
-        });
 
         var was1st = 0, wasNon1st = 0;
 
@@ -513,6 +514,9 @@ class GenerateParseTableStackMainGen {
       case 8:
       case 9:
       case 10:
+        this.children.forEach(child => {
+          child.generate(phase);
+        });
 
         if (top) {
           if (this.unresolvedRecursiveBoxes.length) {
@@ -684,6 +688,14 @@ class GenerateParseTableStackBox {
         this.generateShifts(phase);
 
         break;
+
+      default:
+        this.children.forEach(([ruleMain, shift, rr]) => {
+          ruleMain.generate(phase);
+        });
+        this.common.replace(this.shifts);
+        break;
+
     }
   }
 
