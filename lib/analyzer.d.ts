@@ -29,20 +29,19 @@ export declare namespace Analysis {
         totalStates: number;
         cntChoiceTknIds: number;
         serializedLeafStates: {
-            [index: string]: GrammarParsingLeafState;
+            [index: string]: SerOutputWithIndex;
         };
         serializedStateCommons: {
-            [index: string]: GrammarParsingLeafStateCommon;
+            [index: string]: SerOutputWithIndex;
         };
         serializedTransitions: {
-            [index: string]: GrammarParsingLeafStateTransitions;
+            [index: string]: SerOutputWithIndex;
         };
         serializedReduces: {
-            [index: string]: GrammarParsingLeafStateReduces;
+            [index: string]: SerOutputWithIndex;
         };
-        serializedParseTables: [][];
+        serializedParseTables: SerOutputWithIndex[];
         stack: Backup[];
-        serializedStateCommonsCnt: number;
         serializedParseTablesCnt: number;
         parseTableGens: StrMapLike<ParseTableGenerator>;
         parseTables: StrMapLike<ParseTable>;
@@ -52,6 +51,10 @@ export declare namespace Analysis {
         varRds: IncVariator;
         load(): void;
         save(): void;
+    }
+    export class SerOutputWithIndex {
+        index: number;
+        output: number[];
     }
     export var ERRORS: number;
     export var deferredRules: any[];
@@ -66,20 +69,19 @@ export declare namespace Analysis {
     export var cntChoiceTknIds: number;
     export const uniformMaxStateId = 57344;
     export var serializedLeafStates: {
-        [index: string]: GrammarParsingLeafState;
+        [index: string]: SerOutputWithIndex;
     };
     export var serializedStateCommons: {
-        [index: string]: GrammarParsingLeafStateCommon;
+        [index: string]: SerOutputWithIndex;
     };
     export var serializedTransitions: {
-        [index: string]: GrammarParsingLeafStateTransitions;
+        [index: string]: SerOutputWithIndex;
     };
     export var serializedReduces: {
-        [index: string]: GrammarParsingLeafStateReduces;
+        [index: string]: SerOutputWithIndex;
     };
-    export var serializedParseTables: number[][];
+    export var serializedParseTables: SerOutputWithIndex[];
     export var stack: Backup[];
-    export var serializedStateCommonsCnt: number;
     export var serializedParseTablesCnt: number;
     export var parseTableGens: StrMapLike<ParseTableGenerator>;
     export var parseTables: StrMapLike<ParseTable>;

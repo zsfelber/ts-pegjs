@@ -474,7 +474,7 @@ function generateTS(ast) {
         ast.rules.forEach(function (r) { ruleMap[r.name] = ri++; });
         var parseTbl = [];
         lib_1.HyperG.ruleTable = grammar.rules;
-        for (var i = 0; i <= 10; i++) {
+        for (var i = 0; i <= 3; i++) {
             lib_1.HyperG.totallyReinitializableTransaction(function () {
                 lib_1.Analysis.stack[i].save();
                 parseTbl.push("");

@@ -54,7 +54,7 @@ export declare class GenerateParseTableStackBox {
     lastTokens: string;
     stack: StrMapLike<GenerateParseTableStackMainGen>;
     allShifts: StrMapLike<TknShiftTuple>;
-    allShiftsByToken: NumMapLike<RTShift[]>;
+    allShiftsByToken: NumMapLike<NumMapLike<RTShift>>;
     cntGenerationSecondaryIndex: number;
     children: BoxImportTuple[];
     recursiveShifts: RTShift[];

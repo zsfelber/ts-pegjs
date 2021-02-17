@@ -42,13 +42,12 @@ export namespace Analysis {
     maxTokenId: number;
     totalStates = 0;
     cntChoiceTknIds = -1;
-    serializedLeafStates: {[index: string]:GrammarParsingLeafState} = {};
-    serializedStateCommons: {[index: string]:GrammarParsingLeafStateCommon} = {};
-    serializedTransitions: {[index: string]:GrammarParsingLeafStateTransitions} = {};
-    serializedReduces: {[index: string]:GrammarParsingLeafStateReduces} = {};
-    serializedParseTables: [][] = [];
+    serializedLeafStates: {[index: string]:SerOutputWithIndex} = {};
+    serializedStateCommons: {[index: string]:SerOutputWithIndex} = {};
+    serializedTransitions: {[index: string]:SerOutputWithIndex} = {};
+    serializedReduces: {[index: string]:SerOutputWithIndex} = {};
+    serializedParseTables: SerOutputWithIndex[] = [];
     stack: Backup[] = [];
-    serializedStateCommonsCnt = 1;
     serializedParseTablesCnt = 1;
     parseTableGens: StrMapLike<ParseTableGenerator> = {};
     parseTables: StrMapLike<ParseTable> = {};
@@ -75,7 +74,6 @@ export namespace Analysis {
       this.serializedReduces = Object.assign({}, serializedReduces);
       this.serializedParseTables = [].concat(serializedParseTables);
       this.stack = [].concat(stack);
-      this.serializedStateCommonsCnt = serializedStateCommonsCnt;
       this.serializedParseTablesCnt = serializedParseTablesCnt;
       this.parseTableGens = Object.assign({}, parseTableGens);
       this.parseTables = Object.assign({}, parseTables);
@@ -102,7 +100,6 @@ export namespace Analysis {
       serializedReduces = this.serializedReduces;
       serializedParseTables = this.serializedParseTables;
       stack = this.stack;
-      serializedStateCommonsCnt = this.serializedStateCommonsCnt;
       serializedParseTablesCnt = this.serializedParseTablesCnt;
       parseTableGens = this.parseTableGens;
       parseTables = this.parseTables;
@@ -113,7 +110,11 @@ export namespace Analysis {
     }
   }
   
+  export class SerOutputWithIndex {
+    index: number;
 
+    output: number[];
+  }
 
   export var ERRORS = 0;
 
@@ -139,19 +140,18 @@ export namespace Analysis {
 
   export const uniformMaxStateId = 0xe000;
 
-  export var serializedLeafStates: {[index: string]:GrammarParsingLeafState} = {};
+  export var serializedLeafStates: {[index: string]:SerOutputWithIndex} = {};
 
-  export var serializedStateCommons: {[index: string]:GrammarParsingLeafStateCommon} = {};
+  export var serializedStateCommons: {[index: string]:SerOutputWithIndex} = {};
 
-  export var serializedTransitions: {[index: string]:GrammarParsingLeafStateTransitions} = {};
+  export var serializedTransitions: {[index: string]:SerOutputWithIndex} = {};
 
-  export var serializedReduces: {[index: string]:GrammarParsingLeafStateReduces} = {};
+  export var serializedReduces: {[index: string]:SerOutputWithIndex} = {};
 
-  export var serializedParseTables: number[][] = [];
+  export var serializedParseTables: SerOutputWithIndex[] = [];
 
   export var stack: Backup[] = [];
 
-  export var serializedStateCommonsCnt = 1;
   export var serializedParseTablesCnt = 1;
 
   export var parseTableGens: StrMapLike<ParseTableGenerator> = {};
@@ -219,6 +219,7 @@ export namespace Analysis {
     var sreds0 = Object.values(serializedReduces);
     var scmn0 = Object.values(serializedStateCommons);
     var slf0 = Object.values(serializedLeafStates);
+    var ctk0 = Object.values(choiceTokens);
     var strans = distinct(strans0, (a,b)=>{
       return a.index-b.index;
     });
@@ -226,10 +227,13 @@ export namespace Analysis {
       return a.index-b.index;
     });
     var scmn = distinct(scmn0, (a,b)=>{
-      return a.packedIndex-b.packedIndex;
+      return a.index-b.index;
     });
     var slf = distinct(slf0, (a,b)=>{
-      return a.packedIndex-b.packedIndex;
+      return a.index-b.index;
+    });
+    var ctk = distinct(ctk0, (a,b)=>{
+      return a.tokenId-b.tokenId;
     });
     if (strans.length !== strans0.length) {
 
@@ -243,7 +247,7 @@ export namespace Analysis {
 
     var i = 1;
     strans.forEach(s=>{
-      s.alreadySerialized.forEach(num=>buf.push(num));
+      s.output.forEach(num=>buf.push(num));
       if (s.index !== i) {
         throw new Error("s.index !== i   "+s.index+" !== "+i);
       }
@@ -251,7 +255,7 @@ export namespace Analysis {
     });
     var i = 1;
     sreds.forEach(s=>{
-      s.alreadySerialized.forEach(num=>buf.push(num));
+      s.output.forEach(num=>buf.push(num));
       if (s.index !== i) {
         throw new Error("s.index !== i   "+s.index+" !== "+i);
       }
@@ -259,23 +263,25 @@ export namespace Analysis {
     });
     var i = 1;
     scmn.forEach(s=>{
-      s.serializedTuple.forEach(num=>buf.push(num));
-      if (s.packedIndex !== i) {
-        throw new Error("s.index !== i   "+s.packedIndex+" !== "+i);
+      s.output.forEach(num=>buf.push(num));
+      if (s.index !== i) {
+        throw new Error("s.index !== i   "+s.index+" !== "+i);
       }
       i++;
     });
     var i = 1;
     slf.forEach(s=>{
-      s.serializedTuple.forEach(num=>buf.push(num));
-      if (s.packedIndex !== i) {
+      s.output.forEach(num=>buf.push(num));
+      if (s.index !== i) {
         throw new Error("s.index !== i   "+s.index+" !== "+i);
       }
       i++;
     });
-    for (var i = 1; i <= choiceTokens.length; i++) {
-      buf.push(choiceTokens[i].nodeIdx);
-    }
+    var i = 1;
+    ctk.forEach(s=>{
+      buf.push(s.nodeIdx);
+      i++;
+    });
   }
 
   export function readAllSerializedTables(buf: number[]): number {

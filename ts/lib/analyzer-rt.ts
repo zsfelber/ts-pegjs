@@ -117,20 +117,19 @@ export class ParseTable {
   }
 
   ser(): number[] {
-    var b: number[];
+    var b: Analysis.SerOutputWithIndex;
     if (b = Analysis.serializedParseTables[this.packedIndex]) {
-      return b;
+      return b.output;
     }
 
     var serStates: number[] = [];
-    const r = (itm:{replacedIndex:number})=>(itm?itm.replacedIndex:0);
-    var myc = distinct(this.myCommons, (a,b)=>(r(a)-r(b)));
-    var als = distinct(this.allStates, (a,b)=>(r(a)-r(b)));
+    var myc = distinct(Object.values(this.myCommons), (a, b) => (a.replacedIndex - b.replacedIndex));
+    var als = distinct(Object.values(this.allStates), (a, b) => (a.replacedIndex - b.replacedIndex));
 
     for (var i = 1; i < myc.length; i++) {
-      let s = myc[i-1];
-      if (r(s) !== i) {
-        throw new Error("r(s) replacedIndex !== i   "+r(s)+" !== "+i);
+      let s = myc[i - 1];
+      if (s.replacedIndex !== i) {
+        throw new Error("s.replacedIndex replacedIndex !== i   " + s.replacedIndex + " !== " + i);
       }
       if (s) {
         serStates.push(s.packedIndex);
@@ -140,9 +139,9 @@ export class ParseTable {
     }
 
     for (var i = 1; i < als.length; i++) {
-      let s = als[i-1];
-      if (r(s) !== i) {
-        throw new Error("r(s) replacedIndex !== i   "+r(s)+" !== "+i);
+      let s = als[i - 1];
+      if (s.replacedIndex !== i) {
+        throw new Error("s.replacedIndex replacedIndex !== i   " + s.replacedIndex + " !== " + i);
       }
       if (s) {
         serStates.push(s.packedIndex);
@@ -171,7 +170,7 @@ export class ParseTable {
     }
     this.startingState = this.allStates[1];
     if (!this.startingState) {
-      throw new Error(this.rule.rule+"  !this.startingState");
+      throw new Error(this.rule.rule + "  !this.startingState");
     }
 
     return pos;
@@ -506,7 +505,7 @@ export class GrammarParsingLeafStateCommon {
   serialStateMap: GrammarParsingLeafStateTransitions;
   serializedTuple: [number, number];
 
-  filledWithRecursive = false;
+  finishedResults: GrammarParsingLeafStateTransitions;
 
   constructor() {
     this.reduceActions = null;
