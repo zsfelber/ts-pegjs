@@ -9,6 +9,7 @@ export declare class ParseTable {
     readonly myCommons: GrammarParsingLeafStateCommon[];
     openerTrans: GenerateParseTableStackMainGen;
     packed: boolean;
+    packedIndex: number;
     constructor(rule: PRule, g?: ParseTableGenerator);
     resetOptimization(log?: boolean): void;
     fillStackOpenerTransitions(phase: number, log?: boolean): void;
@@ -63,9 +64,9 @@ export declare class GrammarParsingLeafStateReduces {
     diagnosticEqualityCheck(table: GrammarParsingLeafStateReduces): boolean;
 }
 export declare class GrammarParsingLeafStateCommon {
-    index0: number;
     index: number;
     packedIndex: number;
+    replacedIndex: number;
     startStateNode: StateNodeCommon;
     private _transitions;
     reduceActions: GrammarParsingLeafStateReduces;
@@ -83,6 +84,7 @@ export declare class GrammarParsingLeafStateCommon {
 export declare class GrammarParsingLeafState {
     index: number;
     packedIndex: number;
+    replacedIndex: number;
     startingPoint: PRef | PValueNode;
     startStateNode: StateNodeWithPrefix;
     common: GrammarParsingLeafStateCommon;

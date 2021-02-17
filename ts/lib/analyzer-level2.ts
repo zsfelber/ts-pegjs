@@ -14,7 +14,13 @@ export class CompressParseTable {
   transidx: number;
   redidx: number;
   lfidx: number;
+  lfidx0: number;
   cmnidx: number;
+  cmnidx0: number;
+
+  serializedLeafStates: {[index: string]:GrammarParsingLeafState} = {};
+
+  serializedStateCommons: {[index: string]:GrammarParsingLeafStateCommon} = {};
 
   constructor(parseTable: ParseTable, log = true) {
     this.parseTable = parseTable;
@@ -39,7 +45,9 @@ export class CompressParseTable {
     this.transidx = this.t0 + 1;
     this.redidx = this.r0 + 1;
     this.lfidx = this.sl0 + 1;
+    this.lfidx0 = 1;
     this.cmnidx = this.sc0 + 1;
+    this.cmnidx0 = 1;
 
 
     var changed: boolean = false;
@@ -49,6 +57,11 @@ export class CompressParseTable {
 
     const sts = this.parseTable.allStates.length;
     Analysis.totalStates += sts;
+
+    if (!this.parseTable.packedIndex) {
+      this.parseTable.packedIndex = Analysis.serializedParseTablesCnt++;
+    }
+    Analysis.serializedParseTables[this.parseTable.packedIndex] = this.parseTable.ser();
 
     if (this.log) {
       console.log("Total: [ total states:" + Analysis.totalStates + "  distinct:" + (this.lfidx) + "   distinct states/common:" + (this.cmnidx) + "    distinct transitions:" + (this.transidx) + "    distinct reduces:" + (this.redidx) + "    rec shifts:" + Analysis.varShReqs + "   jmp.tokens:" + Analysis.varTkns + "   shift/tkns:" + Analysis.varShs + "  reduces:" + Analysis.varRds + " ]");
@@ -70,24 +83,29 @@ export class CompressParseTable {
       Analysis.varRds.add(rs1[0]);
 
       var spidx = state.startingPoint ? state.startingPoint.nodeIdx : 0;
-      var stcmidx = state.common ? state.common.index : 0;
+      var stcmidx = state.common ? state.common.replacedIndex : 0;
 
       var tuple: [number, number, number] = [spidx, state.reduceActions.index, stcmidx];
       var tkey = CodeTblToHex(tuple).join("");
 
       var state0 = Analysis.serializedLeafStates[tkey];
       if (state0) {
+        var state00 = this.serializedLeafStates[tkey];
         // NOTE we keep old indeces for now because we should update all at once
         // on all dependent objects (like RTShift-s)
         state.packedIndex = state0.packedIndex;
+        if (state00) state.replacedIndex = state00.replacedIndex;
+        else state.replacedIndex = this.lfidx0++;
         state.serializedTuple = tuple;
         return true;
       } else {
         // NOTE we keep old indeces for now because we should update all at once
         // on all dependent objects (like RTShift-s)
         state.packedIndex = this.lfidx++;
+        state.replacedIndex = this.lfidx0++;
         state.serializedTuple = tuple;
         Analysis.serializedLeafStates[tkey] = state;
+        this.serializedLeafStates[tkey] = state;
         return changed;
       }
     } else {
@@ -125,13 +143,18 @@ export class CompressParseTable {
 
       var state0 = Analysis.serializedStateCommons[tkey];
       if (state0) {
+        var state00 = this.serializedStateCommons[tkey];
         state.packedIndex = state0.packedIndex;
+        if (state00) state.replacedIndex = state00.replacedIndex;
+        else state.replacedIndex = this.cmnidx0++;
         state.serializedTuple = tuple;
         return true;
       } else {
         state.packedIndex = this.cmnidx++;
+        state.replacedIndex = this.cmnidx0++;
         state.serializedTuple = tuple;
         Analysis.serializedStateCommons[tkey] = state;
+        this.serializedStateCommons[tkey] = state;
         return changed;
       }
     } else {

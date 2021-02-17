@@ -35,6 +35,7 @@ export class ParseTable {
 
   packed = false;
 
+  packedIndex: number;
 
   constructor(rule: PRule, g?: ParseTableGenerator) {
     this.rule = rule;
@@ -116,26 +117,41 @@ export class ParseTable {
   }
 
   ser(): number[] {
+    var b: number[];
+    if (b = Analysis.serializedParseTables[this.packedIndex]) {
+      return b;
+    }
 
     var serStates: number[] = [];
+    const r = (itm:{replacedIndex:number})=>(itm?itm.replacedIndex:0);
+    var myc = distinct(this.myCommons, (a,b)=>(r(a)-r(b)));
+    var als = distinct(this.allStates, (a,b)=>(r(a)-r(b)));
 
-    this.myCommons.forEach(s => {
+    for (var i = 1; i < myc.length; i++) {
+      let s = myc[i-1];
+      if (r(s) !== i) {
+        throw new Error("r(s) replacedIndex !== i   "+r(s)+" !== "+i);
+      }
       if (s) {
         serStates.push(s.packedIndex);
       } else {
         serStates.push(0);
       }
-    });
+    }
 
-    this.allStates.forEach(s => {
+    for (var i = 1; i < als.length; i++) {
+      let s = als[i-1];
+      if (r(s) !== i) {
+        throw new Error("r(s) replacedIndex !== i   "+r(s)+" !== "+i);
+      }
       if (s) {
         serStates.push(s.packedIndex);
       } else {
         serStates.push(0);
       }
-    });
+    }
 
-    var result = [this.rule.nodeIdx, this.myCommons.length, this.allStates.length].concat(serStates);
+    var result = [this.rule.nodeIdx, myc.length, als.length].concat(serStates);
     return result;
   }
 
@@ -477,9 +493,9 @@ export class GrammarParsingLeafStateReduces {
 
 export class GrammarParsingLeafStateCommon {
 
-  index0: number;
   index: number;
   packedIndex: number;
+  replacedIndex: number;
 
   startStateNode: StateNodeCommon;
 
@@ -635,6 +651,7 @@ export class GrammarParsingLeafState {
 
   index: number;
   packedIndex: number;
+  replacedIndex: number;
 
   startingPoint: PRef | PValueNode;
   startStateNode: StateNodeWithPrefix;

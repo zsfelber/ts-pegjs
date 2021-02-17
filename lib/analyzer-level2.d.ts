@@ -9,7 +9,15 @@ export declare class CompressParseTable {
     transidx: number;
     redidx: number;
     lfidx: number;
+    lfidx0: number;
     cmnidx: number;
+    cmnidx0: number;
+    serializedLeafStates: {
+        [index: string]: GrammarParsingLeafState;
+    };
+    serializedStateCommons: {
+        [index: string]: GrammarParsingLeafStateCommon;
+    };
     constructor(parseTable: ParseTable, log?: boolean);
     pack(): boolean;
     prstate(state: GrammarParsingLeafState): boolean;

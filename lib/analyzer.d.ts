@@ -40,8 +40,10 @@ export declare namespace Analysis {
         serializedReduces: {
             [index: string]: GrammarParsingLeafStateReduces;
         };
+        serializedParseTables: [][];
         stack: Backup[];
         serializedStateCommonsCnt: number;
+        serializedParseTablesCnt: number;
         parseTableGens: StrMapLike<ParseTableGenerator>;
         parseTables: StrMapLike<ParseTable>;
         varShs: IncVariator;
@@ -75,8 +77,10 @@ export declare namespace Analysis {
     export var serializedReduces: {
         [index: string]: GrammarParsingLeafStateReduces;
     };
+    export var serializedParseTables: number[][];
     export var stack: Backup[];
     export var serializedStateCommonsCnt: number;
+    export var serializedParseTablesCnt: number;
     export var parseTableGens: StrMapLike<ParseTableGenerator>;
     export var parseTables: StrMapLike<ParseTable>;
     export var varShs: IncVariator;
@@ -182,6 +186,7 @@ export declare class ParseTableGenerator {
     entryPoints: StrMapLike<EntryPointTraverser>;
     jumperStates: NumMapLike<number>;
     cntStates: number;
+    cntCommons: number;
     static createForRule(rule: PRule): ParseTableGenerator;
     private constructor();
     getEntryPoint(node: PRule): EntryPointTraverser;

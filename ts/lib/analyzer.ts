@@ -46,8 +46,10 @@ export namespace Analysis {
     serializedStateCommons: {[index: string]:GrammarParsingLeafStateCommon} = {};
     serializedTransitions: {[index: string]:GrammarParsingLeafStateTransitions} = {};
     serializedReduces: {[index: string]:GrammarParsingLeafStateReduces} = {};
+    serializedParseTables: [][] = [];
     stack: Backup[] = [];
     serializedStateCommonsCnt = 1;
+    serializedParseTablesCnt = 1;
     parseTableGens: StrMapLike<ParseTableGenerator> = {};
     parseTables: StrMapLike<ParseTable> = {};
     varShs = new IncVariator();
@@ -71,8 +73,10 @@ export namespace Analysis {
       this.serializedStateCommons = Object.assign({}, serializedStateCommons);
       this.serializedTransitions = Object.assign({}, serializedTransitions);
       this.serializedReduces = Object.assign({}, serializedReduces);
+      this.serializedParseTables = [].concat(serializedParseTables);
       this.stack = [].concat(stack);
       this.serializedStateCommonsCnt = serializedStateCommonsCnt;
+      this.serializedParseTablesCnt = serializedParseTablesCnt;
       this.parseTableGens = Object.assign({}, parseTableGens);
       this.parseTables = Object.assign({}, parseTables);
       this.varShs = new IncVariator(varShs);
@@ -96,8 +100,10 @@ export namespace Analysis {
       serializedStateCommons = this.serializedStateCommons;
       serializedTransitions = this.serializedTransitions;
       serializedReduces = this.serializedReduces;
+      serializedParseTables = this.serializedParseTables;
       stack = this.stack;
       serializedStateCommonsCnt = this.serializedStateCommonsCnt;
+      serializedParseTablesCnt = this.serializedParseTablesCnt;
       parseTableGens = this.parseTableGens;
       parseTables = this.parseTables;
       varShs = this.varShs;
@@ -141,9 +147,12 @@ export namespace Analysis {
 
   export var serializedReduces: {[index: string]:GrammarParsingLeafStateReduces} = {};
 
+  export var serializedParseTables: number[][] = [];
+
   export var stack: Backup[] = [];
 
   export var serializedStateCommonsCnt = 1;
+  export var serializedParseTablesCnt = 1;
 
   export var parseTableGens: StrMapLike<ParseTableGenerator> = {};
   export var parseTables: StrMapLike<ParseTable> = {};
@@ -343,7 +352,7 @@ export abstract class StateNodeCommon {
 
   constructor(parseTable: ParseTableGenerator) {
     this.parseTable = parseTable;
-    this.index = Analysis.serializedStateCommonsCnt++;
+    this.index = parseTable.cntCommons++;
     parseTable.allLeafStateCommons[this.index] = this;
   }
 
@@ -394,7 +403,7 @@ export abstract class StateNodeWithPrefix {
     if (!state.startStateNode) {
       state.startStateNode = this;
       state.startingPoint = this.ref ? this.ref.node : null;
-      state.common = this.common.generateState(parseTable);
+      state.common = this.common ? this.common.generateState(parseTable) : null;
     }
     return state;
   }
@@ -455,8 +464,7 @@ export abstract class LeafStateNodeWithPrefix extends StateNodeWithPrefix {
     rootTraversion.traverse(this, TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN,
       [TraversionPurpose.FIND_NEXT_TOKENS], this.ref.traverserPosition);
 
-    this.index = parser.cntStates;
-    parser.cntStates++;
+    this.index = parser.cntStates++;
   }
 
   abstract get isRule(): boolean;
@@ -665,6 +673,8 @@ export class ParseTableGenerator {
 
   // 1 based index
   cntStates = 1;
+
+  cntCommons = 1;
   
   static createForRule(rule: PRule) {
     var parseTable: ParseTableGenerator = Analysis.parseTableGens[rule.rule];
