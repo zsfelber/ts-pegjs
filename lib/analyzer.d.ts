@@ -87,7 +87,7 @@ export declare namespace Analysis {
     export function empty(): Backup;
     export function parseTable(rule: PRule, g?: ParseTableGenerator): ParseTable;
     export function leafState(parseTable: ParseTable, index: number, packedIdx: number): GrammarParsingLeafState;
-    export function leafStateCommon(parseTable: ParseTable, index: number): GrammarParsingLeafStateCommon;
+    export function leafStateCommon(parseTable: ParseTable, index: number, packedIdx: number): GrammarParsingLeafStateCommon;
     export function writeAllSerializedTables(buf: number[]): void;
     export function readAllSerializedTables(buf: number[]): number;
     export {};

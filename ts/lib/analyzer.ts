@@ -189,15 +189,16 @@ export namespace Analysis {
     return ls;
   }
 
-  export function leafStateCommon(parseTable: ParseTable, index: number) {
+  export function leafStateCommon(parseTable: ParseTable, index: number, packedIdx: number) {
     if (!index) return null;
-    var ls = leafStateCommons[index];
+    var ls = leafStateCommons[packedIdx];
     if (ls) {
-      if (ls.index !== index) {
-        throw new Error("ls.index !== index   "+ls.index+" !== "+index);
+      if (ls.packedIndex !== packedIdx) {
+        throw new Error("ls.packedIndex !== packedIdx   "+ls.packedIndex+" !== "+packedIdx);
       }
     } else {
-      leafStateCommons[index] = ls = new GrammarParsingLeafStateCommon();
+      leafStateCommons[packedIdx] = ls = new GrammarParsingLeafStateCommon();
+      ls.packedIndex = packedIdx;
       ls.index = index;
     }
     parseTable.myCommons[index] = ls;
@@ -263,7 +264,7 @@ export namespace Analysis {
       }
       i++;
     });
-    for (var i = 1; i < choiceTokens.length; i++) {
+    for (var i = 1; i <= choiceTokens.length; i++) {
       buf.push(choiceTokens[i].nodeIdx);
     }
   }
@@ -347,7 +348,7 @@ export abstract class StateNodeCommon {
   }
 
   generateState(parseTable: ParseTable) {
-    var state = Analysis.leafStateCommon(parseTable, this.index);
+    var state = parseTable.leafStateCommon(this.index);
     if (!state.startStateNode) {
       state.startStateNode = this;
       state.index = this.index;
@@ -393,7 +394,7 @@ export abstract class StateNodeWithPrefix {
     if (!state.startStateNode) {
       state.startStateNode = this;
       state.startingPoint = this.ref ? this.ref.node : null;
-      state.lazyCommon(parseTable);
+      state.common = this.common.generateState(parseTable);
     }
     return state;
   }

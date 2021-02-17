@@ -165,7 +165,7 @@ export class ChoiceTraverser extends RuleElementTraverser {
       this.stateNode = new TerminalChoiceLeafStateNode(this);
       this.traverserPosition = inTraversion.length;
       this.parser.allLeafStateNodes.push(this.stateNode);
-      this.node._tokenId = --Analysis.cntChoiceTknIds;
+      this.node._tokenId = Analysis.cntChoiceTknIds--;
       Analysis.choiceTokens[-this.node._tokenId] = this.node;
       return false;
     } else {

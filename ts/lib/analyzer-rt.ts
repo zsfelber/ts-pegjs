@@ -95,6 +95,16 @@ export class ParseTable {
     return result;
   }
 
+  leafStateCommon(index: number) {
+    if (!index) return null;
+    var ls = this.myCommons[index];
+    if (!ls) {
+      this.myCommons[index] = ls = new GrammarParsingLeafStateCommon();
+      ls.index = index;
+    }
+    return ls;
+  }
+
   leafState(index: number) {
     if (!index) return null;
     var ls = this.allStates[index];
@@ -109,6 +119,14 @@ export class ParseTable {
 
     var serStates: number[] = [];
 
+    this.myCommons.forEach(s => {
+      if (s) {
+        serStates.push(s.packedIndex);
+      } else {
+        serStates.push(0);
+      }
+    });
+
     this.allStates.forEach(s => {
       if (s) {
         serStates.push(s.packedIndex);
@@ -117,16 +135,20 @@ export class ParseTable {
       }
     });
 
-    var result = [this.rule.nodeIdx, this.allStates.length].concat(serStates);
+    var result = [this.rule.nodeIdx, this.myCommons.length, this.allStates.length].concat(serStates);
     return result;
   }
 
   deser(buf: number[], pos: number): number {
-    var [ridx, stlen] = buf;
+    var [ridx, cmlen, stlen] = buf;
     if (ridx !== this.rule.nodeIdx) {
       throw new Error("Data error , invalid rule : " + this.rule + "/" + this.rule.nodeIdx + " vs  ridx:" + ridx);
     }
 
+    for (var i = 1; i <= cmlen; i++) {
+      var packedIdx = buf[pos++];
+      Analysis.leafStateCommon(this, i, packedIdx);
+    }
     for (var i = 1; i <= stlen; i++) {
       var packedIdx = buf[pos++];
       Analysis.leafState(this, i, packedIdx);
@@ -455,6 +477,7 @@ export class GrammarParsingLeafStateReduces {
 
 export class GrammarParsingLeafStateCommon {
 
+  index0: number;
   index: number;
   packedIndex: number;
 
@@ -633,7 +656,7 @@ export class GrammarParsingLeafState {
     if (!this.common) {
       if (this.startStateNode) {
         if (this.startStateNode.common) {
-          this.common = Analysis.leafStateCommon(parseTable, this.startStateNode.common.index);
+          this.common = parseTable.leafStateCommon(this.startStateNode.common.index);
           if (!this.common.startStateNode) {
             this.common.startStateNode = this.startStateNode.common;
           }

@@ -14,6 +14,7 @@ export declare class ParseTable {
     fillStackOpenerTransitions(phase: number, log?: boolean): void;
     pack(log?: boolean): boolean;
     static deserialize(rule: PRule, buf: number[]): ParseTable;
+    leafStateCommon(index: number): GrammarParsingLeafStateCommon;
     leafState(index: number): GrammarParsingLeafState;
     ser(): number[];
     deser(buf: number[], pos: number): number;
@@ -62,6 +63,7 @@ export declare class GrammarParsingLeafStateReduces {
     diagnosticEqualityCheck(table: GrammarParsingLeafStateReduces): boolean;
 }
 export declare class GrammarParsingLeafStateCommon {
+    index0: number;
     index: number;
     packedIndex: number;
     startStateNode: StateNodeCommon;

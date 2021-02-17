@@ -70,7 +70,7 @@ export class CompressParseTable {
       Analysis.varRds.add(rs1[0]);
 
       var spidx = state.startingPoint ? state.startingPoint.nodeIdx : 0;
-      var stcmidx = state.common ? state.common.packedIndex : 0;
+      var stcmidx = state.common ? state.common.index : 0;
 
       var tuple: [number, number, number] = [spidx, state.reduceActions.index, stcmidx];
       var tkey = CodeTblToHex(tuple).join("");
