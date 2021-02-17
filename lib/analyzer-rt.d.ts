@@ -1,7 +1,7 @@
 import { PRule, PLogicNode, NumMapLike, PRef, ParseTableGenerator, StateNodeCommon } from '.';
 import { StateNodeWithPrefix } from './analyzer';
 import { PRuleRef, PValueNode } from './parsers';
-import { StrMapLike } from './analyzer';
+import { GenerateParseTableStackMainGen } from './analyzer-level2';
 export declare class ParseTable {
     readonly rule: PRule;
     startingState: GrammarParsingLeafState;
@@ -19,47 +19,6 @@ export declare class ParseTable {
     deser(buf: number[]): number;
     diagnosticEqualityCheck(table: ParseTable): boolean;
     toString(): string;
-}
-declare type UnresolvedTuple = [GenerateParseTableStackBox, GenerateParseTableStackMainGen, RTShift, PRuleRef];
-declare type DependantTuple = [GenerateParseTableStackBox, RTShift, PRuleRef];
-declare type BoxImportTuple = [GenerateParseTableStackMainGen, RTShift, PRuleRef];
-declare type TknShiftTuple = [number, RTShift];
-declare class GenerateParseTableStackMainGen {
-    readonly parent: GenerateParseTableStackBox;
-    readonly top: GenerateParseTableStackMainGen;
-    readonly indent: string;
-    readonly stack: StrMapLike<GenerateParseTableStackMainGen>;
-    readonly parseTable: ParseTable;
-    readonly rr: PRuleRef;
-    readonly rule: PRule | PRuleRef;
-    unresolvedRecursiveBoxes: UnresolvedTuple[];
-    mainRuleBox: GenerateParseTableStackBox;
-    children: GenerateParseTableStackBox[];
-    dependants: DependantTuple[];
-    constructor(parent: GenerateParseTableStackBox, parseTable: ParseTable, rr?: PRuleRef);
-    addAsUnresolved(stack: StrMapLike<GenerateParseTableStackMainGen>): void;
-    generate(phase: number): void;
-}
-declare class GenerateParseTableStackBox {
-    top: GenerateParseTableStackMainGen;
-    parent: GenerateParseTableStackMainGen;
-    parseTable: ParseTable;
-    common: GrammarParsingLeafStateCommon;
-    stack: StrMapLike<GenerateParseTableStackMainGen>;
-    allShifts: StrMapLike<TknShiftTuple>;
-    allShiftsByToken: NumMapLike<RTShift[]>;
-    cntGenerationSecondaryIndex: number;
-    children: BoxImportTuple[];
-    recursiveShifts: RTShift[];
-    constructor(parent: GenerateParseTableStackMainGen, parseTable: ParseTable, common: GrammarParsingLeafStateCommon, stack: StrMapLike<GenerateParseTableStackMainGen>);
-    generate(phase: number): void;
-    resetShitsToTrivial(): void;
-    generateShiftsAgain(phase: number): void;
-    addAsUnresolved(stack: StrMapLike<GenerateParseTableStackMainGen>): void;
-    private newShift;
-    private generateShifts;
-    insertStackOpenShifts(phase: number, recursiveShift: RTShift): void;
-    appendChild(child: GenerateParseTableStackMainGen, recursiveShift: RTShift, rr: PRuleRef): void;
 }
 export declare class RTShift {
     shiftIndex: number;
@@ -134,4 +93,3 @@ export declare class GrammarParsingLeafState {
     deser(index: number, buf: number[], pos: number): number;
     diagnosticEqualityCheck(table: GrammarParsingLeafState): boolean;
 }
-export {};

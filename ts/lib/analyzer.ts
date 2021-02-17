@@ -173,7 +173,11 @@ export namespace Analysis {
   export function leafStateCommon(parseTable: ParseTable, index: number) {
     if (!index) return null;
     var ls = leafStateCommons[index];
-    if (!ls) {
+    if (ls) {
+      if (ls.index !== index) {
+        throw new Error("ls.index !== index   "+ls.index+" !== "+index);
+      }
+    } else {
       leafStateCommons[index] = ls = new GrammarParsingLeafStateCommon();
       ls.index = index;
     }
@@ -196,7 +200,7 @@ export namespace Analysis {
       return a.index-b.index;
     });
     scmn.sort((a,b)=>{
-      return a.index-b.index;
+      return a.globindex-b.globindex;
     });
 
     buf.push(strans.length);
@@ -232,8 +236,8 @@ export namespace Analysis {
     var i = 1;
     scmn.forEach(s=>{
       s.serializedTuple.forEach(num=>buf.push(num));
-      if (s.index !== i) {
-        throw new Error("s.index !== i   "+s.index+" !== "+i);
+      if (s.globindex !== i) {
+        throw new Error("s.index !== i   "+s.globindex+" !== "+i);
       }
       i++;
     });
