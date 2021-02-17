@@ -416,9 +416,11 @@ export class GenerateParseTableStackMainGen {
 
           // cache finished result
 
-          this.children.forEach(child => {
+          // this.mainRuleBox.common.finishedResults = this.mainRuleBox.common.serialStateMap;
+
+          /*this.children.forEach(child => {
             child.generate(4);
-          });
+          });*/
         }
         break;
     }
@@ -592,7 +594,7 @@ export class GenerateParseTableStackBox {
       
         // cache finished result
 
-        this.common.finishedResults = this.common.serialStateMap;
+        // this.common.finishedResults = this.common.serialStateMap;
 
         break;
 

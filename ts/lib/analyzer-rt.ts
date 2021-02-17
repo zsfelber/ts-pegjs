@@ -50,7 +50,10 @@ export class ParseTable {
   }
 
   resetOptimization(log = true) {
+
+    this.openerTrans = null;
     this.packed = false;
+
     this.allStates.forEach(s => {
       if (s) {
         s.common = null;
