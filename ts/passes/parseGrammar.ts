@@ -9,6 +9,7 @@ import {
   PTerminalRef, PValueNode, PConss, StrMapLike
 } from '../lib';
 import { TypeFlags } from "typescript";
+import { UNIQUE_OBJECT_ID } from '../lib';
 var stringifySafe = require('json-stringify-safe');
 
 var options;

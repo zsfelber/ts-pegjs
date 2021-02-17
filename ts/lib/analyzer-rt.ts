@@ -433,7 +433,7 @@ class GenerateParseTableStackMainGen {
     //console.log(this.indent + phase + ">" + (this.rr ? this.rr : this.parseTable.rule+"#0"));
 
     var top = !this.rr;
-    const deepStats = 0;
+    const deepStats = 1;
 
     switch (phase) {
       case 0:
@@ -551,15 +551,26 @@ class GenerateParseTableStackMainGen {
         });
       };
 
-      var s0 = sum();
-      var s = sum();
-      summ(s0, this.shifts, null);
+      const summ2 = (sum: any, parseTable: ParseTable) => {
+        const stack = {};
+        parseTable.allStates.forEach(state=>{
+          const common = state.common;
+          if (!stack[common[UNIQUE_OBJECT_ID]]) {
+            stack[common[UNIQUE_OBJECT_ID]] = 1;
+            summ(sum, common.transitions, null);
+          }
+        });
+      };
+
+      var s1 = sum();
+      var s2 = sum();
       this.children.forEach(box => {
         box.common["$phase$"] = phase;
-        summ(s, box.shifts, box);
+        summ(s1, box.shifts, box);
       });
-      console.log(this.indent + "Phase "+phase+" "+this.rule.rule + " :   mainRule    tokens:"+" shifts:"+s0.vShifts+"  recursive deep shifts:"+s0.vRecs);
-      console.log(this.indent + "Phase "+phase+" "+this.rule.rule + " :   child boxes tokens:"+" shifts:"+s.vShifts+"  recursive deep shifts:"+s.vRecs+"  prep.tokens:"+s.vPrep);
+      summ2(s2, this.parseTable);
+      console.log(this.indent + "Phase "+phase+" "+this.rule.rule + " :     child boxes  tokens:"+" shifts:"+s1.vShifts+"  recursive deep shifts:"+s1.vRecs+"  prep.tokens:"+s1.vPrep);
+      console.log(this.indent + "Phase "+phase+" "+this.rule.rule + " : from parseTable  tokens:"+" shifts:"+s2.vShifts+"  recursive deep shifts:"+s2.vRecs);
     }
 
     //console.log(this.indent + phase + "<" + this.rule.rule);
@@ -734,12 +745,12 @@ class GenerateParseTableStackBox {
       case 0:
 
         var rr = state.startingPoint as PRuleRef;
-        var ruleMain = this.stack[rr.rule];
-        if (ruleMain) {
+        var importedRuleMain = this.stack[rr.rule];
+        if (importedRuleMain) {
 
-          ruleMain.dependants.push([this, recursiveShift, rr]);
+          importedRuleMain.dependants.push([this, recursiveShift, rr]);
 
-          this.top.unresolvedRecursiveBoxes.push([this, ruleMain, recursiveShift, rr]);
+          this.top.unresolvedRecursiveBoxes.push([this, importedRuleMain, recursiveShift, rr]);
 
         } else {
 
@@ -748,13 +759,13 @@ class GenerateParseTableStackBox {
             throw new Error("rr.rule !== importedTable.rule.rule   " + rr.rule + " !== " + importedTable.rule.rule);
           }
 
-          ruleMain = new GenerateParseTableStackMainGen(this, importedTable, rr);
-          ruleMain.dependants.push([this, recursiveShift, rr]);
+          importedRuleMain = new GenerateParseTableStackMainGen(this, importedTable, rr);
+          importedRuleMain.dependants.push([this, recursiveShift, rr]);
 
-          this.children.push([ruleMain, recursiveShift, rr]);
+          this.children.push([importedRuleMain, recursiveShift, rr]);
 
           // phase 0:
-          ruleMain.generate(phase);
+          importedRuleMain.generate(phase);
         }
         break;
 
