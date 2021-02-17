@@ -577,6 +577,23 @@ function() {
   return (this.constructor?this.constructor.name:"object")+"@"+this[UNIQUE_OBJECT_ID];
 };
 
+export function minimum<T>(inparr: T[], cmp?: ((a: T, b: T) => number)): [number,T] {
+  if (!inparr) return [-1, undefined];
+  if (!inparr.length) return [-1, undefined];
+  if (!cmp) {
+    cmp = DefaultComparator;
+  }
+  var mini = 0;
+  var min = inparr[0];
+  for (var i = 1; i < inparr.length; i++) {
+    var d = inparr[i];
+    if (cmp(d, min)<0) {
+      mini = i;
+      min = d;
+    }
+  }
+  return [mini, min];
+}
 export function distinct<T>(inparr: T[], cmp?: ((a: T, b: T) => number)) {
   if (!inparr) return inparr;
   if (!inparr.length) return [];

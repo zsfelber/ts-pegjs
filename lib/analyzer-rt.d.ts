@@ -22,7 +22,7 @@ export declare class ParseTable {
 declare type UnresolvedTuple = [GenerateParseTableStackBox, GenerateParseTableStackMainGen, RTShift, PRuleRef];
 declare type DependantTuple = [GenerateParseTableStackBox, RTShift, PRuleRef];
 declare type BoxImportTuple = [GenerateParseTableStackMainGen, RTShift, PRuleRef];
-declare type ShiftTuple = [number, [number, RTShift][]];
+declare type TknShiftTuple = [number, RTShift];
 declare class GenerateParseTableStackMainGen {
     readonly parent: GenerateParseTableStackBox;
     readonly top: GenerateParseTableStackMainGen;
@@ -53,7 +53,7 @@ declare class GenerateParseTableStackBox {
     };
     shifts: GrammarParsingLeafStateTransitions;
     allShifts: {
-        [index: string]: ShiftTuple;
+        [index: string]: TknShiftTuple;
     };
     children: BoxImportTuple[];
     recursiveShifts: RTShift[];
