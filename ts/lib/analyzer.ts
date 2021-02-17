@@ -172,12 +172,12 @@ export namespace Analysis {
 
   export function leafStateCommon(parseTable: ParseTable, index: number) {
     if (!index) return null;
-    var ls = leafStateCommons[index - 1];
+    var ls = leafStateCommons[index];
     if (!ls) {
-      leafStateCommons[index - 1] = ls = new GrammarParsingLeafStateCommon();
+      leafStateCommons[index] = ls = new GrammarParsingLeafStateCommon();
       ls.index = index;
     }
-    parseTable.myCommons[index - 1] = ls;
+    parseTable.myCommons[index] = ls;
     return ls;
   }
 
@@ -361,6 +361,7 @@ export abstract class StateNodeWithPrefix {
     if (!state.startStateNode) {
       state.startStateNode = this;
       state.startingPoint = this.ref ? this.ref.node : null;
+      state.lazyCommon(parseTable);
     }
     return state;
   }

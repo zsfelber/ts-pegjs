@@ -86,15 +86,13 @@ export class JumpTableRunner {
 
       const pushShift = (newShifts: RTShift[], stack: StackTuple[], action?: StackAction) => {
         stack.push([currentStates, token, i + 1, owner.inputPos, action]);
-        // 1 - based
-        currentStates = newShifts.map(shift => (this.parseTable.allStates[shift.toStateIndex - 1]));
+        currentStates = newShifts.map(shift => (this.parseTable.allStates[shift.toStateIndex]));
         token = owner.next();
         i = 0;
       }
 
       const hasRecursionSucceeded = (rsh: RTShift): boolean => {
-        // 1 - based
-        var reqstate = (this.parseTable.allStates[rsh.toStateIndex - 1]);
+        var reqstate = (this.parseTable.allStates[rsh.toStateIndex]);
         var rr = reqstate.startingPoint as PRuleRef;
 
         const cached = This.packrat.readCacheEntry(HyperG.ruleTable[rr.ruleIndex]);

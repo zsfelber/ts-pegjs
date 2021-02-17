@@ -112,6 +112,7 @@ export declare class GrammarParsingLeafStateReduces {
 }
 export declare class GrammarParsingLeafStateCommon {
     index: number;
+    globindex: number;
     startStateNode: StateNodeCommon;
     private _transitions;
     reduceActions: GrammarParsingLeafStateReduces;
@@ -119,7 +120,7 @@ export declare class GrammarParsingLeafStateCommon {
     serialStateMap: GrammarParsingLeafStateTransitions;
     serializedTuple: [number, number];
     filledWithRecursive: boolean;
-    constructor(startStateNode?: StateNodeCommon);
+    constructor();
     get transitions(): GrammarParsingLeafStateTransitions;
     replace(newSerialStateMap: GrammarParsingLeafStateTransitions): void;
     ser(buf: number[]): void;
@@ -135,6 +136,7 @@ export declare class GrammarParsingLeafState {
     reduceActions: GrammarParsingLeafStateReduces;
     serializedTuple: [number, number, number];
     constructor(startStateNode?: StateNodeWithPrefix, startingPoint?: PRef);
+    lazyCommon(parseTable: ParseTable): void;
     lazy(parseTable: ParseTable): void;
     ser(buf: number[]): void;
     deser(index: number, buf: number[], pos: number): number;
