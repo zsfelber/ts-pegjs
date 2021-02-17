@@ -20,6 +20,7 @@ export declare namespace Analysis {
         ERRORS: number;
         deferredRules: any[];
         localDeferredRules: any[];
+        leafStates: GrammarParsingLeafState[];
         leafStateCommons: GrammarParsingLeafStateCommon[];
         leafStateTransitionTables: GrammarParsingLeafStateTransitions[];
         leafStateReduceTables: GrammarParsingLeafStateReduces[];
@@ -53,6 +54,7 @@ export declare namespace Analysis {
     export var ERRORS: number;
     export var deferredRules: any[];
     export var localDeferredRules: any[];
+    export var leafStates: GrammarParsingLeafState[];
     export var leafStateCommons: GrammarParsingLeafStateCommon[];
     export var leafStateTransitionTables: GrammarParsingLeafStateTransitions[];
     export var leafStateReduceTables: GrammarParsingLeafStateReduces[];
@@ -84,6 +86,7 @@ export declare namespace Analysis {
     export function backup(): Backup;
     export function empty(): Backup;
     export function parseTable(rule: PRule, g?: ParseTableGenerator): ParseTable;
+    export function leafState(parseTable: ParseTable, index: number, packedIdx: number): GrammarParsingLeafState;
     export function leafStateCommon(parseTable: ParseTable, index: number): GrammarParsingLeafStateCommon;
     export function writeAllSerializedTables(buf: number[]): void;
     export function readAllSerializedTables(buf: number[]): number;

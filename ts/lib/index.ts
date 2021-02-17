@@ -735,7 +735,7 @@ function checkParseTableIntegrity(parseTable: ParseTable, serializedForm: string
   }
 
   var parseTable2 = new ParseTable(parseTable.rule);
-  parseTable2.deser(code);
+  parseTable2.deser(code, 0);
   if (!parseTable.diagnosticEqualityCheck(parseTable2)) {
     console.error("Parse table integrity error pass 2 : " + parseTable2);
   } else {

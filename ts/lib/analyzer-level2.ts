@@ -62,7 +62,6 @@ export class CompressParseTable {
       // lazy
       state.lazy(this.parseTable);
 
-      var tots: [number, number, number, number] = [0, 0, 0, 0];
 
       var changed = this.prscmn(state.common);
 
@@ -71,7 +70,7 @@ export class CompressParseTable {
       Analysis.varRds.add(rs1[0]);
 
       var spidx = state.startingPoint ? state.startingPoint.nodeIdx : 0;
-      var stcmidx = state.common ? state.common.globindex : 0;
+      var stcmidx = state.common ? state.common.packedIndex : 0;
 
       var tuple: [number, number, number] = [spidx, state.reduceActions.index, stcmidx];
       var tkey = CodeTblToHex(tuple).join("");
@@ -126,11 +125,11 @@ export class CompressParseTable {
 
       var state0 = Analysis.serializedStateCommons[tkey];
       if (state0) {
-        state.globindex = state0.globindex;
+        state.packedIndex = state0.packedIndex;
         state.serializedTuple = tuple;
         return true;
       } else {
-        state.globindex = this.cmnidx++;
+        state.packedIndex = this.cmnidx++;
         state.serializedTuple = tuple;
         Analysis.serializedStateCommons[tkey] = state;
         return changed;

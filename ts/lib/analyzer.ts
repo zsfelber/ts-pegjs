@@ -1,6 +1,6 @@
 import { EntryPointTraverser, Factory, PNodeKind, RefTraverser, RuleElementTraverser, RuleRefTraverser, TerminalRefTraverser } from '.';
 import { PRule, PRuleRef, PTerminalRef, PValueNode, PNode, PRef, PLogicNode } from './parsers';
-import { CodeTblToHex, HyperG, IncVariator } from './index';
+import { CodeTblToHex, HyperG, IncVariator, distinct } from './index';
 import { GrammarParsingLeafState, GrammarParsingLeafStateTransitions, GrammarParsingLeafStateReduces, ParseTable, GrammarParsingLeafStateCommon } from './analyzer-rt';
 import { LinearTraversion, TraversionPurpose } from './analyzer-tra';
 import { ChoiceTraverser } from './analyzer-nodes';
@@ -34,6 +34,7 @@ export namespace Analysis {
     ERRORS = 0;
     deferredRules = [];
     localDeferredRules = [];
+    leafStates: GrammarParsingLeafState[] = [];
     leafStateCommons: GrammarParsingLeafStateCommon[] = [];
     leafStateTransitionTables: GrammarParsingLeafStateTransitions[] = [];
     leafStateReduceTables: GrammarParsingLeafStateReduces[] = [];
@@ -114,6 +115,8 @@ export namespace Analysis {
 
   export var localDeferredRules = [];
 
+  export var leafStates: GrammarParsingLeafState[] = [];
+
   export var leafStateCommons: GrammarParsingLeafStateCommon[] = [];
 
   export var leafStateTransitionTables: GrammarParsingLeafStateTransitions[] = [];
@@ -170,6 +173,22 @@ export namespace Analysis {
     return parseTable;
   }
 
+  export function leafState(parseTable: ParseTable, index: number, packedIdx: number) {
+    if (!index) return null;
+    var ls = leafStates[packedIdx];
+    if (ls) {
+      if (ls.packedIndex !== packedIdx) {
+        throw new Error("ls.packedIndex !== index   "+ls.packedIndex+" !== "+packedIdx);
+      }
+    } else {
+      leafStates[packedIdx] = ls = new GrammarParsingLeafState();
+      ls.packedIndex = packedIdx;
+      ls.index = index;
+    }
+    parseTable.allStates[index] = ls;
+    return ls;
+  }
+
   export function leafStateCommon(parseTable: ParseTable, index: number) {
     if (!index) return null;
     var ls = leafStateCommons[index];
@@ -186,27 +205,30 @@ export namespace Analysis {
   }
 
   export function writeAllSerializedTables(buf: number[]) {
-    var strans = Object.values(serializedTransitions);
-    var sreds = Object.values(serializedReduces);
-    var slf = Object.values(serializedLeafStates);
-    var scmn = Object.values(serializedStateCommons);
-    strans.sort((a,b)=>{
+    var strans0 = Object.values(serializedTransitions);
+    var sreds0 = Object.values(serializedReduces);
+    var scmn0 = Object.values(serializedStateCommons);
+    var slf0 = Object.values(serializedLeafStates);
+    var strans = distinct(strans0, (a,b)=>{
       return a.index-b.index;
     });
-    sreds.sort((a,b)=>{
+    var sreds = distinct(sreds0, (a,b)=>{
       return a.index-b.index;
     });
-    slf.sort((a,b)=>{
-      return a.index-b.index;
+    var scmn = distinct(scmn0, (a,b)=>{
+      return a.packedIndex-b.packedIndex;
     });
-    scmn.sort((a,b)=>{
-      return a.globindex-b.globindex;
+    var slf = distinct(slf0, (a,b)=>{
+      return a.packedIndex-b.packedIndex;
     });
+    if (strans.length !== strans0.length) {
+
+    }
 
     buf.push(strans.length);
     buf.push(sreds.length);
-    buf.push(slf.length);
     buf.push(scmn.length);
+    buf.push(slf.length);
     buf.push(choiceTokens.length);
 
     var i = 1;
@@ -226,18 +248,18 @@ export namespace Analysis {
       i++;
     });
     var i = 1;
-    slf.forEach(s=>{
+    scmn.forEach(s=>{
       s.serializedTuple.forEach(num=>buf.push(num));
-      if (s.index !== i) {
-        throw new Error("s.index !== i   "+s.index+" !== "+i);
+      if (s.packedIndex !== i) {
+        throw new Error("s.index !== i   "+s.packedIndex+" !== "+i);
       }
       i++;
     });
     var i = 1;
-    scmn.forEach(s=>{
+    slf.forEach(s=>{
       s.serializedTuple.forEach(num=>buf.push(num));
-      if (s.globindex !== i) {
-        throw new Error("s.index !== i   "+s.globindex+" !== "+i);
+      if (s.packedIndex !== i) {
+        throw new Error("s.index !== i   "+s.index+" !== "+i);
       }
       i++;
     });
@@ -249,11 +271,12 @@ export namespace Analysis {
   export function readAllSerializedTables(buf: number[]): number {
 
     var pos = 0;
-    var [stransln,sredsln,scmnln,ctks] = [buf[pos++], buf[pos++], buf[pos++], buf[pos++]];
+    var [stransln,sredsln,scmnln,slfln,ctks] = [buf[pos++], buf[pos++], buf[pos++], buf[pos++], buf[pos++]];
 
     leafStateTransitionTables.push(null);
     leafStateReduceTables.push(null);
     leafStateCommons.push(null);
+    leafStates.push(null);
     choiceTokens.push(null);
     for (var i=1; i<=stransln; i++) {
       var trans = new GrammarParsingLeafStateTransitions();
@@ -269,6 +292,11 @@ export namespace Analysis {
       var cmn = new GrammarParsingLeafStateCommon();
       pos = cmn.deser(i, buf, pos);
       leafStateCommons.push(cmn);
+    }
+    for (var i=1; i<=slfln; i++) {
+      var lf = new GrammarParsingLeafState();
+      pos = lf.deser(i, buf, pos);
+      leafStates.push(lf);
     }
     for (var i=1; i<=ctks; i++) {
       var ndx = buf[pos++];

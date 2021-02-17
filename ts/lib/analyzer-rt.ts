@@ -36,7 +36,6 @@ export class ParseTable {
   packed = false;
 
 
-
   constructor(rule: PRule, g?: ParseTableGenerator) {
     this.rule = rule;
 
@@ -61,7 +60,7 @@ export class ParseTable {
     });
     this.myCommons.forEach(s => {
       if (s) {
-        s.globindex = undefined;
+        s.packedIndex = undefined;
         s.serializedTuple = null;
         s.reduceActions = null;
         s.replace(null);
@@ -91,7 +90,7 @@ export class ParseTable {
 
   static deserialize(rule: PRule, buf: number[]) {
     var result = Analysis.parseTable(rule);
-    var pos = result.deser(buf);
+    var pos = result.deser(buf, 0);
     if (pos !== buf.length) throw new Error("ptable:" + rule + " pos:" + pos + " !== " + buf.length);
     return result;
   }
@@ -108,13 +107,13 @@ export class ParseTable {
 
   ser(): number[] {
 
-    this.pack();
-
     var serStates: number[] = [];
 
     this.allStates.forEach(s => {
       if (s) {
-        s.ser(serStates);
+        serStates.push(s.packedIndex);
+      } else {
+        serStates.push(0);
       }
     });
 
@@ -122,20 +121,19 @@ export class ParseTable {
     return result;
   }
 
-  deser(buf: number[]): number {
+  deser(buf: number[], pos: number): number {
     var [ridx, stlen] = buf;
     if (ridx !== this.rule.nodeIdx) {
       throw new Error("Data error , invalid rule : " + this.rule + "/" + this.rule.nodeIdx + " vs  ridx:" + ridx);
     }
 
-    var pos = 2;
-    var st0 = this.leafState(1);
-    pos = st0.deser(1, buf, pos);
-    this.startingState = st0;
-
-    for (var i = 2; i < stlen; i++) {
-      var st = this.leafState(i);
-      pos = st.deser(i, buf, pos);
+    for (var i = 1; i <= stlen; i++) {
+      var packedIdx = buf[pos++];
+      Analysis.leafState(this, i, packedIdx);
+    }
+    this.startingState = this.allStates[1];
+    if (!this.startingState) {
+      throw new Error(this.rule.rule+"  !this.startingState");
     }
 
     return pos;
@@ -386,6 +384,7 @@ export class GrammarParsingLeafStateTransitions {
   }
 }
 
+
 export class GrammarParsingLeafStateReduces {
 
   index: number;
@@ -451,10 +450,13 @@ export class GrammarParsingLeafStateReduces {
   }
 }
 
+
+
+
 export class GrammarParsingLeafStateCommon {
 
   index: number;
-  globindex: number;
+  packedIndex: number;
 
   startStateNode: StateNodeCommon;
 
@@ -602,6 +604,10 @@ export class GrammarParsingLeafStateCommon {
   }
 }
 
+
+
+
+
 export class GrammarParsingLeafState {
 
   index: number;
@@ -686,7 +692,7 @@ export class GrammarParsingLeafState {
 
     var [spx, rdind, cmni] = [buf[pos++], buf[pos++], buf[pos++]];
 
-    this.index = index;
+    this.packedIndex = index;
 
     this.startingPoint = spx ? HyperG.nodeTable[spx] as PNode : null;
     this.reduceActions = Analysis.leafStateReduceTables[rdind];
