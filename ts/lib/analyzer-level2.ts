@@ -299,7 +299,7 @@ export class GenerateParseTableStackMainGen {
     //console.log(this.indent + phase + ">" + (this.rr ? this.rr : this.parseTable.rule+"#0"));
 
     var top = !this.rr;
-    const deepStats = 1;
+    const deepStats = 0;
 
     this.parseTable.allStates.forEach(s => {
       if (s) s.lazy(this.parseTable);
@@ -366,7 +366,8 @@ export class GenerateParseTableStackMainGen {
         });
 
         if (top) {
-          if (this.unresolvedRecursiveBoxes.length) {
+          var i;
+          for (i = 0; this.unresolvedRecursiveBoxes.length && i<100; i++) {
             var unresolvedRecursiveBoxesNow = this.unresolvedRecursiveBoxes;
             this.unresolvedRecursiveBoxes = [];
 
@@ -378,15 +379,20 @@ export class GenerateParseTableStackMainGen {
             });
 
             childrenAffctd = distinct(childrenAffctd);
-            if (deepStats) {
-              console.log("Phase " + phase + " " + this.rule.rule + ". Affected distinct : " + childrenAffctd.length + "  generating shifts again...");
-            }
             childrenAffctd.forEach(chbox => {
               chbox.generateShiftsAgain(phase);
             });
 
-            console.log("Phase " + phase + " " + this.rule.rule + ". Additional cyclic dependencies fixed : " + unresolvedRecursiveBoxesNow.length + "    In next round : " + this.unresolvedRecursiveBoxes.length);
-
+            if (deepStats) {
+              console.log("Phase " + phase + " " + this.rule.rule + "/"+i+". Additional cyclic dependencies updated.  Affected distinct : " + childrenAffctd.length + "    With dependencies : " + unresolvedRecursiveBoxesNow.length + "    In next round : " + this.unresolvedRecursiveBoxes.length);
+            }
+          }
+          if (i) {
+            if (this.unresolvedRecursiveBoxes.length) {
+              console.log("Phase " + phase + " " + this.rule.rule + ", token sets growing in inifinite loop.  Still in next round : " + this.unresolvedRecursiveBoxes.length);
+            } else {
+              console.log("Phase " + phase + " " + this.rule.rule + ", all cyclic token shifts updated successfully.");
+            }
           }
         }
         break;
