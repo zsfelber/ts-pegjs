@@ -33,7 +33,6 @@ export class JumpTableRunner {
   parseTables: { [index: number]: ParseTable };
   parseTable: ParseTable;
   packrat: Packrat;
-  numRules: number;
   reduce: { [index: number]: DeferredReduce };
 
   constructor(owner: IJumpTableProgram, parseTables: { [index: number]: ParseTable }, parseTable: ParseTable, packrat?: Packrat) {
@@ -41,7 +40,6 @@ export class JumpTableRunner {
     this.parseTables = parseTables;
     this.parseTable = parseTable;
     this.packrat = packrat ? packrat : new Packrat(owner);
-    this.numRules = owner.numRules;
     this.reduce = [];
   }
 

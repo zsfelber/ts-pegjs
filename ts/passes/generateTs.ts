@@ -43,6 +43,14 @@ function generateTS(ast, ...args) {
 
   var grammar: PGrammar = ast.grammar;
 
+  var ri = 0;
+  const ruleMap = {};
+  ast.rules.forEach(r => { ruleMap[r.name] = ri++; });
+
+  const numRules = grammar.rules.length;
+
+  const numStartRules = allstarts.length;
+
   console.log("Generate parser...");
 
   function generateRuleHeader(ruleNameCode, ruleIndexCode) {
@@ -285,7 +293,11 @@ function generateTS(ast, ...args) {
       '  }',
       '',
       '  get numRules(): number {',
-      '    return 132;',
+      '    return '+numRules+';',
+      '  }',
+      '',
+      '  get numStartRules(): number {',
+      '    return '+numStartRules+';',
       '  }',
       '',
       '  peg$failure() {',
@@ -570,9 +582,6 @@ function pushc(cache: any, item: any): any {
 
   function generateParseTable() {
 
-    var ri = 0;
-    var ruleMap = {};
-    ast.rules.forEach(r => { ruleMap[r.name] = ri++; });
     var parseTbl = [];
 
     HyperG.ruleTable = grammar.rules;
@@ -587,6 +596,7 @@ function pushc(cache: any, item: any): any {
 
         parseTbl.push("");
         parseTbl.push("namespace parseTableStack_" + i + " {");
+
         _he_tack.push("parseTableStack_" + i);
         const doit = (r) => {
           ri = ruleMap[r];
@@ -610,18 +620,32 @@ function pushc(cache: any, item: any): any {
         parseTbl.push("");
         parseTbl.push("  const peg$PrsTblBuf = '" + encodeVsimPck(ttbuf) + "';");
         parseTbl.push("");
-        parseTbl.push("  const peg$PrsTblTbls = peg$decodePrsTblTbls(peg$PrsTblBuf);");
+        parseTbl.push("  const peg$TblsCode:[number,string][] = [ " + allstarts.map(r => "["+ruleMap[r]+",peg$PrsTbl" + r + "]").join(", ") + " ];");
         parseTbl.push("");
-        parseTbl.push("  const peg$PrsTbls = {" + allstarts.map(r => ruleMap[r] + ": peg$decodePrsTbl(" + ruleMap[r] + ", peg$PrsTbl" + r + ")").join(", ") + "};");
-        var ri = 0;
-        parseTbl.push(
-          ['  export const peg$checkParseTablesIntegrity = function(mode: HyperGEnvType) {',
-            "    checkParseTablesIntegrity(peg$PrsTblBuf, [ " +
-            allstarts.map(r =>
-              '[ peg$PrsTbls[' + ruleMap[r] + '], peg$PrsTbl' + r + ' ]'
-            ).join(", ") + " ], mode);",
-            "};"
-          ].join('\n'));
+        parseTbl.push("  var peg$PrsTblTbls;");
+        parseTbl.push("");
+        parseTbl.push("  const peg$PrsTbls:ParseTable[] = [];");
+        parseTbl.push("");
+        parseTbl.push("  const peg$ChkIntTbls:[ParseTable,string][] = [];");
+        parseTbl.push("");
+        parseTbl.push("  export const peg$Initialized = $startup();");
+        parseTbl.push("");
+        parseTbl.push("  function $startup() {");
+        parseTbl.push("    HyperG.totallyReinitializableTransaction(() => {");
+        parseTbl.push("      peg$PrsTblTbls = peg$decodePrsTblTbls(peg$PrsTblBuf);");
+        parseTbl.push("      for (var i=0; i<"+numStartRules+"; i++) {");
+        parseTbl.push("        const tc = peg$TblsCode[i];");
+        parseTbl.push("        const cd = peg$decodePrsTbl(tc[0], tc[1]);");
+        parseTbl.push("        peg$PrsTbls[i] = cd;");
+        parseTbl.push("        peg$ChkIntTbls[i] = [ cd, tc[1] ];");
+        parseTbl.push("      }");
+        parseTbl.push("    });");
+        parseTbl.push("    return true;");
+        parseTbl.push("  }");
+        parseTbl.push("");
+        parseTbl.push("  export function peg$checkParseTablesIntegrity(mode: HyperGEnvType) {");
+        parseTbl.push("    checkParseTablesIntegrity(peg$PrsTblBuf, peg$ChkIntTbls, mode);");
+        parseTbl.push("  };");
         parseTbl.push("}");
       });
 
@@ -730,9 +754,10 @@ function pushc(cache: any, item: any): any {
       ].join('\n'));
     var ri = 0;
     tables.push(
-      ['const peg$rules = [',
+      ['function $dcr(rule:string, id:RuleId) { return peg$decodeRule(rule, peg$ruleCodes[id]); }',
+      'const peg$rules = [',
         "    " + grammar.rules.map(rule =>
-          'peg$decodeRule("' + rule.rule + '", peg$ruleCodes[' + (ri++) + '])'
+          '$dcr("' + rule.rule + '", ' + (ri++) + ')'
         ).join(", "),
         "];"
       ].join('\n'));
@@ -743,20 +768,19 @@ function pushc(cache: any, item: any): any {
     ].join('\n'));
     var ri = 0;
     tables.push(
-      ['const peg$ruleInterpreters = [',
+      ['function $epip(id:RuleId) { return new EntryPointInterpreter(peg$rules[id]); }',
+       'const peg$ruleInterpreters = [',
         "    " + grammar.rules.map(rule =>
-          'new EntryPointInterpreter(peg$rules[' + (ri++) + '])'
+          '$epip(' + (ri++) + ')'
         ).join(", "),
         "];"
       ].join('\n'));
     var ri = 0;
     tables.push(
       ['const peg$checkRuleNodesIntegrity = function(mode: HyperGEnvType) {',
-        "    checkRuleNodesIntegrity([" +
-        grammar.rules.map(rule =>
-          '[ peg$rules[' + (ri) + '], peg$ruleCodes[' + (ri++) + '] ]'
-        ).join(", "),
-        "    ], mode);",
+       '  const chkrs:[PRule,string][] = [];',
+       '  for (var i = 0; i < '+numRules+"; i++) chkrs.push([peg$rules[i], peg$ruleCodes[i]]);",
+       "  checkRuleNodesIntegrity(chkrs, mode);",
         "};"
       ].join('\n'));
     tables.push([

@@ -459,12 +459,10 @@ export class InterpreterRunner {
 
   owner: IParserProgram;
   packrat: Packrat;
-  numRules: number;
   
   constructor(owner: IParserProgram) {
     this.owner = owner;
     this.packrat = new Packrat(owner);
-    this.numRules = owner.numRules;
   }
 
   run(rule: EntryPointInterpreter): any {

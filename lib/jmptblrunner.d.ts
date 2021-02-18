@@ -10,7 +10,6 @@ export declare class JumpTableRunner {
     };
     parseTable: ParseTable;
     packrat: Packrat;
-    numRules: number;
     reduce: {
         [index: number]: DeferredReduce;
     };

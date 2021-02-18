@@ -179,6 +179,7 @@ export class ParseTable {
     if (ridx !== this.rule.nodeIdx) {
       throw new Error("Data error , invalid rule : " + this.rule + "/" + this.rule.nodeIdx + " vs  ridx:" + ridx);
     }
+    pos = 3;
 
     for (var i = 1; i <= cmlen; i++) {
       var packedIdx = buf[pos++];

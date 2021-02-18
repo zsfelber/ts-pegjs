@@ -48,7 +48,6 @@ export interface IParserProgram extends IBaseParserProgram {
 export declare class InterpreterRunner {
     owner: IParserProgram;
     packrat: Packrat;
-    numRules: number;
     constructor(owner: IParserProgram);
     run(rule: EntryPointInterpreter): any;
 }
