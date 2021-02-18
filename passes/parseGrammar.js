@@ -231,8 +231,8 @@ function generate(ast) {
         console.log("-- PACK STAGES ------------------------------");
         var savedStack = [];
         var ind = 0;
-        allstarts.forEach(function (r) {
-            lib_1.HyperG.totallyReinitializableTransaction(function () {
+        lib_1.HyperG.totallyReinitializableTransaction(function () {
+            allstarts.forEach(function (r) {
                 var ptg = analyzer_1.Analysis.parseTableGens[r];
                 var parseTable = analyzer_1.Analysis.parseTable(ptg.rule, ptg);
                 console.log("Rule " + r);

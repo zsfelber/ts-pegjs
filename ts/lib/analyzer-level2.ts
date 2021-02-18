@@ -416,7 +416,7 @@ export class GenerateParseTableStackMainGen {
 
           // cache finished result
 
-          // this.mainRuleBox.common.finishedResults = this.mainRuleBox.common.serialStateMap;
+          //this.mainRuleBox.common.finishedResults = this.mainRuleBox.common.serialStateMap;
 
           /*this.children.forEach(child => {
             child.generate(4);

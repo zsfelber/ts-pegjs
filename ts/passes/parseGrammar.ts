@@ -277,8 +277,8 @@ function generate(ast, ...args) {
     var savedStack = [];
     var ind = 0;
 
-    allstarts.forEach(r => {
-      HyperG.totallyReinitializableTransaction(() => {
+    HyperG.totallyReinitializableTransaction(() => {
+      allstarts.forEach(r => {
         var ptg = Analysis.parseTableGens[r];
         var parseTable = Analysis.parseTable(ptg.rule, ptg);
         console.log("Rule " + r);
