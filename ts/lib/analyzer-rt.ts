@@ -633,7 +633,7 @@ export class GrammarParsingLeafStateCommon {
   }
 
   replace(newSerialStateMap: GrammarParsingLeafStateTransitions) {
-    if (!this.reduceActions) {
+    if (newSerialStateMap && !this.reduceActions) {
       throw new Error("Invalid state...");
     }
     this._transitions = null;
