@@ -39,6 +39,7 @@ export declare class GenerateParseTableStackMainGen {
     readonly rule: PRule | PRuleRef;
     unresolvedRecursiveBoxes: UnresolvedTuple[];
     mainRuleBox: GenerateParseTableStackBox;
+    mainRuleBoxFinished: GrammarParsingLeafStateCommon;
     children: GenerateParseTableStackBox[];
     dependants: DependantTuple[];
     constructor(parent: GenerateParseTableStackBox, parseTable: ParseTable, rr?: PRuleRef);
@@ -54,7 +55,7 @@ export declare class GenerateParseTableStackBox {
     lastTokens: string;
     stack: StrMapLike<GenerateParseTableStackMainGen>;
     allShifts: StrMapLike<TknShiftTuple>;
-    allShiftsByToken: NumMapLike<NumMapLike<RTShift>>;
+    allShiftsByToken: NumMapLike<RTShift[]>;
     cntGenerationSecondaryIndex: number;
     children: BoxImportTuple[];
     recursiveShifts: RTShift[];

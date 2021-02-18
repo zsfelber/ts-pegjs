@@ -277,6 +277,7 @@ export class GenerateParseTableStackMainGen {
   unresolvedRecursiveBoxes: UnresolvedTuple[] = [];
 
   mainRuleBox: GenerateParseTableStackBox;
+  mainRuleBoxFinished: GrammarParsingLeafStateCommon;
   children: GenerateParseTableStackBox[] = [];
 
   dependants: DependantTuple[] = [];
@@ -322,7 +323,7 @@ export class GenerateParseTableStackMainGen {
     //console.log(this.indent + phase + ">" + (this.rr ? this.rr : this.parseTable.rule+"#0"));
 
     var top = !this.rr;
-    const deepStats = 0;
+    const deepStats = 1;
 
     this.parseTable.allStates.forEach(s => {
       if (s) s.lazy(this.parseTable);
@@ -346,8 +347,12 @@ export class GenerateParseTableStackMainGen {
             wasNon1st = 1;
           }
 
-          if (!c.finishedResults) {
+          if (c.finishedResults) {
+            if (c === this.parseTable.startingState.common) {
+              this.mainRuleBoxFinished = c;
+            }
 
+          } else {
             if (this.stack[this.rule.rule] !== this) {
               throw new Error("this.stack[this.parseTable.rule.rule:'" + this.rule.rule + "'] !== this   " + this.stack[this.parseTable.rule.rule] + " !== " + this);
             }
@@ -359,6 +364,7 @@ export class GenerateParseTableStackMainGen {
             }
 
             forNode.generate(phase);
+
           }
         });
 
@@ -416,7 +422,7 @@ export class GenerateParseTableStackMainGen {
 
           // cache finished result
 
-          //this.mainRuleBox.common.finishedResults = this.mainRuleBox.common.serialStateMap;
+          this.mainRuleBox.common.finishedResults = this.mainRuleBox.common.serialStateMap;
 
           /*this.children.forEach(child => {
             child.generate(4);
@@ -433,22 +439,21 @@ export class GenerateParseTableStackMainGen {
       type Stp = {
         vShifts: IncVariator,
         vRecs: IncVariator,
-        vPrep: IncVariator
+        vTkn: IncVariator
       };
       const sum = () => {
         return {
           vShifts: new IncVariator(),
           vRecs: new IncVariator(),
-          vPrep: new IncVariator()
+          vTkn: new IncVariator()
         };
       };
 
-      const summ = (sums: Stp, shifts: GrammarParsingLeafStateTransitions, box: GenerateParseTableStackBox) => {
+      const summ = (sums: Stp, shifts: GrammarParsingLeafStateTransitions) => {
         var es: [string, RTShift[]][] = Object.entries(shifts.map);
 
-        if (box) {
-          sums.vPrep.add(Object.keys(box.allShifts).length);
-        }
+        sums.vTkn.add(es.length);
+
         es.forEach(([key, shifts]) => {
           sums.vShifts.add(shifts.length);
           shifts.forEach(shift => {
@@ -469,7 +474,7 @@ export class GenerateParseTableStackMainGen {
             if (common) {
               if (!stack[common[UNIQUE_OBJECT_ID]]) {
                 stack[common[UNIQUE_OBJECT_ID]] = 1;
-                summ(sums, common.transitions, null);
+                summ(sums, common.transitions);
               }
             }
           }
@@ -478,7 +483,7 @@ export class GenerateParseTableStackMainGen {
 
       var sums = sum();
       summ2(sums, this.parseTable);
-      console.log(this.indent + "Phase " + phase + " " + this.rule.rule + " : from parseTable  tokens:" + " shifts:" + sums.vShifts + "  recursive deep shifts:" + sums.vRecs);
+      console.log(this.indent + "Phase " + phase + " " + this.rule.rule + " : from parseTable   tokens:" + sums.vTkn + "  shifts:" + sums.vShifts + "  recursive deep shifts:" + sums.vRecs);
     }
 
     //console.log(this.indent + phase + "<" + this.rule.rule);
@@ -534,7 +539,7 @@ export class GenerateParseTableStackBox {
   // tokenId+shiftIndex -> RTShift
   allShifts: StrMapLike<TknShiftTuple>
   // tokenId -> RTShift[] ordered by shiftindices
-  allShiftsByToken: NumMapLike<NumMapLike<RTShift>>;
+  allShiftsByToken: NumMapLike<RTShift[]>;
 
   cntGenerationSecondaryIndex = 0;
 
@@ -676,7 +681,7 @@ export class GenerateParseTableStackBox {
 
       var tshs = this.allShiftsByToken[tokenId];
       if (!tshs) {
-        this.allShiftsByToken[tokenId] = tshs = {};
+        this.allShiftsByToken[tokenId] = tshs = [];
       }
       tshs[shift.generationSecondaryIndex] = shift;
     }
@@ -687,7 +692,7 @@ export class GenerateParseTableStackBox {
     var shifts = new GrammarParsingLeafStateTransitions();
     shifts["$$generated$$"] = 1;
 
-    var es: [string, NumMapLike<RTShift>][] = Object.entries(this.allShiftsByToken);
+    var es: [string, RTShift[]][] = Object.entries(this.allShiftsByToken);
 
     var shi = 0;
     es.forEach(([key, shs0]) => {
@@ -696,7 +701,7 @@ export class GenerateParseTableStackBox {
       if (!shs) {
         shifts.map[tokenId] = shs = [];
       }
-      var shsv0 = distinct(Object.values(shs0),(a,b)=>a.generationSecondaryIndex-b.generationSecondaryIndex);
+      var shsv0 = Object.values(shs0);
       shsv0.forEach(sh0 => {
         var sh = new RTShift(shi, sh0.toStateIndex, sh0.stepIntoRecursive);
         shs.push(sh);
@@ -761,7 +766,12 @@ export class GenerateParseTableStackBox {
   // NOTE precondition : dependants updated
   appendChild(child: GenerateParseTableStackMainGen, recursiveShift: RTShift, rr: PRuleRef) {
 
-    var byTokenId = child.mainRuleBox.allShiftsByToken;
+    var byTokenId:NumMapLike<RTShift[]>;
+    if (child.mainRuleBox) {
+      byTokenId = child.mainRuleBox.allShiftsByToken;
+    } else {
+      byTokenId = child.mainRuleBoxFinished.serialStateMap.map;
+    }
 
     var es: [string, NumMapLike<RTShift>][] = Object.entries(byTokenId);
     es.forEach(([key, childShifts]) => {

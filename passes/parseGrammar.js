@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 var compiler_1 = require("pegjs/lib/compiler");
 var analyzer_1 = require("../lib/analyzer");
 var lib_1 = require("../lib");
+var index_1 = require("../lib/index");
 var lib_2 = require("../lib");
 var options;
 var terminals = [];
@@ -231,8 +232,16 @@ function generate(ast) {
         console.log("-- PACK STAGES ------------------------------");
         var savedStack = [];
         var ind = 0;
+        var varShs = new index_1.IncVariator();
+        var varShReqs = new index_1.IncVariator();
+        var varTkns = new index_1.IncVariator();
+        var varRds = new index_1.IncVariator();
         lib_1.HyperG.totallyReinitializableTransaction(function () {
             allstarts.forEach(function (r) {
+                analyzer_1.Analysis.varShs = varShs;
+                analyzer_1.Analysis.varShReqs = varShReqs;
+                analyzer_1.Analysis.varTkns = varTkns;
+                analyzer_1.Analysis.varRds = varRds;
                 var ptg = analyzer_1.Analysis.parseTableGens[r];
                 var parseTable = analyzer_1.Analysis.parseTable(ptg.rule, ptg);
                 console.log("Rule " + r);

@@ -2,6 +2,7 @@ import * as fs from "fs";
 import { visitor } from "pegjs/lib/compiler";
 import { Analysis, ParseTableGenerator } from '../lib/analyzer';
 import { distinct, HyperG } from '../lib';
+import { IncVariator } from '../lib/index';
 import {
   PActContainer, PActionKind, PFunction,
   PGrammar, PLogicNode, PNode, PNodeKind, PRule,
@@ -276,9 +277,18 @@ function generate(ast, ...args) {
 
     var savedStack = [];
     var ind = 0;
-
+    const varShs = new IncVariator();
+    const varShReqs = new IncVariator();
+    const varTkns = new IncVariator();
+    const varRds = new IncVariator();
+  
     HyperG.totallyReinitializableTransaction(() => {
       allstarts.forEach(r => {
+        Analysis.varShs = varShs;
+        Analysis.varShReqs = varShReqs;
+        Analysis.varTkns = varTkns;
+        Analysis.varRds = varRds;
+
         var ptg = Analysis.parseTableGens[r];
         var parseTable = Analysis.parseTable(ptg.rule, ptg);
         console.log("Rule " + r);
