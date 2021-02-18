@@ -244,10 +244,10 @@ function generate(ast) {
                 analyzer_1.Analysis.varRds = varRds;
                 var ptg = analyzer_1.Analysis.parseTableGens[r];
                 var parseTable = analyzer_1.Analysis.parseTable(ptg.rule, ptg);
-                console.log("Rule " + r);
+                //console.log("Rule " + r);
                 parseTable.resetOptimization();
                 for (var phase = 0; phase <= 3; phase++) {
-                    console.log("Phase " + phase);
+                    //console.log("Phase " + phase);
                     parseTable.fillStackOpenerTransitions(phase);
                 }
                 parseTable.pack(true);

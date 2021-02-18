@@ -323,7 +323,7 @@ export class GenerateParseTableStackMainGen {
     //console.log(this.indent + phase + ">" + (this.rr ? this.rr : this.parseTable.rule+"#0"));
 
     var top = !this.rr;
-    const deepStats = 1;
+    const deepStats = 0;
 
     this.parseTable.allStates.forEach(s => {
       if (s) s.lazy(this.parseTable);
@@ -778,12 +778,7 @@ export class GenerateParseTableStackBox {
       var tokenId = Number(key);
 
       var childShiftsv = Object.values(childShifts);
-
-      /*var min = minimum(childShiftsv, (a, b) => {
-        return a.generationSecondaryIndex - b.generationSecondaryIndex;
-      });*/
-      var min = childShiftsv[0];
-      var childShift = min[1];
+      var childShift = childShiftsv[0];
 
       var newImportShift = new RTShift(recursiveShift.shiftIndex, recursiveShift.toStateIndex);
       newImportShift.generationSecondaryIndex = this.cntGenerationSecondaryIndex++;

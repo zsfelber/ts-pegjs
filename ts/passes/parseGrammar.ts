@@ -291,13 +291,13 @@ function generate(ast, ...args) {
 
         var ptg = Analysis.parseTableGens[r];
         var parseTable = Analysis.parseTable(ptg.rule, ptg);
-        console.log("Rule " + r);
+        //console.log("Rule " + r);
 
 
         parseTable.resetOptimization();
 
         for (var phase = 0; phase <= 3; phase++) {
-          console.log("Phase " + phase);
+          //console.log("Phase " + phase);
 
           parseTable.fillStackOpenerTransitions(phase);
 
