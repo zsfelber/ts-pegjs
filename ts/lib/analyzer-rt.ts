@@ -98,10 +98,10 @@ export class ParseTable {
     this.openerTrans.generate(phase);
   }
 
-  pack(log = true) {
+  pack(log = true, info = "") {
     var result: boolean;
     if (!this.packed) {
-      var comp = new CompressParseTable(this, log);
+      var comp = new CompressParseTable(this, log, info);
       result = comp.pack();
 
       this.packed = true;
@@ -629,9 +629,9 @@ export class GrammarParsingLeafStateCommon {
     [].push.apply(buf, this.serializedTuple);
   }
 
-  deser(index: number, buf: number[], pos: number): number {
+  deser(packedIndex: number, buf: number[], pos: number): number {
 
-    this.index = index;
+    this.packedIndex = packedIndex;
 
     var [trind, rdind] = [buf[pos++], buf[pos++]];
 
@@ -673,6 +673,7 @@ export class GrammarParsingLeafState {
   startingPoint: PRef | PValueNode;
   startStateNode: StateNodeWithPrefix;
 
+  commonIndex: number;
   common: GrammarParsingLeafStateCommon;
   reduceActions: GrammarParsingLeafStateReduces;
   serializedTuple: [number, number, number];
@@ -688,7 +689,9 @@ export class GrammarParsingLeafState {
 
   lazyCommon(parseTable: ParseTable) {
     if (!this.common) {
-      if (this.startStateNode) {
+      if (this.commonIndex) {
+        this.common = parseTable.leafStateCommon(this.commonIndex);
+      } else if (this.startStateNode) {
         if (this.startStateNode.common) {
           this.common = parseTable.leafStateCommon(this.startStateNode.common.index);
           if (!this.common.startStateNode) {
@@ -745,15 +748,15 @@ export class GrammarParsingLeafState {
     [].push.apply(buf, this.serializedTuple);
   }
 
-  deser(index: number, buf: number[], pos: number): number {
+  deser(packedIndex: number, buf: number[], pos: number): number {
 
     var [spx, rdind, cmni] = [buf[pos++], buf[pos++], buf[pos++]];
 
-    this.packedIndex = index;
+    this.packedIndex = packedIndex;
 
     this.startingPoint = spx ? HyperG.nodeTable[spx] as PNode : null;
     this.reduceActions = Analysis.leafStateReduceTables[rdind];
-    this.common = Analysis.leafStateCommons[cmni];
+    this.commonIndex = cmni;
     if (!this.reduceActions) this.reduceActions = new GrammarParsingLeafStateReduces();
 
     return pos;

@@ -70,6 +70,12 @@ export namespace Analysis {
     varTkns = new IncVariator();
     varRds = new IncVariator();
     varDeep = new IncVariator();
+    varEntryPts = new IncVariator();
+    varAllNds = new IncVariator();
+    varAllRuleRefs = new IncVariator();
+    varRuleRefs = new IncVariator();
+    varTerminalRefs = new IncVariator();
+    varLfStates = new IncVariator();
   
 
     load() {
@@ -97,8 +103,13 @@ export namespace Analysis {
       this.varTkns = new IncVariator(varTkns);
       this.varRds = new IncVariator(varRds);
       this.varDeep = new IncVariator(varDeep);
-      
-    
+      this.varEntryPts = new IncVariator(varEntryPts);
+      this.varAllNds = new IncVariator(varAllNds);
+      this.varAllRuleRefs = new IncVariator(varAllRuleRefs);
+      this.varRuleRefs = new IncVariator(varRuleRefs);
+      this.varTerminalRefs = new IncVariator(varTerminalRefs);
+      this.varLfStates = new IncVariator(varLfStates);
+        
     }
     save() {
       ERRORS = this.ERRORS;
@@ -125,6 +136,12 @@ export namespace Analysis {
       varTkns = this.varTkns;
       varRds = this.varRds;
       varDeep = this.varDeep;
+      varEntryPts = this.varEntryPts;
+      varAllNds = this.varAllNds;
+      varAllRuleRefs = this.varAllRuleRefs;
+      varRuleRefs = this.varRuleRefs;
+      varTerminalRefs = this.varTerminalRefs;
+      varLfStates = this.varLfStates;
     }
   }
   
@@ -180,7 +197,13 @@ export namespace Analysis {
   export var varTkns = new IncVariator();
   export var varRds = new IncVariator();
   export var varDeep = new IncVariator();
-  
+  export var varEntryPts = new IncVariator();
+  export var varAllNds = new IncVariator();
+  export var varAllRuleRefs = new IncVariator();
+  export var varRuleRefs = new IncVariator();
+  export var varTerminalRefs = new IncVariator();
+  export var varLfStates = new IncVariator();
+
   export function backup() {
     var backup = new Backup();
     backup.load();
@@ -259,7 +282,7 @@ export namespace Analysis {
     buf.push(sreds.length);
     buf.push(scmn.length);
     buf.push(slf.length);
-    buf.push(choiceTokens.length);
+    buf.push(ctk.length);
 
     var i = 1;
     strans.forEach(s=>{
@@ -698,16 +721,16 @@ export class ParseTableGenerator {
 
   cntCommons = 1;
   
-  static createForRule(rule: PRule) {
+  static createForRule(rule: PRule, log=true, info="") {
     var parseTable: ParseTableGenerator = Analysis.parseTableGens[rule.rule];
     if (!parseTable) {
-      parseTable = new ParseTableGenerator(rule);
+      parseTable = new ParseTableGenerator(rule, log, info);
       Analysis.parseTableGens[rule.rule] = parseTable;
     }
     return parseTable;
   }
 
-  private constructor(rule: PRule) {
+  private constructor(rule: PRule, log=true, info="") {
 
     //console.log("Read rules tree...")
 
@@ -752,7 +775,16 @@ export class ParseTableGenerator {
 
     //var result = new ParseTable(rule, step0, Factory.allTerminals, Factory.maxTokenId);
     //, startingState : GrammarAnalysisState, allTerminals: TerminalRefTraverser[], maxTokenId: number
-    console.log("Parse table for   starting rule:" + rule.rule + "  entry points(nonterminals):" + Object.keys(this.entryPoints).length + "  all nodes:" + mainEntryPoint.allNodes.length +"  all rule refs:"+cntrules+ "  L1 rule refs:" + mainEntryPoint.allRuleReferences.length + "  L1 terminal refs:" + mainEntryPoint.allTerminalReferences.length + "  tokens:" + Analysis.maxTokenId + "   states:" + (1+this.allLeafStateNodes.length));
+    if (log) {
+      console.log("Parse table for "+info+" starting rule:" + rule.rule + "  entry points(nonterminals):" + Object.keys(this.entryPoints).length + "  all nodes:" + mainEntryPoint.allNodes.length +"  all rule refs:"+cntrules+ "  L1 rule refs:" + mainEntryPoint.allRuleReferences.length + "  L1 terminal refs:" + mainEntryPoint.allTerminalReferences.length + "  tokens:" + Analysis.maxTokenId + "   states:" + (1+this.allLeafStateNodes.length));
+    }
+    
+    Analysis.varEntryPts.add(Object.keys(this.entryPoints).length);
+    Analysis.varAllNds.add(Object.keys(mainEntryPoint.allNodes.length).length);
+    Analysis.varAllRuleRefs.add(cntrules);
+    Analysis.varRuleRefs.add(Object.keys(mainEntryPoint.allRuleReferences.length).length);
+    Analysis.varTerminalRefs.add(Object.keys(mainEntryPoint.allTerminalReferences.length).length);
+    Analysis.varLfStates.add(Object.keys(this.allLeafStateNodes.length+1).length);
 
   }
 

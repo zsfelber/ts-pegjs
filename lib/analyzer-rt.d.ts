@@ -10,7 +10,7 @@ export declare class ParseTable {
     constructor(rule: PRule, g?: ParseTableGenerator);
     resetOptimization(log?: boolean): void;
     fillStackOpenerTransitions(phase: number, log?: boolean): void;
-    pack(log?: boolean): boolean;
+    pack(log?: boolean, info?: string): boolean;
     static deserialize(rule: PRule, buf: number[]): ParseTable;
     leafStateCommon(index: number): GrammarParsingLeafStateCommon;
     leafState(index: number): GrammarParsingLeafState;
@@ -74,7 +74,7 @@ export declare class GrammarParsingLeafStateCommon {
     get transitions(): GrammarParsingLeafStateTransitions;
     replace(newSerialStateMap: GrammarParsingLeafStateTransitions): void;
     ser(buf: number[]): void;
-    deser(index: number, buf: number[], pos: number): number;
+    deser(packedIndex: number, buf: number[], pos: number): number;
     diagnosticEqualityCheck(table: GrammarParsingLeafStateCommon): boolean;
 }
 export declare class GrammarParsingLeafState {
@@ -83,6 +83,7 @@ export declare class GrammarParsingLeafState {
     replacedIndex: number;
     startingPoint: PRef | PValueNode;
     startStateNode: StateNodeWithPrefix;
+    commonIndex: number;
     common: GrammarParsingLeafStateCommon;
     reduceActions: GrammarParsingLeafStateReduces;
     serializedTuple: [number, number, number];
@@ -90,6 +91,6 @@ export declare class GrammarParsingLeafState {
     lazyCommon(parseTable: ParseTable): void;
     lazy(parseTable: ParseTable): void;
     ser(buf: number[]): void;
-    deser(index: number, buf: number[], pos: number): number;
+    deser(packedIndex: number, buf: number[], pos: number): number;
     diagnosticEqualityCheck(table: GrammarParsingLeafState): boolean;
 }

@@ -182,12 +182,14 @@ function generate(ast) {
         var ri = 0;
         ast.rules.forEach(function (r) { ruleMap[r.name] = ri++; });
         var grammar = ctx.grammar;
+        console.log("");
+        console.log("-- CREATE RAW TABLES ------------------------------");
         var doit = function (r) {
             if (!created[r]) {
                 created[r] = 1;
                 ri = ruleMap[r];
                 var rule = grammar.children[ri];
-                var ptg = analyzer_1.ParseTableGenerator.createForRule(rule);
+                var ptg = analyzer_1.ParseTableGenerator.createForRule(rule, false);
                 var pt = analyzer_1.Analysis.parseTable(rule, ptg);
                 return true;
             }
@@ -228,8 +230,24 @@ function generate(ast) {
         allstarts.sort();
         allstarts.splice(allstarts.indexOf(options.allowedStartRules[0]), 1);
         allstarts.unshift(options.allowedStartRules[0]);
+        console.log("Raw parse tables created  :" + allstarts.length + "  entry points(nonterminals):" + analyzer_1.Analysis.varEntryPts + "  all nodes:" + analyzer_1.Analysis.varAllNds + "  all rule refs:" + analyzer_1.Analysis.varAllRuleRefs + "  L1 rule refs:" + analyzer_1.Analysis.varRuleRefs + "  L1 terminal refs:" + analyzer_1.Analysis.varTerminalRefs + "  tokens:" + analyzer_1.Analysis.maxTokenId + "   states:" + analyzer_1.Analysis.varLfStates);
+        var lastr = allstarts[allstarts.length - 1];
+        console.log("");
         console.log("-- PACK STAGES ------------------------------");
-        var savedStack;
+        var savedStack = [];
+        // 0 level, less optimization, local transition tables only
+        // runtime automaton heavily traverses across stack operations
+        lib_1.HyperG.totallyReinitializableTransaction(function () {
+            allstarts.forEach(function (r) {
+                var ptg = analyzer_1.Analysis.parseTableGens[r];
+                var parseTable = analyzer_1.Analysis.parseTable(ptg.rule, ptg);
+                parseTable.pack(r === lastr, "OPTIMIZATION LEVEL 0");
+            });
+            savedStack[0] = analyzer_1.Analysis.backup();
+        });
+        // 1 level, LL(0) optimization, merged transition tables with 0 lookahead
+        // runtime automaton does not do stack operation traversal, but 
+        // it still has several if-else situations with ambigous transition tokens 
         lib_1.HyperG.totallyReinitializableTransaction(function () {
             allstarts.forEach(function (r) {
                 var ptg = analyzer_1.Analysis.parseTableGens[r];
@@ -242,11 +260,11 @@ function generate(ast) {
                     //console.log("Phase " + phase);
                     parseTable.fillStackOpenerTransitions(phase);
                 }
-                parseTable.pack(true);
-                savedStack = analyzer_1.Analysis.backup();
+                parseTable.pack(r === lastr, "OPTIMIZATION LEVEL 1 : PEG-LL(0)");
             });
+            savedStack[1] = analyzer_1.Analysis.backup();
         });
-        analyzer_1.Analysis.stack = [savedStack];
+        analyzer_1.Analysis.stack = savedStack;
         ast.allstarts = allstarts;
     }
     parseGrammarAst(null, ast);

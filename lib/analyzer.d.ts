@@ -45,6 +45,12 @@ export declare namespace Analysis {
         varTkns: IncVariator;
         varRds: IncVariator;
         varDeep: IncVariator;
+        varEntryPts: IncVariator;
+        varAllNds: IncVariator;
+        varAllRuleRefs: IncVariator;
+        varRuleRefs: IncVariator;
+        varTerminalRefs: IncVariator;
+        varLfStates: IncVariator;
         load(): void;
         save(): void;
     }
@@ -86,6 +92,12 @@ export declare namespace Analysis {
     var varTkns: IncVariator;
     var varRds: IncVariator;
     var varDeep: IncVariator;
+    var varEntryPts: IncVariator;
+    var varAllNds: IncVariator;
+    var varAllRuleRefs: IncVariator;
+    var varRuleRefs: IncVariator;
+    var varTerminalRefs: IncVariator;
+    var varLfStates: IncVariator;
     function backup(): Backup;
     function empty(): Backup;
     function parseTable(rule: PRule, g?: ParseTableGenerator): ParseTable;
@@ -185,7 +197,7 @@ export declare class ParseTableGenerator {
     jumperStates: NumMapLike<number>;
     cntStates: number;
     cntCommons: number;
-    static createForRule(rule: PRule): ParseTableGenerator;
+    static createForRule(rule: PRule, log?: boolean, info?: string): ParseTableGenerator;
     private constructor();
     getEntryPoint(node: PRule): EntryPointTraverser;
 }

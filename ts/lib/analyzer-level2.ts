@@ -25,6 +25,7 @@ export class CompressParseTable {
 
   parseTable: ParseTable;
   log = true;
+  info = "";
   t0: number;
   r0: number;
   sl0: number;
@@ -40,9 +41,10 @@ export class CompressParseTable {
 
   serializedStateCommons: { [index: string]: GrammarParsingLeafStateCommon } = {};
 
-  constructor(parseTable: ParseTable, log = true) {
+  constructor(parseTable: ParseTable, log = true, info = "") {
     this.parseTable = parseTable;
     this.log = log;
+    this.info = info;
 
     if (parseTable.allStates.length > Analysis.uniformMaxStateId) {
       throw new Error("State id overflow. Grammar too big. uniformMaxStateId:" + Analysis.uniformMaxStateId + "  Too many states:" + parseTable.allStates.length);
@@ -85,7 +87,7 @@ export class CompressParseTable {
     };
 
     if (this.log) {
-      console.log(this.parseTable.rule.rule + "   Total: [ total states:" + Analysis.totalStates + "  distinct:" + (this.lfidx) + "   distinct states/common:" + (this.cmnidx) + "    distinct transitions:" + (this.transidx) + "    distinct reduces:" + (this.redidx) + "    rec shifts:" + Analysis.varShReqs + "   jmp.tokens:" + Analysis.varTkns + "   shift/tkns:" + Analysis.varShs + "   stack deepness:" + Analysis.varDeep + "   reduces:" + Analysis.varRds + " ]");
+      console.log((this.info?this.info:this.parseTable.rule.rule) + "   Total: [ total states:" + Analysis.totalStates + "  distinct:" + (this.lfidx) + "   distinct states/common:" + (this.cmnidx) + "    distinct transitions:" + (this.transidx) + "    distinct reduces:" + (this.redidx) + "    rec shifts:" + Analysis.varShReqs + "   jmp.tokens:" + Analysis.varTkns + "   shift/tkns:" + Analysis.varShs + "   stack deepness:" + Analysis.varDeep + "   reduces:" + Analysis.varRds + " ]");
     }
 
     return changed;
@@ -426,7 +428,7 @@ export class GenerateParseTableStackMainGen {
               console.log("Phase " + phase + " " + this.rule.rule + "/" + i + ". Additional cyclic dependencies updated.  Affected distinct : " + childrenAffctd.length + "    With dependencies : " + unresolvedRecursiveBoxesNow.length + "    In next round : " + this.unresolvedRecursiveBoxes.length);
             }
           }
-          if (i) {
+          if (i && deepStats) {
             if (this.unresolvedRecursiveBoxes.length) {
               console.log("Phase " + phase + " " + this.rule.rule + ", token sets growing in inifinite loop.  Still in next round : " + this.unresolvedRecursiveBoxes.length);
             } else {

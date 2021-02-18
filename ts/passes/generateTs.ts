@@ -26,6 +26,8 @@ function generateTS(ast, ...args) {
 
   var allstarts: string[];
   allstarts = ast.allstarts;
+  console.log("");
+  console.log("-- COMPILER CODE ------------------------------");
 
   // These only indent non-empty lines to avoid trailing whitespace.
   function indent2(code) {
@@ -577,7 +579,7 @@ function pushc(cache: any, item: any): any {
 
     var _he_tack = [];
 
-    for (var i = 0; i <= 0; i++) {
+    for (var i = 0; i <= 1; i++) {
 
       HyperG.totallyReinitializableTransaction(() => {
 

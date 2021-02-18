@@ -24,6 +24,8 @@ function generateTT(ast) {
     lib_2.HyperG.ruleTable = grammar.rules;
     lib_1.Analysis.deferredRules = options.deferredRules ? options.deferredRules : [];
     var allstarts = ast.allstarts;
+    console.log("");
+    console.log("-- TESTER/DEBUG TOOLS ------------------------------");
     console.log("Generate visualizer trees...");
     var asrgx = new RegExp("../www/ast/pnodes-graph-(.*)\\.json");
     glob.sync("../www/ast/pnodes-graph-*.json").forEach(function (f) {

@@ -2,6 +2,7 @@ import { GrammarParsingLeafState, GrammarParsingLeafStateCommon, GrammarParsingL
 export declare class CompressParseTable {
     parseTable: ParseTable;
     log: boolean;
+    info: string;
     t0: number;
     r0: number;
     sl0: number;
@@ -18,7 +19,7 @@ export declare class CompressParseTable {
     serializedStateCommons: {
         [index: string]: GrammarParsingLeafStateCommon;
     };
-    constructor(parseTable: ParseTable, log?: boolean);
+    constructor(parseTable: ParseTable, log?: boolean, info?: string);
     pack(): boolean;
     prstate(state: GrammarParsingLeafState): boolean;
     prscmn(state: GrammarParsingLeafStateCommon): boolean;

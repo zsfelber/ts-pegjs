@@ -220,6 +220,8 @@ function generate(ast, ...args) {
 
     var grammar: PGrammar = ctx.grammar;
 
+    console.log("");
+    console.log("-- CREATE RAW TABLES ------------------------------");
 
     const doit = (r: string) => {
       if (!created[r]) {
@@ -227,7 +229,7 @@ function generate(ast, ...args) {
         ri = ruleMap[r];
         var rule = grammar.children[ri] as PRule;
 
-        var ptg = ParseTableGenerator.createForRule(rule);
+        var ptg = ParseTableGenerator.createForRule(rule, false);
         var pt = Analysis.parseTable(rule, ptg);
         return true;
       }
@@ -273,11 +275,37 @@ function generate(ast, ...args) {
     allstarts.splice(allstarts.indexOf(options.allowedStartRules[0]), 1);
     allstarts.unshift(options.allowedStartRules[0]);
 
+    console.log("Raw parse tables created  :" + allstarts.length + "  entry points(nonterminals):" + Analysis.varEntryPts + "  all nodes:" + Analysis.varAllNds +"  all rule refs:"+Analysis.varAllRuleRefs+ "  L1 rule refs:" + Analysis.varRuleRefs + "  L1 terminal refs:" + Analysis.varTerminalRefs + "  tokens:" + Analysis.maxTokenId + "   states:" + Analysis.varLfStates);
+
+
+
+    var lastr = allstarts[allstarts.length - 1];
+
+    console.log("");
     console.log("-- PACK STAGES ------------------------------");
 
-    var savedStack: Analysis.Backup;
+    var savedStack: Analysis.Backup[] = [];
 
+    // 0 level, less optimization, local transition tables only
+    // runtime automaton heavily traverses across stack operations
     HyperG.totallyReinitializableTransaction(() => {
+      
+      allstarts.forEach(r => {
+
+        var ptg = Analysis.parseTableGens[r];
+        var parseTable = Analysis.parseTable(ptg.rule, ptg);
+
+        parseTable.pack(r === lastr, "OPTIMIZATION LEVEL 0");
+      });
+
+      savedStack[0] = Analysis.backup();
+    });
+
+    // 1 level, LL(0) optimization, merged transition tables with 0 lookahead
+    // runtime automaton does not do stack operation traversal, but 
+    // it still has several if-else situations with ambigous transition tokens 
+    HyperG.totallyReinitializableTransaction(() => {
+
       allstarts.forEach(r => {
 
         var ptg = Analysis.parseTableGens[r];
@@ -296,14 +324,14 @@ function generate(ast, ...args) {
 
         }
 
-        parseTable.pack(true);
-
-        savedStack = Analysis.backup();
+        parseTable.pack(r === lastr, "OPTIMIZATION LEVEL 1 : PEG-LL(0)");
 
       });
+
+      savedStack[1] = Analysis.backup();
     });
 
-    Analysis.stack = [savedStack];
+    Analysis.stack = savedStack;
 
 
     ast.allstarts = allstarts;

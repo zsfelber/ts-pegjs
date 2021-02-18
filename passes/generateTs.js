@@ -22,6 +22,8 @@ function generateTS(ast) {
     var param00 = options.param00 ? options.param00 + ', ' : '';
     var allstarts;
     allstarts = ast.allstarts;
+    console.log("");
+    console.log("-- COMPILER CODE ------------------------------");
     // These only indent non-empty lines to avoid trailing whitespace.
     function indent2(code) {
         return code.replace(/^(.+)$/gm, '  $1');
@@ -476,7 +478,7 @@ function generateTS(ast) {
         var parseTbl = [];
         lib_1.HyperG.ruleTable = grammar.rules;
         var _he_tack = [];
-        for (var i = 0; i <= 0; i++) {
+        for (var i = 0; i <= 1; i++) {
             lib_1.HyperG.totallyReinitializableTransaction(function () {
                 lib_1.Analysis.stack[i].save();
                 parseTbl.push("");

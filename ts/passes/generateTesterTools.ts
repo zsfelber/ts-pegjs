@@ -27,6 +27,8 @@ function generateTT(ast, ...args) {
 
   var allstarts = ast.allstarts;
 
+  console.log("");
+  console.log("-- TESTER/DEBUG TOOLS ------------------------------");
   console.log("Generate visualizer trees...");
 
   var asrgx = new RegExp("../www/ast/pnodes-graph-(.*)\\.json");
