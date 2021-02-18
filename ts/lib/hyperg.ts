@@ -653,7 +653,7 @@ export function CodeTblToHex(s: number[]) {
 }
 
 export function encodePrsTbl(parseTable: ParseTable): string {
-  var code = parseTable.ser();
+  var code = parseTable.ser(HyperG.Env);
   var enc = encodeVsimPck(code);
   return enc;
 }
@@ -791,7 +791,7 @@ export function checkParseTablesIntegrity(serializedConstTable: string, items: [
 }
 
 function checkParseTableIntegrity(parseTable: ParseTable, serializedForm: string, mode: HyperGEnvType) {
-  var code = parseTable.ser();
+  var code = parseTable.ser(HyperG.Env);
   var hex = encodeVsimPck(code);
   if (hex !== serializedForm) {
     console.error("Parse table integrity error pass 1 : " + parseTable);

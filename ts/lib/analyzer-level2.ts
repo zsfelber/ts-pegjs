@@ -7,6 +7,7 @@ import {
   GrammarParsingLeafStateCommon,
   GrammarParsingLeafStateReduces,
   GrammarParsingLeafStateTransitions,
+  HyperGEnvType,
   IncVariator,
   NumMapLike,
   ParseTable,
@@ -83,7 +84,7 @@ export class CompressParseTable {
     }
     Analysis.serializedParseTables[this.parseTable.packedIndex] = {
       index: this.parseTable.packedIndex,
-      output: this.parseTable.ser()
+      output: this.parseTable.ser(HyperGEnvType.ANALYZING)
     };
 
     if (this.log) {

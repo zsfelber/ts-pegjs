@@ -4,6 +4,7 @@ import {
   distinct,
   GenerateParseTableStackMainGen,
   HyperG,
+  HyperGEnvType,
   NumMapLike,
   ParseTableGenerator,
   PLogicNode,
@@ -136,19 +137,30 @@ export class ParseTable {
     return ls;
   }
 
-  ser(): number[] {
+  ser(mode: HyperGEnvType): number[] {
     var b: Analysis.SerOutputWithIndex;
     if (b = Analysis.serializedParseTables[this.packedIndex]) {
       return b.output;
     }
 
     var serStates: number[] = [];
-    var myc = distinct(Object.values(this.myCommons), (a, b) => (a.replacedIndex - b.replacedIndex));
-    var als = distinct(Object.values(this.allStates), (a, b) => (a.replacedIndex - b.replacedIndex));
+    var myc:GrammarParsingLeafStateCommon[];
+    var als:GrammarParsingLeafState[];
+
+    switch (mode) {
+    case HyperGEnvType.ANALYZING:
+      myc = distinct(Object.values(this.myCommons), (a, b) => (a.replacedIndex - b.replacedIndex));
+      als = distinct(Object.values(this.allStates), (a, b) => (a.replacedIndex - b.replacedIndex));
+      break;
+    default:
+      myc = Object.values(this.myCommons);
+      als = Object.values(this.allStates);
+      break;
+    }
 
     for (var i = 0; i < myc.length; ) {
       let s = myc[i++];
-      if (s.replacedIndex !== i) {
+      if (s.replacedIndex !== undefined && s.replacedIndex !== i) {
         throw new Error("s.replacedIndex replacedIndex !== i   " + s.replacedIndex + " !== " + i);
       }
       if (s) {
@@ -160,7 +172,7 @@ export class ParseTable {
 
     for (var i = 0; i < als.length; ) {
       let s = als[i++];
-      if (s.replacedIndex !== i) {
+      if (s.replacedIndex !== undefined && s.replacedIndex !== i) {
         throw new Error("s.replacedIndex replacedIndex !== i   " + s.replacedIndex + " !== " + i);
       }
       if (s) {

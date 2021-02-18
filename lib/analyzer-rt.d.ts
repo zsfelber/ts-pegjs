@@ -1,4 +1,4 @@
-import { GenerateParseTableStackMainGen, NumMapLike, ParseTableGenerator, PLogicNode, PRef, PRule, PRuleRef, PValueNode, StateNodeCommon, StateNodeWithPrefix } from '.';
+import { GenerateParseTableStackMainGen, HyperGEnvType, NumMapLike, ParseTableGenerator, PLogicNode, PRef, PRule, PRuleRef, PValueNode, StateNodeCommon, StateNodeWithPrefix } from '.';
 export declare class ParseTable {
     readonly rule: PRule;
     startingState: GrammarParsingLeafState;
@@ -14,7 +14,7 @@ export declare class ParseTable {
     static deserialize(rule: PRule, buf: number[]): ParseTable;
     leafStateCommon(index: number): GrammarParsingLeafStateCommon;
     leafState(index: number): GrammarParsingLeafState;
-    ser(): number[];
+    ser(mode: HyperGEnvType): number[];
     deser(buf: number[], pos: number): number;
     diagnosticEqualityCheck(table: ParseTable): boolean;
     toString(): string;
