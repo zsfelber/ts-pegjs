@@ -780,11 +780,11 @@ export class ParseTableGenerator {
     }
     
     Analysis.varEntryPts.add(Object.keys(this.entryPoints).length);
-    Analysis.varAllNds.add(Object.keys(mainEntryPoint.allNodes.length).length);
+    Analysis.varAllNds.add(mainEntryPoint.allNodes.length);
     Analysis.varAllRuleRefs.add(cntrules);
-    Analysis.varRuleRefs.add(Object.keys(mainEntryPoint.allRuleReferences.length).length);
-    Analysis.varTerminalRefs.add(Object.keys(mainEntryPoint.allTerminalReferences.length).length);
-    Analysis.varLfStates.add(Object.keys(this.allLeafStateNodes.length+1).length);
+    Analysis.varRuleRefs.add(mainEntryPoint.allRuleReferences.length);
+    Analysis.varTerminalRefs.add(mainEntryPoint.allTerminalReferences.length);
+    Analysis.varLfStates.add(1 + this.allLeafStateNodes.length);
 
   }
 
