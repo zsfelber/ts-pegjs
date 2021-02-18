@@ -422,7 +422,7 @@ export class GenerateParseTableStackMainGen {
 
           // cache finished result
 
-          this.mainRuleBox.common.finishedResults = this.mainRuleBox.common.serialStateMap;
+          //this.mainRuleBox.common.finishedResults = this.mainRuleBox.common.serialStateMap;
 
           /*this.children.forEach(child => {
             child.generate(4);
@@ -599,7 +599,7 @@ export class GenerateParseTableStackBox {
       
         // cache finished result
 
-        // this.common.finishedResults = this.common.serialStateMap;
+        this.common.finishedResults = this.common.serialStateMap;
 
         break;
 
@@ -773,15 +773,16 @@ export class GenerateParseTableStackBox {
       byTokenId = child.mainRuleBoxFinished.serialStateMap.map;
     }
 
-    var es: [string, NumMapLike<RTShift>][] = Object.entries(byTokenId);
+    var es: [string, RTShift[]][] = Object.entries(byTokenId);
     es.forEach(([key, childShifts]) => {
       var tokenId = Number(key);
 
       var childShiftsv = Object.values(childShifts);
 
-      var min = minimum(childShiftsv, (a, b) => {
+      /*var min = minimum(childShiftsv, (a, b) => {
         return a.generationSecondaryIndex - b.generationSecondaryIndex;
-      });
+      });*/
+      var min = childShiftsv[0];
       var childShift = min[1];
 
       var newImportShift = new RTShift(recursiveShift.shiftIndex, recursiveShift.toStateIndex);
