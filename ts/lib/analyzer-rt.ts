@@ -633,13 +633,18 @@ export class GrammarParsingLeafStateCommon {
   }
 
   replace(newSerialStateMap: GrammarParsingLeafStateTransitions) {
+    if (!this.reduceActions) {
+      throw new Error("Invalid state...");
+    }
     this._transitions = null;
     this.recursiveShifts = null;
     this.serialStateMap = newSerialStateMap;
   }
 
   ser(): [number, number] {
-    var tuple: [number, number] = [this.serialStateMap.index, this.reduceActions.index];
+    var smx = this.serialStateMap ? this.serialStateMap.index : 0
+    var rdx = this.reduceActions ? this.reduceActions.index : 0
+    var tuple: [number, number] = [smx, rdx];
     return tuple;
   }
 
@@ -760,9 +765,10 @@ export class GrammarParsingLeafState {
 
   ser(): [number, number, number] {
     var spidx = this.startingPoint ? this.startingPoint.nodeIdx : 0;
+    var rdx = this.reduceActions ? this.reduceActions.index : 0
     var stcmidx = this.common ? this.common.replacedIndex : 0;
 
-    var tuple: [number, number, number] = [spidx, this.reduceActions.index, stcmidx];
+    var tuple: [number, number, number] = [spidx, rdx, stcmidx];
     return tuple;
   }
 

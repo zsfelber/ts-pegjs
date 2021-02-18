@@ -368,24 +368,38 @@ export namespace Analysis {
   export function generateTableSerializationData() {
 
     Object.values(leafStates).forEach(state=>{
-      serializedLeafStates[state.packedIndex] = {output:state.ser(), index:state.packedIndex};
-      leafStateReduceTables[state.reduceActions.index] = state.reduceActions;
+      if (state) {
+        serializedLeafStates[state.packedIndex] = {output:state.ser(), index:state.packedIndex};
+        if (state.reduceActions) {
+          leafStateReduceTables[state.reduceActions.index] = state.reduceActions;
+        }
+      }
     });
     Object.values(leafStateCommons).forEach(state=>{
-      serializedStateCommons[state.packedIndex] = {output:state.ser(), index:state.packedIndex};
-      leafStateReduceTables[state.reduceActions.index] = state.reduceActions;
-      leafStateTransitionTables[state.serialStateMap.index] = state.serialStateMap;
+      if (state) {
+        serializedStateCommons[state.packedIndex] = {output:state.ser(), index:state.packedIndex};
+        if (state.reduceActions) {
+          leafStateReduceTables[state.reduceActions.index] = state.reduceActions;
+        }
+        if (state.serialStateMap) {
+          leafStateTransitionTables[state.serialStateMap.index] = state.serialStateMap;
+        }
+      }
     });
 
     Object.values(leafStateTransitionTables).forEach(trans=>{
-      var buf = [];
-      trans.ser(buf);
-      serializedTransitions[trans.index] = {output:buf, index:trans.index};
+      if (trans) {
+        var buf = [];
+        trans.ser(buf);
+        serializedTransitions[trans.index] = {output:buf, index:trans.index};
+      }
     })
     Object.values(leafStateReduceTables).forEach(red=>{
-      var buf = [];
-      red.ser(buf);
-      serializedReduces[red.index] = {output:buf, index:red.index};
+      if (red) {
+        var buf = [];
+        red.ser(buf);
+        serializedReduces[red.index] = {output:buf, index:red.index};
+      }
     })
 
   }
