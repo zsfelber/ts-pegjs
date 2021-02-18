@@ -800,6 +800,13 @@ function checkParseTableIntegrity(parseTable: ParseTable, serializedForm: string
     console.log("Parse table integrity check successful pass 1 : " + parseTable);
   }
 
+  parseTable.allStates.forEach(c=>{
+    Analysis.leafStates[c.packedIndex] = c;
+  });
+  parseTable.myCommons.forEach(c=>{
+    Analysis.leafStateCommons[c.packedIndex] = c;
+  });
+
   var parseTable2 = new ParseTable(parseTable.rule);
   parseTable2.deser(code, 0);
   if (!parseTable.diagnosticEqualityCheck(parseTable2)) {
@@ -807,7 +814,7 @@ function checkParseTableIntegrity(parseTable: ParseTable, serializedForm: string
   } else {
     console.log("Parse table integrity check successful pass 2: " + parseTable);
   }
-
+ 
 }
 
 

@@ -215,12 +215,27 @@ export class ParseTable {
       return debuggerTrap(false);
     } else if (slen(this.allStates) !== slen(table.allStates)) {
       return debuggerTrap(false);
+    } else if (slen(this.myCommons) !== slen(table.myCommons)) {
+      return debuggerTrap(false);
     } else if (!this.startingState.diagnosticEqualityCheck(table.startingState)) {
       return debuggerTrap(false);
     } else {
       for (var i = 0; i < this.allStates.length; i++) {
-        var a = this.allStates[i];
-        var b = table.allStates[i];
+        let a = this.allStates[i];
+        let b = table.allStates[i];
+        if (sobj(a) !== sobj(b)) {
+          return debuggerTrap(false);
+        }
+        if (a) {
+          var c = a.diagnosticEqualityCheck(b);
+          if (!c) {
+            return debuggerTrap(false);
+          }
+        }
+      }
+      for (var i = 0; i < this.myCommons.length; i++) {
+        let a = this.myCommons[i];
+        let b = table.myCommons[i];
         if (sobj(a) !== sobj(b)) {
           return debuggerTrap(false);
         }
@@ -500,13 +515,13 @@ export class GrammarParsingLeafStateReduces {
       return debuggerTrap(false);
     } else if (slen(this.reducedNodes) !== slen(table.reducedNodes)) {
       return debuggerTrap(false);
-    } else {
+    } else if (this.reducedNodes) {
       for (var i = 0; i < this.reducedNodes.length; i++) {
         var a = this.reducedNodes[i];
         var b = table.reducedNodes[i];
         if (slen(a) !== slen(b)) {
           return debuggerTrap(false);
-        } else {
+        } else if (a) {
           for (var j = 0; j < a.length; j++) {
             var c = a[j].diagnosticEqualityCheck(b[j]);
             if (!c) {
@@ -666,7 +681,9 @@ export class GrammarParsingLeafStateCommon {
   }
 
   diagnosticEqualityCheck(table: GrammarParsingLeafStateCommon) {
-    if (this.index !== table.index) {
+    this.transitions;
+    table.transitions;
+    if (this.packedIndex !== table.packedIndex) {
       return debuggerTrap(false);
     } else if (!this.reduceActions.diagnosticEqualityCheck(table.reduceActions)) {
       return debuggerTrap(false);
@@ -674,7 +691,7 @@ export class GrammarParsingLeafStateCommon {
       return debuggerTrap(false);
     } else if (!this.recursiveShifts.diagnosticEqualityCheck(table.recursiveShifts)) {
       return debuggerTrap(false);
-    } else if (!this._transitions.diagnosticEqualityCheck(table._transitions)) {
+    } else if (!this.transitions.diagnosticEqualityCheck(table.transitions)) {
       return debuggerTrap(false);
     }
     return debuggerTrap(true);
@@ -789,7 +806,9 @@ export class GrammarParsingLeafState {
   }
 
   diagnosticEqualityCheck(table: GrammarParsingLeafState) {
-    if (this.index !== table.index) {
+    if (this.packedIndex !== table.packedIndex) {
+      return debuggerTrap(false);
+    } else if (this.commonIndex !== table.commonIndex) {
       return debuggerTrap(false);
     } else if (this.startingPoint !== table.startingPoint) {
       return debuggerTrap(false);

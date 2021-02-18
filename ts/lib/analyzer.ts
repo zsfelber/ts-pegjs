@@ -83,6 +83,7 @@ export namespace Analysis {
       this.ERRORS = ERRORS;
       this.deferredRules = [].concat(deferredRules);
       this.localDeferredRules = [].concat(localDeferredRules);
+      this.leafStates = [].concat(leafStates);
       this.leafStateCommons = [].concat(leafStateCommons);
       this.leafStateTransitionTables = [].concat(leafStateTransitionTables);
       this.leafStateReduceTables = [].concat(leafStateReduceTables);
@@ -116,6 +117,7 @@ export namespace Analysis {
       ERRORS = this.ERRORS;
       deferredRules = this.deferredRules;
       localDeferredRules = this.localDeferredRules;
+      leafStates = this.leafStates;
       leafStateCommons = this.leafStateCommons;
       leafStateTransitionTables = this.leafStateTransitionTables;
       leafStateReduceTables = this.leafStateReduceTables;
