@@ -4,6 +4,7 @@ export declare class ParseTable {
     startingState: GrammarParsingLeafState;
     readonly allStates: GrammarParsingLeafState[];
     readonly myCommons: GrammarParsingLeafStateCommon[];
+    readonly choiceTokenMap: PValueNode[][];
     openerTrans: GenerateParseTableStackMainGen;
     packed: boolean;
     packedIndex: number;

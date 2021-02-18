@@ -12,6 +12,7 @@ import {
   LinearTraversion,
   ParseTable,
   PRule,
+  PTerminalRef,
   PValueNode,
   RefTraverser,
   RuleElementTraverser,
@@ -19,6 +20,7 @@ import {
   TerminalRefTraverser,
   TraversionPurpose,
 } from '.';
+import { PNodeKind } from './parsers';
 
 
 export const FAIL_STATE = 0;
@@ -54,6 +56,7 @@ export namespace Analysis {
     leafStateTransitionTables: GrammarParsingLeafStateTransitions[] = [];
     leafStateReduceTables: GrammarParsingLeafStateReduces[] = [];
     choiceTokens: PValueNode[] = [];
+    choiceTokenMap: PValueNode[][] = [];
     maxTokenId: number;
     totalStates = 0;
     cntChoiceTknIds = -1;
@@ -88,6 +91,7 @@ export namespace Analysis {
       this.leafStateTransitionTables = [].concat(leafStateTransitionTables);
       this.leafStateReduceTables = [].concat(leafStateReduceTables);
       this.choiceTokens = [].concat(choiceTokens);
+      this.choiceTokenMap = [].concat(choiceTokenMap);
       this.maxTokenId = maxTokenId;
       this.totalStates = totalStates;
       this.cntChoiceTknIds = cntChoiceTknIds;
@@ -122,6 +126,7 @@ export namespace Analysis {
       leafStateTransitionTables = this.leafStateTransitionTables;
       leafStateReduceTables = this.leafStateReduceTables;
       choiceTokens = this.choiceTokens;
+      choiceTokenMap = this.choiceTokenMap;
       maxTokenId = this.maxTokenId;
       totalStates = this.totalStates;
       cntChoiceTknIds = this.cntChoiceTknIds;
@@ -169,6 +174,8 @@ export namespace Analysis {
   export var leafStateReduceTables: GrammarParsingLeafStateReduces[] = [];
 
   export var choiceTokens: PValueNode[] = [];
+
+  export var choiceTokenMap: PValueNode[][] = [];
 
   export var maxTokenId: number;
 
@@ -278,7 +285,8 @@ export namespace Analysis {
       return a.index-b.index;
     });
     var ctk = distinct(ctk0, (a,b)=>{
-      return a.tokenId-b.tokenId;
+      // it is neg (-)
+      return b.tokenId-a.tokenId;
     });
 
     buf.push(strans.length);
@@ -321,7 +329,7 @@ export namespace Analysis {
     });
     var i = 1;
     ctk.forEach(s=>{
-      buf.push(s.nodeIdx);
+      buf.push(s?s.nodeIdx:0);
       i++;
     });
   }
@@ -331,30 +339,25 @@ export namespace Analysis {
     var pos = 0;
     var [stransln,sredsln,scmnln,slfln,ctks] = [buf[pos++], buf[pos++], buf[pos++], buf[pos++], buf[pos++]];
 
-    leafStateTransitionTables.push(null);
-    leafStateReduceTables.push(null);
-    leafStateCommons.push(null);
-    leafStates.push(null);
-    choiceTokens.push(null);
     for (var i=1; i<=stransln; i++) {
       var trans = new GrammarParsingLeafStateTransitions();
       pos = trans.deser(i, buf, pos);
-      leafStateTransitionTables.push(trans);
+      leafStateTransitionTables[i] = trans;
     }
     for (var i=1; i<=sredsln; i++) {
       var red = new GrammarParsingLeafStateReduces();
       pos = red.deser(i, buf, pos);
-      leafStateReduceTables.push(red);
+      leafStateReduceTables[i] = red;
     }
     for (var i=1; i<=scmnln; i++) {
       var cmn = new GrammarParsingLeafStateCommon();
       pos = cmn.deser(i, buf, pos);
-      leafStateCommons.push(cmn);
+      leafStateCommons[i] = cmn;
     }
     for (var i=1; i<=slfln; i++) {
       var lf = new GrammarParsingLeafState();
       pos = lf.deser(i, buf, pos);
-      leafStates.push(lf);
+      leafStates[i] = lf;
     }
     for (var i=1; i<=ctks; i++) {
       var ndx = buf[pos++];
@@ -405,6 +408,26 @@ export namespace Analysis {
     })
 
   }
+
+  export function initChoiceTokens() {
+    var tki = -1;
+    choiceTokens.forEach(c=>{
+      c._tokenId = tki--;
+      choiceTokenMap[c._tokenId] = c.children;
+      c.children.forEach(_term=>{
+        var term = _term as PTerminalRef;
+        if (term.kind !== PNodeKind.TERMINAL_REF) {
+          throw new Error("Invalid choice terminal : "+c+"  Not terminal ref inside:"+term);
+        }
+        var ts = choiceTokenMap[term.tokenId];
+        if (!ts) {
+          choiceTokenMap[term.tokenId] = ts = [];
+        }
+        ts.push(c);
+      });
+    });
+  }
+
 
 }
 

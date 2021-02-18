@@ -49,6 +49,8 @@ export class ParseTable {
   readonly allStates: GrammarParsingLeafState[];
   readonly myCommons: GrammarParsingLeafStateCommon[];
 
+  readonly choiceTokenMap: PValueNode[][] = [];
+
   openerTrans: GenerateParseTableStackMainGen;
 
   packed = false;
@@ -60,6 +62,7 @@ export class ParseTable {
 
     this.allStates = [];
     this.myCommons = [];
+    this.choiceTokenMap = Analysis.choiceTokenMap;
 
     if (g) {
       this.startingState = g.startingStateNode.generateState(this);

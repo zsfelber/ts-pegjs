@@ -525,6 +525,7 @@ function generateTS(ast) {
                 parseTbl.push("    HyperG.totallyReinitializableTransaction(() => {");
                 parseTbl.push("      peg$PrsTblTbls = peg$decodePrsTblTbls(peg$PrsTblBuf);");
                 parseTbl.push("      peg$ChoiceTokens = Analysis.choiceTokens;");
+                parseTbl.push("      Analysis.initChoiceTokens();");
                 parseTbl.push("");
                 parseTbl.push("      for (var i=0; i<" + numStartRules + "; i++) {");
                 parseTbl.push("        const tc = peg$TblsCode[i];");

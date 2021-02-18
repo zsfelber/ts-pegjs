@@ -20,6 +20,7 @@ export declare namespace Analysis {
         leafStateTransitionTables: GrammarParsingLeafStateTransitions[];
         leafStateReduceTables: GrammarParsingLeafStateReduces[];
         choiceTokens: PValueNode[];
+        choiceTokenMap: PValueNode[][];
         maxTokenId: number;
         totalStates: number;
         cntChoiceTknIds: number;
@@ -66,6 +67,7 @@ export declare namespace Analysis {
     var leafStateTransitionTables: GrammarParsingLeafStateTransitions[];
     var leafStateReduceTables: GrammarParsingLeafStateReduces[];
     var choiceTokens: PValueNode[];
+    var choiceTokenMap: PValueNode[][];
     var maxTokenId: number;
     var totalStates: number;
     var cntChoiceTknIds: number;
@@ -106,6 +108,7 @@ export declare namespace Analysis {
     function writeAllSerializedTables(buf: number[]): void;
     function readAllSerializedTables(buf: number[]): number;
     function generateTableSerializationData(): void;
+    function initChoiceTokens(): void;
 }
 export declare abstract class StateNodeCommon {
     parseTable: ParseTableGenerator;
