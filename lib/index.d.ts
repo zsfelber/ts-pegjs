@@ -144,10 +144,11 @@ export declare var UNIQUE_OBJECT_ID: string;
 export declare function minimum<T>(inparr: T[], cmp?: ((a: T, b: T) => number)): [number, T];
 export declare function maximum<T>(inparr: T[], cmp?: ((a: T, b: T) => number)): [number, T];
 export declare function distinct<T>(inparr: T[], cmp?: ((a: T, b: T) => number)): T[];
-export declare function CodeTblToHex(s: number[]): string[];
+export declare function CodeTblToHex(s: number[]): any[];
 export declare function encodePrsTbl(parseTable: ParseTable): string;
 export declare function encodeVsimPck(code: number[]): string;
 export declare function verySimplePackMany0(raw: string): string;
+export declare function peg$decode(s: string): number[];
 export declare function checkRuleNodesIntegrity(items: [PRule, string][], mode?: HyperGEnvType): void;
 export declare function checkParseTablesIntegrity(serializedConstTable: string, items: [ParseTable, string][], mode: HyperGEnvType): void;
 export declare class IncVariator {

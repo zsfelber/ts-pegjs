@@ -544,7 +544,7 @@ export const DefaultComparator = (a, b) => {
   if (r1) return r1;
   if (typeof (a) === "number" && typeof (b) === "number") {
     return a - b;
-  }else if (typeof (a) === "string" && typeof (b) === "string") {
+  } else if (typeof (a) === "string" && typeof (b) === "string") {
     return a.localeCompare(b);
   } else {
     return a[UNIQUE_OBJECT_ID].toString().localeCompare(b[UNIQUE_OBJECT_ID].toString());
@@ -573,11 +573,11 @@ Object.defineProperty(Object.prototype, UNIQUE_OBJECT_ID,
   });
 
 Object.prototype.toString =
-function() {
-  return (this.constructor?this.constructor.name:"object")+"@"+this[UNIQUE_OBJECT_ID];
-};
+  function () {
+    return (this.constructor ? this.constructor.name : "object") + "@" + this[UNIQUE_OBJECT_ID];
+  };
 
-export function minimum<T>(inparr: T[], cmp?: ((a: T, b: T) => number)): [number,T] {
+export function minimum<T>(inparr: T[], cmp?: ((a: T, b: T) => number)): [number, T] {
   if (!inparr) return [-1, undefined];
   if (!inparr.length) return [-1, undefined];
   if (!cmp) {
@@ -587,7 +587,7 @@ export function minimum<T>(inparr: T[], cmp?: ((a: T, b: T) => number)): [number
   var min = inparr[0];
   for (var i = 1; i < inparr.length; i++) {
     var d = inparr[i];
-    if (cmp(d, min)<0) {
+    if (cmp(d, min) < 0) {
       mini = i;
       min = d;
     }
@@ -595,7 +595,7 @@ export function minimum<T>(inparr: T[], cmp?: ((a: T, b: T) => number)): [number
   return [mini, min];
 }
 
-export function maximum<T>(inparr: T[], cmp?: ((a: T, b: T) => number)): [number,T] {
+export function maximum<T>(inparr: T[], cmp?: ((a: T, b: T) => number)): [number, T] {
   if (!inparr) return [-1, undefined];
   if (!inparr.length) return [-1, undefined];
   if (!cmp) {
@@ -605,7 +605,7 @@ export function maximum<T>(inparr: T[], cmp?: ((a: T, b: T) => number)): [number
   var max = inparr[0];
   for (var i = 1; i < inparr.length; i++) {
     var d = inparr[i];
-    if (cmp(d, max)>0) {
+    if (cmp(d, max) > 0) {
       maxi = i;
       max = d;
     }
@@ -632,12 +632,23 @@ export function distinct<T>(inparr: T[], cmp?: ((a: T, b: T) => number)) {
 
 export function CodeTblToHex(s: number[]) {
   var r = s.map(c => {
-    if (!c) return "00";
-    else if (c <= 0xf) return '0' + c.toString(16).toUpperCase();
-    else if (c <= 0xff) return '' + c.toString(16).toUpperCase();
-    else if (c <= 0xfff) return 'x' + c.toString(16).toUpperCase();
-    else if (c <= 0xffff) return "X" + c.toString(16).toUpperCase();
-    else return "(" + c.toString(16).toUpperCase() + ")";
+    if (!c) {
+      return "00";
+    } else {
+      var res;
+      if (c < 0) {
+        c = -c;
+        res = "-";
+      } else {
+        res = "";
+      }
+      if (c <= 0xf) res += '0' + c.toString(16).toUpperCase();
+      else if (c <= 0xff) res += '' + c.toString(16).toUpperCase();
+      else if (c <= 0xfff) res += 'x' + c.toString(16).toUpperCase();
+      else if (c <= 0xffff) res += "X" + c.toString(16).toUpperCase();
+      else res += "(" + c.toString(16).toUpperCase() + ")";
+      return res;
+    }
   });
   return r;
 }
@@ -666,6 +677,61 @@ export function verySimplePackMany0(raw: string) {
   result += raw.substring(li);
 
   return result;
+}
+
+const HTOD = {
+  '0': 0,'1': 1,'2': 2,'3': 3,'4': 4,
+  '5': 5,'6': 6,'7': 7,'8': 8,'9': 9,
+  'A': 10,'B': 11,'C': 12,'D': 13,'E': 14,'F': 15,
+}
+
+export function peg$decode(s: string) {
+  var code: number[] = [];
+  for (var i=0, sign=1; i<s.length; ) {
+    const rrr = (R)=>{
+      var ra = R.exec(s);
+      var num = 0;
+      for (var j=0; j<ra[1].length; j++) {
+        num = (num<<4) + HTOD[ra[1][j]];
+      }
+      i = R.lastIndex;
+      return num;
+    };
+    var char1 = s.charAt(i++);
+    switch (char1) {
+    case "{":
+      var R = /\\{(.*?)\\}/;
+      var len = rrr(R);
+      for (var k=0; k<len; k++) code.push(0);
+      sign=1;
+      break;
+    case "(":
+      var R = /\\((.*?)\\)/;
+      var num = rrr(R);
+      code.push(sign*num);
+      sign=1;
+      break;
+    case "X":
+      code.push(sign*((HTOD[s.charAt(i++)]<<12) + (HTOD[s.charAt(i++)]<<8) + (HTOD[s.charAt(i++)]<<4) +  HTOD[s.charAt(i++)]));
+      sign=1;
+      break;
+    case "x":
+      code.push(sign*((HTOD[s.charAt(i++)]<<8) +  (HTOD[s.charAt(i++)]<<4) +  HTOD[s.charAt(i++)]));
+      sign=1;
+      break;
+    case "-":
+      sign=-1;
+      break;
+    case "+":
+      sign=1;
+      break;
+    default:
+      code.push(sign*((HTOD[    char1    ]<<4) +  HTOD[s.charAt(i++)]));
+      sign=1;
+      break;
+    }
+  }
+  return code;
 }
 
 export function checkRuleNodesIntegrity(items: [PRule, string][], mode?: HyperGEnvType) {
@@ -781,8 +847,8 @@ export class IncVariator {
     return Math.sqrt(this.variance);
   }
 
-  toString(fractionDecimals=1) {
-    return this.n+"*(avg:"+this.mean.toFixed(fractionDecimals)+"+-var:"+this.sqrtVariance.toFixed(fractionDecimals)+")";
+  toString(fractionDecimals = 1) {
+    return this.n + "*(avg:" + this.mean.toFixed(fractionDecimals) + "+-var:" + this.sqrtVariance.toFixed(fractionDecimals) + ")";
   }
 }
 
