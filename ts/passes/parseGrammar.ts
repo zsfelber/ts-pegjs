@@ -289,15 +289,13 @@ function generate(ast, ...args) {
         Analysis.varTkns = varTkns;
         Analysis.varRds = varRds;
 
-        /*allstarts.forEach(r0 => {
-          var ptg0 = Analysis.parseTableGens[r0];
-          var parseTable0 = Analysis.parseTable(ptg0.rule, ptg0);
-          parseTable0.resetOptimization();
-        });*/
-
         var ptg = Analysis.parseTableGens[r];
         var parseTable = Analysis.parseTable(ptg.rule, ptg);
+
         //console.log("Rule " + r);
+
+        // NOTE Its dependencies is not reset, but this is an optimization 
+        // and gives an equivalent result :
         parseTable.resetOptimization();
 
         for (var phase = 0; phase <= 3; phase++) {

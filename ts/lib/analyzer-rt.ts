@@ -66,9 +66,7 @@ export class ParseTable {
         s.packedIndex = undefined;
         s.serializedTuple = null;
         s.reduceActions = null;
-        // when it is null, it reinitializes
-        // when it is finished, lets pack() use the result:
-        s.replace(s.finishedResults);
+        s.replace(null);
       }
     });
 
@@ -508,8 +506,6 @@ export class GrammarParsingLeafStateCommon {
   recursiveShifts: GrammarParsingLeafStateTransitions;
   serialStateMap: GrammarParsingLeafStateTransitions;
   serializedTuple: [number, number];
-
-  finishedResults: GrammarParsingLeafStateTransitions;
 
   constructor() {
     this.reduceActions = null;

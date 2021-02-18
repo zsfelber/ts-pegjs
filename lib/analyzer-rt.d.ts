@@ -73,7 +73,6 @@ export declare class GrammarParsingLeafStateCommon {
     recursiveShifts: GrammarParsingLeafStateTransitions;
     serialStateMap: GrammarParsingLeafStateTransitions;
     serializedTuple: [number, number];
-    finishedResults: GrammarParsingLeafStateTransitions;
     constructor();
     get transitions(): GrammarParsingLeafStateTransitions;
     replace(newSerialStateMap: GrammarParsingLeafStateTransitions): void;

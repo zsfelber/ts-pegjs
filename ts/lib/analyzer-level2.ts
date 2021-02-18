@@ -347,25 +347,18 @@ export class GenerateParseTableStackMainGen {
             wasNon1st = 1;
           }
 
-          if (c.finishedResults) {
-            if (c === this.parseTable.startingState.common) {
-              this.mainRuleBoxFinished = c;
-            }
-
-          } else {
-            if (this.stack[this.rule.rule] !== this) {
-              throw new Error("this.stack[this.parseTable.rule.rule:'" + this.rule.rule + "'] !== this   " + this.stack[this.parseTable.rule.rule] + " !== " + this);
-            }
-
-            var forNode = new GenerateParseTableStackBox(this, this.parseTable, c, this.stack);
-            this.children.push(forNode);
-            if (c === this.parseTable.startingState.common) {
-              this.mainRuleBox = forNode;
-            }
-
-            forNode.generate(phase);
-
+          if (this.stack[this.rule.rule] !== this) {
+            throw new Error("this.stack[this.parseTable.rule.rule:'" + this.rule.rule + "'] !== this   " + this.stack[this.parseTable.rule.rule] + " !== " + this);
           }
+
+          var forNode = new GenerateParseTableStackBox(this, this.parseTable, c, this.stack);
+          this.children.push(forNode);
+          if (c === this.parseTable.startingState.common) {
+            this.mainRuleBox = forNode;
+          }
+
+          forNode.generate(phase);
+
         });
 
         if (wasNon1st) {
@@ -396,11 +389,9 @@ export class GenerateParseTableStackMainGen {
 
             var childrenAffctd: GenerateParseTableStackBox[] = [];
             unresolvedRecursiveBoxesNow.forEach(([importer, child, recshift, rr]) => {
-              if (!importer.common.finishedResults) {
-                // NOTE precondition ok : dependants updated
-                importer.appendChild(child, recshift, rr);
-                childrenAffctd.push(importer);
-              }
+              // NOTE precondition ok : dependants updated
+              importer.appendChild(child, recshift, rr);
+              childrenAffctd.push(importer);
             });
 
             childrenAffctd = distinct(childrenAffctd);
@@ -420,13 +411,6 @@ export class GenerateParseTableStackMainGen {
             }
           }
 
-          // cache finished result
-
-          //this.mainRuleBox.common.finishedResults = this.mainRuleBox.common.serialStateMap;
-
-          /*this.children.forEach(child => {
-            child.generate(4);
-          });*/
         }
         break;
     }
@@ -590,19 +574,6 @@ export class GenerateParseTableStackBox {
         this.generateShifts(phase);
         break;
 
-      case 4:
-
-        // NOTE this ensures a processing order of dependants first :
-        this.children.forEach(([ruleMain, shift, rr]) => {
-          ruleMain.generate(phase);
-        });
-      
-        // cache finished result
-
-        this.common.finishedResults = this.common.serialStateMap;
-
-        break;
-
       default:
         this.resetShitsToTrivial();
 
@@ -625,9 +596,7 @@ export class GenerateParseTableStackBox {
     this.allShifts = {};
     this.allShiftsByToken = {};
     this.cntGenerationSecondaryIndex = 0;
-    if (this.trivial["$$generated$$"]) {
-      throw new Error("serialStateMap should be the original one here");
-    }
+
     var esths: [string, RTShift[]][] = Object.entries(this.trivial.map);
     esths.forEach(([key, shifts]) => {
       var tokenId = Number(key);
@@ -690,7 +659,6 @@ export class GenerateParseTableStackBox {
   private generateShifts(phase: number) {
 
     var shifts = new GrammarParsingLeafStateTransitions();
-    shifts["$$generated$$"] = 1;
 
     var es: [string, RTShift[]][] = Object.entries(this.allShiftsByToken);
 
