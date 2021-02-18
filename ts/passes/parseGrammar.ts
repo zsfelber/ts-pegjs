@@ -235,6 +235,7 @@ function generate(ast, ...args) {
       }
     };
 
+
     if (options.allowedStartRules) {
       console.log("allowedStartRules:" + options.allowedStartRules.join(", "));
       options.allowedStartRules.forEach(r => {
@@ -271,11 +272,12 @@ function generate(ast, ...args) {
       });
     }
 
+
     allstarts.sort();
     allstarts.splice(allstarts.indexOf(options.allowedStartRules[0]), 1);
     allstarts.unshift(options.allowedStartRules[0]);
 
-    console.log("Raw parse tables created  :" + allstarts.length + "  entry points(nonterminals):" + Analysis.varEntryPts + "  all nodes:" + Analysis.varAllNds +"  all rule refs:"+Analysis.varAllRuleRefs+ "  L1 rule refs:" + Analysis.varRuleRefs + "  L1 terminal refs:" + Analysis.varTerminalRefs + "  tokens:" + Analysis.maxTokenId + "   states:" + Analysis.varLfStates);
+    console.log("Raw parse tables created  :" + allstarts.length + "  entry points(nonterminals):" + Analysis.varEntryPts + "  all nodes:" + Analysis.varAllNds + "  all rule refs:" + Analysis.varAllRuleRefs + "  L1 rule refs:" + Analysis.varRuleRefs + "  L1 terminal refs:" + Analysis.varTerminalRefs + "  tokens:" + Analysis.maxTokenId + "   states:" + Analysis.varLfStates);
 
 
 
@@ -289,7 +291,7 @@ function generate(ast, ...args) {
     // 0 level, less optimization, local transition tables only
     // runtime automaton heavily traverses across stack operations
     HyperG.totallyReinitializableTransaction(() => {
-      
+
       allstarts.forEach(r => {
 
         var ptg = Analysis.parseTableGens[r];

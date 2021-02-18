@@ -146,8 +146,8 @@ export class ParseTable {
     var myc = distinct(Object.values(this.myCommons), (a, b) => (a.replacedIndex - b.replacedIndex));
     var als = distinct(Object.values(this.allStates), (a, b) => (a.replacedIndex - b.replacedIndex));
 
-    for (var i = 1; i < myc.length; i++) {
-      let s = myc[i - 1];
+    for (var i = 0; i < myc.length; ) {
+      let s = myc[i++];
       if (s.replacedIndex !== i) {
         throw new Error("s.replacedIndex replacedIndex !== i   " + s.replacedIndex + " !== " + i);
       }
@@ -158,8 +158,8 @@ export class ParseTable {
       }
     }
 
-    for (var i = 1; i < als.length; i++) {
-      let s = als[i - 1];
+    for (var i = 0; i < als.length; ) {
+      let s = als[i++];
       if (s.replacedIndex !== i) {
         throw new Error("s.replacedIndex replacedIndex !== i   " + s.replacedIndex + " !== " + i);
       }
