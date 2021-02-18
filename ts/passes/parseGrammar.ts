@@ -275,19 +275,10 @@ function generate(ast, ...args) {
 
     console.log("-- PACK STAGES ------------------------------");
 
-    var savedStack = [];
-    var ind = 0;
-    const varShs = new IncVariator();
-    const varShReqs = new IncVariator();
-    const varTkns = new IncVariator();
-    const varRds = new IncVariator();
-  
+    var savedStack: Analysis.Backup;
+
     HyperG.totallyReinitializableTransaction(() => {
       allstarts.forEach(r => {
-        Analysis.varShs = varShs;
-        Analysis.varShReqs = varShReqs;
-        Analysis.varTkns = varTkns;
-        Analysis.varRds = varRds;
 
         var ptg = Analysis.parseTableGens[r];
         var parseTable = Analysis.parseTable(ptg.rule, ptg);
@@ -307,12 +298,12 @@ function generate(ast, ...args) {
 
         parseTable.pack(true);
 
-        savedStack[ind++] = Analysis.backup();
+        savedStack = Analysis.backup();
 
       });
     });
 
-    Analysis.stack = savedStack;
+    Analysis.stack = [savedStack];
 
 
     ast.allstarts = allstarts;

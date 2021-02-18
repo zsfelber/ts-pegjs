@@ -49,54 +49,55 @@ export declare namespace Analysis {
         varShReqs: IncVariator;
         varTkns: IncVariator;
         varRds: IncVariator;
+        varDeep: IncVariator;
         load(): void;
         save(): void;
     }
-    export class SerOutputWithIndex {
+    class SerOutputWithIndex {
         index: number;
         output: number[];
     }
-    export var ERRORS: number;
-    export var deferredRules: any[];
-    export var localDeferredRules: any[];
-    export var leafStates: GrammarParsingLeafState[];
-    export var leafStateCommons: GrammarParsingLeafStateCommon[];
-    export var leafStateTransitionTables: GrammarParsingLeafStateTransitions[];
-    export var leafStateReduceTables: GrammarParsingLeafStateReduces[];
-    export var choiceTokens: PValueNode[];
-    export var maxTokenId: number;
-    export var totalStates: number;
-    export var cntChoiceTknIds: number;
-    export const uniformMaxStateId = 57344;
-    export var serializedLeafStates: {
+    var ERRORS: number;
+    var deferredRules: any[];
+    var localDeferredRules: any[];
+    var leafStates: GrammarParsingLeafState[];
+    var leafStateCommons: GrammarParsingLeafStateCommon[];
+    var leafStateTransitionTables: GrammarParsingLeafStateTransitions[];
+    var leafStateReduceTables: GrammarParsingLeafStateReduces[];
+    var choiceTokens: PValueNode[];
+    var maxTokenId: number;
+    var totalStates: number;
+    var cntChoiceTknIds: number;
+    const uniformMaxStateId = 57344;
+    var serializedLeafStates: {
         [index: string]: SerOutputWithIndex;
     };
-    export var serializedStateCommons: {
+    var serializedStateCommons: {
         [index: string]: SerOutputWithIndex;
     };
-    export var serializedTransitions: {
+    var serializedTransitions: {
         [index: string]: SerOutputWithIndex;
     };
-    export var serializedReduces: {
+    var serializedReduces: {
         [index: string]: SerOutputWithIndex;
     };
-    export var serializedParseTables: SerOutputWithIndex[];
-    export var stack: Backup[];
-    export var serializedParseTablesCnt: number;
-    export var parseTableGens: StrMapLike<ParseTableGenerator>;
-    export var parseTables: StrMapLike<ParseTable>;
-    export var varShs: IncVariator;
-    export var varShReqs: IncVariator;
-    export var varTkns: IncVariator;
-    export var varRds: IncVariator;
-    export function backup(): Backup;
-    export function empty(): Backup;
-    export function parseTable(rule: PRule, g?: ParseTableGenerator): ParseTable;
-    export function leafState(parseTable: ParseTable, index: number, packedIdx: number): GrammarParsingLeafState;
-    export function leafStateCommon(parseTable: ParseTable, index: number, packedIdx: number): GrammarParsingLeafStateCommon;
-    export function writeAllSerializedTables(buf: number[]): void;
-    export function readAllSerializedTables(buf: number[]): number;
-    export {};
+    var serializedParseTables: SerOutputWithIndex[];
+    var stack: Backup[];
+    var serializedParseTablesCnt: number;
+    var parseTableGens: StrMapLike<ParseTableGenerator>;
+    var parseTables: StrMapLike<ParseTable>;
+    var varShs: IncVariator;
+    var varShReqs: IncVariator;
+    var varTkns: IncVariator;
+    var varRds: IncVariator;
+    var varDeep: IncVariator;
+    function backup(): Backup;
+    function empty(): Backup;
+    function parseTable(rule: PRule, g?: ParseTableGenerator): ParseTable;
+    function leafState(parseTable: ParseTable, index: number, packedIdx: number): GrammarParsingLeafState;
+    function leafStateCommon(parseTable: ParseTable, index: number, packedIdx: number): GrammarParsingLeafStateCommon;
+    function writeAllSerializedTables(buf: number[]): void;
+    function readAllSerializedTables(buf: number[]): number;
 }
 export declare abstract class StateNodeCommon {
     parseTable: ParseTableGenerator;

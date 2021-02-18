@@ -18,9 +18,9 @@ export class CompressParseTable {
   cmnidx: number;
   cmnidx0: number;
 
-  serializedLeafStates: {[index: string]:GrammarParsingLeafState} = {};
+  serializedLeafStates: { [index: string]: GrammarParsingLeafState } = {};
 
-  serializedStateCommons: {[index: string]:GrammarParsingLeafStateCommon} = {};
+  serializedStateCommons: { [index: string]: GrammarParsingLeafStateCommon } = {};
 
   constructor(parseTable: ParseTable, log = true) {
     this.parseTable = parseTable;
@@ -61,11 +61,13 @@ export class CompressParseTable {
     if (!this.parseTable.packedIndex) {
       this.parseTable.packedIndex = Analysis.serializedParseTablesCnt++;
     }
-    Analysis.serializedParseTables[this.parseTable.packedIndex] = {index:this.parseTable.packedIndex,
-        output:this.parseTable.ser()};
+    Analysis.serializedParseTables[this.parseTable.packedIndex] = {
+      index: this.parseTable.packedIndex,
+      output: this.parseTable.ser()
+    };
 
     if (this.log) {
-      console.log("Total: [ total states:" + Analysis.totalStates + "  distinct:" + (this.lfidx) + "   distinct states/common:" + (this.cmnidx) + "    distinct transitions:" + (this.transidx) + "    distinct reduces:" + (this.redidx) + "    rec shifts:" + Analysis.varShReqs + "   jmp.tokens:" + Analysis.varTkns + "   shift/tkns:" + Analysis.varShs + "  reduces:" + Analysis.varRds + " ]");
+      console.log(this.parseTable.rule.rule + "   Total: [ total states:" + Analysis.totalStates + "  distinct:" + (this.lfidx) + "   distinct states/common:" + (this.cmnidx) + "    distinct transitions:" + (this.transidx) + "    distinct reduces:" + (this.redidx) + "    rec shifts:" + Analysis.varShReqs + "   jmp.tokens:" + Analysis.varTkns + "   shift/tkns:" + Analysis.varShs + "   stack deepness:" + Analysis.varDeep + "   reduces:" + Analysis.varRds + " ]");
     }
 
     return changed;
@@ -105,7 +107,7 @@ export class CompressParseTable {
         state.packedIndex = this.lfidx++;
         state.replacedIndex = this.lfidx0++;
         state.serializedTuple = tuple;
-        Analysis.serializedLeafStates[tkey] = {index:state.packedIndex, output:state.serializedTuple};
+        Analysis.serializedLeafStates[tkey] = { index: state.packedIndex, output: state.serializedTuple };
         this.serializedLeafStates[tkey] = state;
         return changed;
       }
@@ -154,7 +156,7 @@ export class CompressParseTable {
         state.packedIndex = this.cmnidx++;
         state.replacedIndex = this.cmnidx0++;
         state.serializedTuple = tuple;
-        Analysis.serializedStateCommons[tkey] = {index:state.packedIndex, output:state.serializedTuple};;
+        Analysis.serializedStateCommons[tkey] = { index: state.packedIndex, output: state.serializedTuple };;
         this.serializedStateCommons[tkey] = state;
         return changed;
       }
@@ -171,6 +173,9 @@ export class CompressParseTable {
       var req = 0;
       var reqtot = 0;
       shiftses.forEach(([key, shs]) => {
+        shs.forEach(sh => {
+          Analysis.varDeep.add(sh.stepIntoRecursive.length + 1);
+        })
         var tki = Number(key);
         if (tki) {
           nonreq++;
@@ -198,7 +203,7 @@ export class CompressParseTable {
         return true;
       } else {
         trans.index = this.transidx++;
-        Analysis.serializedTransitions[encoded] = {index:trans.index, output:buf};
+        Analysis.serializedTransitions[encoded] = { index: trans.index, output: buf };
         return false;
       }
     } else if (trans.index !== 0) {
@@ -225,7 +230,7 @@ export class CompressParseTable {
         return true;
       } else {
         rr.index = this.redidx++;
-        Analysis.serializedReduces[encred] = {index:rr.index, output:buf};
+        Analysis.serializedReduces[encred] = { index: rr.index, output: buf };
         return false;
       }
     } else if (rr.index !== 0) {
@@ -383,7 +388,7 @@ export class GenerateParseTableStackMainGen {
 
         if (top) {
           var i;
-          for (i = 0; this.unresolvedRecursiveBoxes.length && i<100; i++) {
+          for (i = 0; this.unresolvedRecursiveBoxes.length && i < 100; i++) {
             var unresolvedRecursiveBoxesNow = this.unresolvedRecursiveBoxes;
             this.unresolvedRecursiveBoxes = [];
 
@@ -400,14 +405,14 @@ export class GenerateParseTableStackMainGen {
             });
 
             if (deepStats) {
-              console.log("Phase " + phase + " " + this.rule.rule + "/"+i+". Additional cyclic dependencies updated.  Affected distinct : " + childrenAffctd.length + "    With dependencies : " + unresolvedRecursiveBoxesNow.length + "    In next round : " + this.unresolvedRecursiveBoxes.length);
+              console.log("Phase " + phase + " " + this.rule.rule + "/" + i + ". Additional cyclic dependencies updated.  Affected distinct : " + childrenAffctd.length + "    With dependencies : " + unresolvedRecursiveBoxesNow.length + "    In next round : " + this.unresolvedRecursiveBoxes.length);
             }
           }
           if (i) {
             if (this.unresolvedRecursiveBoxes.length) {
               console.log("Phase " + phase + " " + this.rule.rule + ", token sets growing in inifinite loop.  Still in next round : " + this.unresolvedRecursiveBoxes.length);
             } else {
-              console.log("Phase " + phase + " " + this.rule.rule + ", all cyclic token shifts updated successfully (in "+i+" round"+(i>1?"s":"")+").");
+              console.log("Phase " + phase + " " + this.rule.rule + ", all cyclic token shifts updated successfully (in " + i + " round" + (i > 1 ? "s" : "") + ").");
             }
           }
 
@@ -734,7 +739,7 @@ export class GenerateParseTableStackBox {
   // NOTE precondition : dependants updated
   appendChild(child: GenerateParseTableStackMainGen, recursiveShift: RTShift, rr: PRuleRef) {
 
-    var byTokenId:NumMapLike<RTShift[]>;
+    var byTokenId: NumMapLike<RTShift[]>;
     if (child.mainRuleBox) {
       byTokenId = child.mainRuleBox.allShiftsByToken;
     } else {

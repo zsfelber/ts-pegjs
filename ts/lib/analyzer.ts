@@ -29,7 +29,7 @@ export interface NumMapLike<V> {
 
 export namespace Analysis {
 
-  class Backup {
+  export class Backup {
 
     ERRORS = 0;
     deferredRules = [];
@@ -55,6 +55,7 @@ export namespace Analysis {
     varShReqs = new IncVariator();
     varTkns = new IncVariator();
     varRds = new IncVariator();
+    varDeep = new IncVariator();
   
 
     load() {
@@ -81,6 +82,8 @@ export namespace Analysis {
       this.varShReqs = new IncVariator(varShReqs);
       this.varTkns = new IncVariator(varTkns);
       this.varRds = new IncVariator(varRds);
+      this.varDeep = new IncVariator(varDeep);
+      
     
     }
     save() {
@@ -107,6 +110,7 @@ export namespace Analysis {
       varShReqs = this.varShReqs;
       varTkns = this.varTkns;
       varRds = this.varRds;
+      varDeep = this.varDeep;
     }
   }
   
@@ -161,6 +165,7 @@ export namespace Analysis {
   export var varShReqs = new IncVariator();
   export var varTkns = new IncVariator();
   export var varRds = new IncVariator();
+  export var varDeep = new IncVariator();
   
   export function backup() {
     var backup = new Backup();

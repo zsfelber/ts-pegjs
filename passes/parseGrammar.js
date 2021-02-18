@@ -3,7 +3,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 var compiler_1 = require("pegjs/lib/compiler");
 var analyzer_1 = require("../lib/analyzer");
 var lib_1 = require("../lib");
-var index_1 = require("../lib/index");
 var lib_2 = require("../lib");
 var options;
 var terminals = [];
@@ -230,18 +229,9 @@ function generate(ast) {
         allstarts.splice(allstarts.indexOf(options.allowedStartRules[0]), 1);
         allstarts.unshift(options.allowedStartRules[0]);
         console.log("-- PACK STAGES ------------------------------");
-        var savedStack = [];
-        var ind = 0;
-        var varShs = new index_1.IncVariator();
-        var varShReqs = new index_1.IncVariator();
-        var varTkns = new index_1.IncVariator();
-        var varRds = new index_1.IncVariator();
+        var savedStack;
         lib_1.HyperG.totallyReinitializableTransaction(function () {
             allstarts.forEach(function (r) {
-                analyzer_1.Analysis.varShs = varShs;
-                analyzer_1.Analysis.varShReqs = varShReqs;
-                analyzer_1.Analysis.varTkns = varTkns;
-                analyzer_1.Analysis.varRds = varRds;
                 var ptg = analyzer_1.Analysis.parseTableGens[r];
                 var parseTable = analyzer_1.Analysis.parseTable(ptg.rule, ptg);
                 //console.log("Rule " + r);
@@ -253,10 +243,10 @@ function generate(ast) {
                     parseTable.fillStackOpenerTransitions(phase);
                 }
                 parseTable.pack(true);
-                savedStack[ind++] = analyzer_1.Analysis.backup();
+                savedStack = analyzer_1.Analysis.backup();
             });
         });
-        analyzer_1.Analysis.stack = savedStack;
+        analyzer_1.Analysis.stack = [savedStack];
         ast.allstarts = allstarts;
     }
     parseGrammarAst(null, ast);
