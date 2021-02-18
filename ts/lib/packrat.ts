@@ -1,5 +1,4 @@
-import { EntryPointInterpreter, ICached, IToken, PNodeKind, PRule, PRuleRef, PTerminalRef, PValueNode, HyperG } from '.';
-import { IParserProgram } from './interpreter';
+import { ICached, IParserProgram, PRule } from '.';
 
 
 

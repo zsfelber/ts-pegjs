@@ -1,7 +1,4 @@
-import { PRule, PLogicNode, NumMapLike, PRef, ParseTableGenerator, StateNodeCommon } from '.';
-import { StateNodeWithPrefix } from './analyzer';
-import { PRuleRef, PValueNode } from './parsers';
-import { GenerateParseTableStackMainGen } from './analyzer-level2';
+import { GenerateParseTableStackMainGen, NumMapLike, ParseTableGenerator, PLogicNode, PRef, PRule, PRuleRef, PValueNode, StateNodeCommon, StateNodeWithPrefix } from '.';
 export declare class ParseTable {
     readonly rule: PRule;
     startingState: GrammarParsingLeafState;

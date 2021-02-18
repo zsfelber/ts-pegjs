@@ -1,7 +1,4 @@
-import { IToken } from '.';
-import { IBaseParserProgram, DeferredReduce } from './interpreter';
-import { Packrat } from './packrat';
-import { GrammarParsingLeafState, ParseTable } from './analyzer-rt';
+import { DeferredReduce, GrammarParsingLeafState, IBaseParserProgram, IToken, Packrat, ParseTable } from '.';
 export interface IJumpTableProgram extends IBaseParserProgram {
     inputPos: number;
     inputLength: number;

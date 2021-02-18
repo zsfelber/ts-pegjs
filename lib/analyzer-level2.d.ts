@@ -1,4 +1,4 @@
-import { ParseTable, GrammarParsingLeafState, GrammarParsingLeafStateCommon, GrammarParsingLeafStateTransitions, RTShift, GrammarParsingLeafStateReduces, PRuleRef, StrMapLike, PRule, NumMapLike } from ".";
+import { GrammarParsingLeafState, GrammarParsingLeafStateCommon, GrammarParsingLeafStateReduces, GrammarParsingLeafStateTransitions, NumMapLike, ParseTable, PRule, PRuleRef, RTShift, StrMapLike } from '.';
 export declare class CompressParseTable {
     parseTable: ParseTable;
     log: boolean;

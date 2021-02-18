@@ -1,5 +1,4 @@
-import { RuleElementTraverser, ParseTableGenerator, EntryPointTraverser } from ".";
-import { StateNodeWithPrefix, StrMapLike } from './analyzer';
+import { EntryPointTraverser, ParseTableGenerator, RuleElementTraverser, StateNodeWithPrefix, StrMapLike } from '.';
 export declare enum TraversionItemKind {
     NODE_START = 0,
     NODE_END = 1,

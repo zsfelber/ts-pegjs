@@ -1,9 +1,23 @@
-import { EntryPointTraverser, Factory, PNodeKind, RefTraverser, RuleElementTraverser, RuleRefTraverser, TerminalRefTraverser } from '.';
-import { PRule, PRuleRef, PTerminalRef, PValueNode, PNode, PRef, PLogicNode } from './parsers';
-import { CodeTblToHex, HyperG, IncVariator, distinct } from './index';
-import { GrammarParsingLeafState, GrammarParsingLeafStateTransitions, GrammarParsingLeafStateReduces, ParseTable, GrammarParsingLeafStateCommon } from './analyzer-rt';
-import { LinearTraversion, TraversionPurpose } from './analyzer-tra';
-import { ChoiceTraverser } from './analyzer-nodes';
+import {
+  ChoiceTraverser,
+  distinct,
+  EntryPointTraverser,
+  GrammarParsingLeafState,
+  GrammarParsingLeafStateCommon,
+  GrammarParsingLeafStateReduces,
+  GrammarParsingLeafStateTransitions,
+  HyperG,
+  IncVariator,
+  LinearTraversion,
+  ParseTable,
+  PRule,
+  PValueNode,
+  RefTraverser,
+  RuleElementTraverser,
+  RuleRefTraverser,
+  TerminalRefTraverser,
+  TraversionPurpose,
+} from '.';
 
 
 export const FAIL_STATE = 0;
@@ -240,9 +254,6 @@ export namespace Analysis {
     var ctk = distinct(ctk0, (a,b)=>{
       return a.tokenId-b.tokenId;
     });
-    if (strans.length !== strans0.length) {
-
-    }
 
     buf.push(strans.length);
     buf.push(sreds.length);

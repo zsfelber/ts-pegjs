@@ -1,8 +1,6 @@
-import { JumpIntoSubroutineLeafStateNode, LeafStateNodeCommon, ParseTableGenerator, PNode, PRef, PRule, PRuleRef, PTerminalRef, PValueNode, TraversedLeafStateNode } from '.';
-import { LeafStateNodeWithPrefix, TerminalChoiceLeafStateNode } from './analyzer';
-import { TraversionControl, TraversionCache, LinearTraversion } from './analyzer-tra';
+import { JumpIntoSubroutineLeafStateNode, LeafStateNodeCommon, LeafStateNodeWithPrefix, LinearTraversion, ParseTableGenerator, PNode, PRef, PRule, PRuleRef, PTerminalRef, PValueNode, TerminalChoiceLeafStateNode, TraversedLeafStateNode, TraversionCache, TraversionControl } from '.';
 export declare namespace Factory {
-    function createTraverser(parser: ParseTableGenerator, parent: RuleElementTraverser, node: PNode): ChoiceTraverser | TerminalRefTraverser | RuleRefTraverser | SequenceTraverser | OptionalTraverser | SemanticAndTraverser | SemanticNotTraverser | ZeroOrMoreTraverser | OneOrMoreTraverser;
+    function createTraverser(parser: ParseTableGenerator, parent: RuleElementTraverser, node: PNode): ChoiceTraverser | RuleRefTraverser | TerminalRefTraverser | SequenceTraverser | OptionalTraverser | SemanticAndTraverser | SemanticNotTraverser | ZeroOrMoreTraverser | OneOrMoreTraverser;
 }
 export declare abstract class RuleElementTraverser {
     readonly allNodes: RuleElementTraverser[];

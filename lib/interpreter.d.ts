@@ -1,6 +1,4 @@
-import { PNode, IToken, PRule } from '.';
-import { PFunction } from './parsers';
-import { Packrat } from './packrat';
+import { IToken, Packrat, PFunction, PNode, PRule } from '.';
 export declare const peg$FAILED: Readonly<any>;
 export declare const peg$SUCCESS: Readonly<any>;
 declare class RuleProcessStack {

@@ -1,5 +1,4 @@
-import { ICached, PRule } from '.';
-import { IParserProgram } from './interpreter';
+import { ICached, IParserProgram, PRule } from '.';
 export declare class Packrat {
     readonly peg$resultsCache: {
         [id: number]: ICached;

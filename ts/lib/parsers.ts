@@ -1,5 +1,4 @@
-import { HyperG } from ".";
-import { HyperGEnvType } from './index';
+import { HyperG, HyperGEnvType } from '.';
 
 const Codes = [], Strings = [];
 
