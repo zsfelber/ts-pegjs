@@ -549,7 +549,9 @@ export class GrammarParsingLeafStateCommon {
 
         this._transitions = new GrammarParsingLeafStateTransitions();
         this.recursiveShifts = new GrammarParsingLeafStateTransitions();
-        this.reduceActions = new GrammarParsingLeafStateReduces();
+        if (!this.reduceActions) {
+          this.reduceActions = new GrammarParsingLeafStateReduces();
+        }
 
         var shiftses: [string, RTShift[]][] = Object.entries(this.serialStateMap.map);
 
