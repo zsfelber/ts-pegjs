@@ -1,4 +1,4 @@
-import { PRule, EntryPointInterpreter, PNode, PRuleRef, ParseTable } from ".";
+import { EntryPointInterpreter, ParseTable, PNode, PRule, PRuleRef, PValueNode } from '.';
 export declare const MATCH_TOKEN = 40;
 export declare const ACCEPT_TOKEN = 41;
 export declare enum HyperGEnvType {
@@ -148,7 +148,7 @@ export declare function encodeVsimPck(code: number[]): string;
 export declare function verySimplePackMany0(raw: string): string;
 export declare function peg$decode(s: string): number[];
 export declare function checkRuleNodesIntegrity(items: [PRule, string][], mode?: HyperGEnvType): void;
-export declare function checkParseTablesIntegrity(serializedConstTable: string, items: [ParseTable, string][], mode: HyperGEnvType): void;
+export declare function checkParseTablesIntegrity(serializedConstTable: string, items: [ParseTable, string][], choiceTokens: PValueNode[], mode: HyperGEnvType): void;
 export declare class IncVariator {
     K: number;
     n: number;

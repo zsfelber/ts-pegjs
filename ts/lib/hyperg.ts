@@ -1,4 +1,4 @@
-import { PRule, EntryPointInterpreter, PNode, PRuleRef, Analysis, ParseTable } from ".";
+import { Analysis, EntryPointInterpreter, ParseTable, PNode, PRule, PRuleRef, PValueNode } from '.';
 
 export const MATCH_TOKEN = 40;
 export const ACCEPT_TOKEN = 41;
@@ -766,11 +766,14 @@ function checkRuleNodeIntegrity(ruleNode: PRule, serializedForm: string, mode: H
   });
 }
 
-export function checkParseTablesIntegrity(serializedConstTable: string, items: [ParseTable, string][], mode: HyperGEnvType) {
+export function checkParseTablesIntegrity(serializedConstTable: string, items: [ParseTable, string][], choiceTokens: PValueNode[], mode: HyperGEnvType) {
 
   HyperG.totallyReinitializableTransaction(() => {
 
     Analysis.empty().save();
+
+    Analysis.choiceTokens = choiceTokens;
+
     HyperG.Env = mode ? mode : HyperGEnvType.INTEGRITY_CHECK;
     HyperG.serializerCnt = HyperG.serializerStartingIdx;
 
