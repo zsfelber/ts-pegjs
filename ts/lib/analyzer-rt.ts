@@ -638,8 +638,9 @@ export class GrammarParsingLeafStateCommon {
     this.serialStateMap = newSerialStateMap;
   }
 
-  ser(buf: number[]): void {
-    [].push.apply(buf, this.serializedTuple);
+  ser(): [number, number] {
+    var tuple: [number, number] = [this.serialStateMap.index, this.reduceActions.index];
+    return tuple;
   }
 
   deser(packedIndex: number, buf: number[], pos: number): number {
@@ -757,8 +758,12 @@ export class GrammarParsingLeafState {
     }
   }
 
-  ser(buf: number[]): void {
-    [].push.apply(buf, this.serializedTuple);
+  ser(): [number, number, number] {
+    var spidx = this.startingPoint ? this.startingPoint.nodeIdx : 0;
+    var stcmidx = this.common ? this.common.replacedIndex : 0;
+
+    var tuple: [number, number, number] = [spidx, this.reduceActions.index, stcmidx];
+    return tuple;
   }
 
   deser(packedIndex: number, buf: number[], pos: number): number {

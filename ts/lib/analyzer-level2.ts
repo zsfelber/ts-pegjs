@@ -106,10 +106,7 @@ export class CompressParseTable {
       changed = this.red(state.reduceActions, rs1) || changed;
       Analysis.varRds.add(rs1[0]);
 
-      var spidx = state.startingPoint ? state.startingPoint.nodeIdx : 0;
-      var stcmidx = state.common ? state.common.replacedIndex : 0;
-
-      var tuple: [number, number, number] = [spidx, state.reduceActions.index, stcmidx];
+      var tuple: [number, number, number] = state.ser();
       var tkey = CodeTblToHex(tuple).join("");
 
       var state0 = Analysis.serializedLeafStates[tkey];
@@ -162,7 +159,7 @@ export class CompressParseTable {
       changed = this.red(state.reduceActions, rs1) || changed;
       Analysis.varRds.add(rs1[0]);
 
-      var tuple: [number, number] = [state.serialStateMap.index, state.reduceActions.index];
+      var tuple: [number, number] = state.ser();
       var tkey = CodeTblToHex(tuple).join("");
 
       var state0 = Analysis.serializedStateCommons[tkey];

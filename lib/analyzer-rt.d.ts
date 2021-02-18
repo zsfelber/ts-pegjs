@@ -73,7 +73,7 @@ export declare class GrammarParsingLeafStateCommon {
     constructor();
     get transitions(): GrammarParsingLeafStateTransitions;
     replace(newSerialStateMap: GrammarParsingLeafStateTransitions): void;
-    ser(buf: number[]): void;
+    ser(): [number, number];
     deser(packedIndex: number, buf: number[], pos: number): number;
     diagnosticEqualityCheck(table: GrammarParsingLeafStateCommon): boolean;
 }
@@ -90,7 +90,7 @@ export declare class GrammarParsingLeafState {
     constructor(startStateNode?: StateNodeWithPrefix, startingPoint?: PRef);
     lazyCommon(parseTable: ParseTable): void;
     lazy(parseTable: ParseTable): void;
-    ser(buf: number[]): void;
+    ser(): [number, number, number];
     deser(packedIndex: number, buf: number[], pos: number): number;
     diagnosticEqualityCheck(table: GrammarParsingLeafState): boolean;
 }

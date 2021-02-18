@@ -779,6 +779,7 @@ export function checkParseTablesIntegrity(serializedConstTable: string, items: [
     });
 
     var ttbuf: number[] = [];
+    Analysis.generateTableSerializationData();
     Analysis.writeAllSerializedTables(ttbuf);
     var hex = encodeVsimPck(ttbuf);
     if (hex !== serializedConstTable) {

@@ -7,6 +7,7 @@ import {
   GrammarParsingLeafStateReduces,
   GrammarParsingLeafStateTransitions,
   HyperG,
+  HyperGEnvType,
   IncVariator,
   LinearTraversion,
   ParseTable,
@@ -363,6 +364,32 @@ export namespace Analysis {
     }
     return pos;
   }
+
+  export function generateTableSerializationData() {
+
+    Object.values(leafStates).forEach(state=>{
+      serializedLeafStates[state.packedIndex] = {output:state.ser(), index:state.packedIndex};
+      leafStateReduceTables[state.reduceActions.index] = state.reduceActions;
+    });
+    Object.values(leafStateCommons).forEach(state=>{
+      serializedStateCommons[state.packedIndex] = {output:state.ser(), index:state.packedIndex};
+      leafStateReduceTables[state.reduceActions.index] = state.reduceActions;
+      leafStateTransitionTables[state.serialStateMap.index] = state.serialStateMap;
+    });
+
+    Object.values(leafStateTransitionTables).forEach(trans=>{
+      var buf = [];
+      trans.ser(buf);
+      serializedTransitions[trans.index] = {output:buf, index:trans.index};
+    })
+    Object.values(leafStateReduceTables).forEach(red=>{
+      var buf = [];
+      red.ser(buf);
+      serializedReduces[red.index] = {output:buf, index:red.index};
+    })
+
+  }
+
 }
 
 function hex3(c) {

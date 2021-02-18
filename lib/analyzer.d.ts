@@ -105,6 +105,7 @@ export declare namespace Analysis {
     function leafStateCommon(parseTable: ParseTable, index: number, packedIdx: number): GrammarParsingLeafStateCommon;
     function writeAllSerializedTables(buf: number[]): void;
     function readAllSerializedTables(buf: number[]): number;
+    function generateTableSerializationData(): void;
 }
 export declare abstract class StateNodeCommon {
     parseTable: ParseTableGenerator;
