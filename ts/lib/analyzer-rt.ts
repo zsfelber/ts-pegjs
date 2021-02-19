@@ -740,7 +740,7 @@ export class GrammarParsingLeafState {
           }
         }
       } else {
-        throw new Error("Uninitilized GrammarParsingLeafState");
+        console.warn("Uninitilized GrammarParsingLeafState");
       }
     }
   }
@@ -773,7 +773,7 @@ export class GrammarParsingLeafState {
           }
         });
       } else {
-        throw new Error("Uninitilized GrammarParsingLeafState");
+        console.warn("Uninitilized GrammarParsingLeafState");
       }
     }
 
