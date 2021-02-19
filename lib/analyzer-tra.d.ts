@@ -65,6 +65,7 @@ export declare class LinearTraversion {
     private position;
     private positionBeforeStep;
     private stopped;
+    private steparranged;
     get length(): number;
     constructor(parser: ParseTableGenerator, rule: EntryPointTraverser);
     private createRecursively;

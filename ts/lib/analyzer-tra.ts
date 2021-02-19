@@ -142,6 +142,7 @@ export class LinearTraversion {
   private position: number;
   private positionBeforeStep: number;
   private stopped: boolean;
+  private steparranged: boolean;
 
   get length() {
     return this.traversionControls.length;
@@ -164,7 +165,7 @@ export class LinearTraversion {
 
     // each one located beneath start rule and its copied CopiedRuleTraverser s,
     // is traversable,
-    // the rest which created for linked rules, and/or in parser.getReferencedRule, 
+    // the rest which created for linked rules, and/or in parser.getReferencedRule,
     // is not traversable
     if (!item.top.parent && item.top !== this.parser.startingStateNode.rule) {
       throw new Error("This how : " + item + "  in:" + this);
@@ -243,6 +244,7 @@ export class LinearTraversion {
     }
     for (this.position = startPosition; !this.stopped;) {
       this.positionBeforeStep = this.position;
+      this.steparranged = false;
       var item = this.traversionControls[this.position];
 
       if (item) {
@@ -266,6 +268,7 @@ export class LinearTraversion {
       case TraversionItemKind.CHILD_SEPARATOR:
         switch (this.purpose) {
           case TraversionPurpose.BACKSTEP_TO_SEQUENCE_THEN:
+            this.steparranged = true;
             this.execute(TraversionItemActionKind.OMIT_SUBTREE, step.end);
             break;
         }
@@ -289,18 +292,18 @@ export class LinearTraversion {
             // REDUCE action (default or user function)
             // node succeeded, previous terminal was in a sub-/main-end state
             // :
-            // triggers to the user-defined action if any exists  
+            // triggers to the user-defined action if any exists
             // or default runtime action otherwise  generated here
-            // 
+            //
             // conditions:
             // - at beginning of any state traversion
             // excluded:
-            // - reduction checking omitted after first terminal 
+            // - reduction checking omitted after first terminal
             //   ( this is the expected behavior since we are
             //     analyzing one from-token to-tokens state transition
             //     table which is holding all reduction cases in the front
             //     of that  and  contains all token jumps after that )
-            // 
+            //
             // NOTE still generating this one for the previous state !
             //
             if (step.item.isReducable) {
@@ -314,10 +317,10 @@ export class LinearTraversion {
             break;
           case TraversionPurpose.FIND_NEXT_TOKENS:
             // Epsilon REDUCE action (default or user function)
-            // A whole branch was empty and it is accepted as a 
+            // A whole branch was empty and it is accepted as a
             // a valid empty node success (which should be of an
             // optionalBranch==true node) ...
-            // 
+            //
             // We simply skip this case, doing nothing
             //
             break;
@@ -325,7 +328,9 @@ export class LinearTraversion {
 
         break;
     }
-    this.execute(TraversionItemActionKind.CONTINUE, null);
+    if (!this.steparranged) {
+      this.execute(TraversionItemActionKind.CONTINUE, null);
+    }
   }
 
   execute(action: TraversionItemActionKind, step: TraversionControl, ...etc) {
@@ -338,9 +343,11 @@ export class LinearTraversion {
           throw new Error("Unknown here:" + step + " in " + this);
         }
         this.position = step.toPosition;
+        this.steparranged = true;
         break;
       case TraversionItemActionKind.RESET_POSITION:
         this.position = step.fromPosition;
+        this.steparranged = true;
         break;
       case TraversionItemActionKind.STEP_PURPOSE:
         (this as any).purpose = this.purposeThen.shift();
@@ -351,9 +358,11 @@ export class LinearTraversion {
         break;
       case TraversionItemActionKind.CONTINUE:
         this.position = this.positionBeforeStep + 1;
+        this.steparranged = true;
         break;
       case TraversionItemActionKind.STOP:
         this.stopped = true;
+        this.steparranged = true;
         break;
     }
   }
