@@ -8,9 +8,10 @@ export enum HyperGEnvType {
 }
 
 export namespace HyperG {
-  class Backup {
+  export class Backup {
 
     Env = HyperGEnvType.ANALYZING;
+    anal: Analysis.Backup = Analysis.empty();
     serializerStartingIdx = 0;
     serializerCnt = 0;
     functionTable: ((...etc) => any)[];
@@ -23,6 +24,7 @@ export namespace HyperG {
 
     load() {
       this.Env = Env;
+      this.anal = Analysis.backup();
       this.serializerStartingIdx = serializerStartingIdx;
       this.serializerCnt = serializerCnt;
       this.functionTable = [].concat(functionTable);
@@ -36,6 +38,7 @@ export namespace HyperG {
 
     save() {
       Env = this.Env;
+      this.anal.save();
       serializerStartingIdx = this.serializerStartingIdx;
       serializerCnt = this.serializerCnt;
       functionTable = this.functionTable;
@@ -81,13 +84,11 @@ export namespace HyperG {
 
   export function totallyReinitializableTransaction(fun: Function) {
 
-    const bak = Analysis.backup();
     const e = backup();
 
     try {
       fun();
     } finally {
-      bak.save();
       e.save();
     }
   }

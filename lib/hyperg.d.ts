@@ -1,4 +1,4 @@
-import { EntryPointInterpreter, ParseTable, PNode, PRule, PRuleRef, PValueNode } from '.';
+import { Analysis, EntryPointInterpreter, ParseTable, PNode, PRule, PRuleRef, PValueNode } from '.';
 export declare const MATCH_TOKEN = 40;
 export declare const ACCEPT_TOKEN = 41;
 export declare enum HyperGEnvType {
@@ -11,6 +11,7 @@ export declare enum HyperGEnvType {
 export declare namespace HyperG {
     class Backup {
         Env: HyperGEnvType;
+        anal: Analysis.Backup;
         serializerStartingIdx: number;
         serializerCnt: number;
         functionTable: ((...etc: any[]) => any)[];
@@ -23,21 +24,20 @@ export declare namespace HyperG {
         load(): void;
         save(): void;
     }
-    export var Env: HyperGEnvType;
-    export var serializerStartingIdx: number;
-    export var serializerCnt: number;
-    export var functionTable: ((...etc: any[]) => any)[];
-    export var ruleTable: PRule[];
-    export var ruleInterpreters: EntryPointInterpreter[];
-    export var nodeTable: PNode[];
-    export var ruleRefTable: PRuleRef[];
-    export var indent: string;
-    export var stack: Backup[];
-    export function backup(): Backup;
-    export function empty(): Backup;
-    export function totallyReinitializableTransaction(fun: Function): void;
-    export function countRuleRefs(): void;
-    export {};
+    var Env: HyperGEnvType;
+    var serializerStartingIdx: number;
+    var serializerCnt: number;
+    var functionTable: ((...etc: any[]) => any)[];
+    var ruleTable: PRule[];
+    var ruleInterpreters: EntryPointInterpreter[];
+    var nodeTable: PNode[];
+    var ruleRefTable: PRuleRef[];
+    var indent: string;
+    var stack: Backup[];
+    function backup(): Backup;
+    function empty(): Backup;
+    function totallyReinitializableTransaction(fun: Function): void;
+    function countRuleRefs(): void;
 }
 export declare function findDiff(str1: any, str2: any): string;
 export interface IFailure {

@@ -488,7 +488,7 @@ function generateTS(ast) {
             lib_1.HyperG.totallyReinitializableTransaction(function () {
                 lib_1.Analysis.stack[i].save();
                 parseTbl.push("");
-                parseTbl.push("namespace parseTableStack_" + i + " {");
+                parseTbl.push("export namespace parseTableStack_" + i + " {");
                 _he_tack.push("parseTableStack_" + i);
                 var doit = function (r) {
                     ri = ruleMap[r];
@@ -519,9 +519,11 @@ function generateTS(ast) {
                 parseTbl.push("");
                 parseTbl.push("  const peg$ChkIntTbls:[ParseTable,string][] = [];");
                 parseTbl.push("");
-                parseTbl.push("  export const peg$Initialized = $startup();");
+                parseTbl.push("  export const peg$Data = $startup();");
                 parseTbl.push("");
                 parseTbl.push("  function $startup() {");
+                parseTbl.push("    var bak: HyperG.Backup;");
+                parseTbl.push("");
                 parseTbl.push("    HyperG.totallyReinitializableTransaction(() => {");
                 parseTbl.push("      peg$PrsTblTbls = peg$decodePrsTblTbls(peg$PrsTblBuf);");
                 parseTbl.push("      peg$ChoiceTokens = Analysis.choiceTokens;");
@@ -533,8 +535,9 @@ function generateTS(ast) {
                 parseTbl.push("        peg$PrsTbls[i] = cd;");
                 parseTbl.push("        peg$ChkIntTbls[i] = [ cd, tc[1] ];");
                 parseTbl.push("      }");
+                parseTbl.push("      bak = HyperG.backup();");
                 parseTbl.push("    });");
-                parseTbl.push("    return true;");
+                parseTbl.push("    return bak;");
                 parseTbl.push("  }");
                 parseTbl.push("");
                 parseTbl.push("  export function peg$checkParseTablesIntegrity(mode: HyperGEnvType) {");
@@ -544,7 +547,7 @@ function generateTS(ast) {
             });
         }
         parseTbl.push("");
-        parseTbl.push("const parseTablesStack = [" + _he_tack.join(", ") + "];");
+        parseTbl.push("export const parseTablesStack = [" + _he_tack.join(", ") + "];");
         parseTbl.push("");
         parseTbl.push(['HyperGParser.checkAllDataIntegrity = function(mode?: HyperGEnvType) {',
             "    peg$checkRuleNodesIntegrity(mode);",
