@@ -39,6 +39,7 @@ export declare namespace HyperG {
     export function countRuleRefs(): void;
     export {};
 }
+export declare function findDiff(str1: any, str2: any): string;
 export interface IFailure {
     maxFailPos: number;
     maxFailExpected: Expectation[];

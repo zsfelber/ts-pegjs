@@ -147,21 +147,21 @@ export class ParseTable {
     }
 
     var serStates: number[] = [];
-    var myc:GrammarParsingLeafStateCommon[];
-    var als:GrammarParsingLeafState[];
+    var myc: GrammarParsingLeafStateCommon[];
+    var als: GrammarParsingLeafState[];
 
     switch (mode) {
-    case HyperGEnvType.ANALYZING:
-      myc = distinct(Object.values(this.myCommons), (a, b) => (a.replacedIndex - b.replacedIndex));
-      als = distinct(Object.values(this.allStates), (a, b) => (a.replacedIndex - b.replacedIndex));
-      break;
-    default:
-      myc = Object.values(this.myCommons);
-      als = Object.values(this.allStates);
-      break;
+      case HyperGEnvType.ANALYZING:
+        myc = distinct(Object.values(this.myCommons), (a, b) => (a.replacedIndex - b.replacedIndex));
+        als = distinct(Object.values(this.allStates), (a, b) => (a.replacedIndex - b.replacedIndex));
+        break;
+      default:
+        myc = Object.values(this.myCommons);
+        als = Object.values(this.allStates);
+        break;
     }
 
-    for (var i = 0; i < myc.length; ) {
+    for (var i = 0; i < myc.length;) {
       let s = myc[i++];
       if (s.replacedIndex !== undefined && s.replacedIndex !== i) {
         throw new Error("s.replacedIndex replacedIndex !== i   " + s.replacedIndex + " !== " + i);
@@ -173,7 +173,7 @@ export class ParseTable {
       }
     }
 
-    for (var i = 0; i < als.length; ) {
+    for (var i = 0; i < als.length;) {
       let s = als[i++];
       if (s.replacedIndex !== undefined && s.replacedIndex !== i) {
         throw new Error("s.replacedIndex replacedIndex !== i   " + s.replacedIndex + " !== " + i);
@@ -788,7 +788,8 @@ export class GrammarParsingLeafState {
   ser(): [number, number, number] {
     var spidx = this.startingPoint ? this.startingPoint.nodeIdx : 0;
     var rdx = this.reduceActions ? this.reduceActions.index : 0
-    var stcmidx = this.common ? this.common.replacedIndex : 0;
+    var stcmidx = this.commonIndex ? this.commonIndex
+      : (this.common ? this.common.replacedIndex : 0);
 
     var tuple: [number, number, number] = [spidx, rdx, stcmidx];
     return tuple;

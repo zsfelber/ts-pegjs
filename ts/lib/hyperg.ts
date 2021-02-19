@@ -104,6 +104,25 @@ export namespace HyperG {
   
 }
 
+export function findDiff(str1, str2){ 
+  let diff= "";
+  str2.split('').some(function(val, i){
+    if (val != str1.charAt(i)) {
+      diff += "<"+i+":"
+      diff += "\n";
+      diff += str1.substring(i);
+      diff += "\n";
+      diff += ">"+i+":";
+      diff += "\n";
+      diff += str2.substring(i);
+      return true;
+    }
+    return false;
+  });
+  return diff;
+};
+
+
 export interface IFailure {
   maxFailPos: number;
   maxFailExpected: Expectation[];
