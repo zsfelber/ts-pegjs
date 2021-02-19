@@ -84,14 +84,14 @@ export namespace Analysis {
 
     load() {
       this.ERRORS = ERRORS;
-      this.deferredRules = [].concat(deferredRules);
-      this.localDeferredRules = [].concat(localDeferredRules);
-      this.leafStates = [].concat(leafStates);
-      this.leafStateCommons = [].concat(leafStateCommons);
-      this.leafStateTransitionTables = [].concat(leafStateTransitionTables);
-      this.leafStateReduceTables = [].concat(leafStateReduceTables);
-      this.choiceTokens = [].concat(choiceTokens);
-      this.choiceTokenMap = [].concat(choiceTokenMap);
+      this.deferredRules = Object.assign([], deferredRules);
+      this.localDeferredRules = Object.assign([], localDeferredRules);
+      this.leafStates = Object.assign([], leafStates);
+      this.leafStateCommons = Object.assign([], leafStateCommons);
+      this.leafStateTransitionTables = Object.assign([], leafStateTransitionTables);
+      this.leafStateReduceTables = Object.assign([], leafStateReduceTables);
+      this.choiceTokens = Object.assign([], choiceTokens);
+      this.choiceTokenMap = Object.assign([], choiceTokenMap);
       this.maxTokenId = maxTokenId;
       this.totalStates = totalStates;
       this.cntChoiceTknIds = cntChoiceTknIds;
@@ -99,8 +99,8 @@ export namespace Analysis {
       this.serializedStateCommons = Object.assign({}, serializedStateCommons);
       this.serializedTransitions = Object.assign({}, serializedTransitions);
       this.serializedReduces = Object.assign({}, serializedReduces);
-      this.serializedParseTables = [].concat(serializedParseTables);
-      this.stack = [].concat(stack);
+      this.serializedParseTables = Object.assign([], serializedParseTables);
+      this.stack = Object.assign([], stack);
       this.serializedParseTablesCnt = serializedParseTablesCnt;
       this.parseTableGens = Object.assign({}, parseTableGens);
       this.parseTables = Object.assign({}, parseTables);

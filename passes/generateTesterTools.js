@@ -134,7 +134,7 @@ function shortenTreeUpwards(tnode, parents) {
                 p["$$$collapsed"] = 1;
                 break;
             case parsers_1.PNodeKind.RULE:
-                if (!plab) {
+                if (!plab && p.parent.parent) {
                     plab = p.parent.shortLabel;
                     if (!pkind)
                         pkind = p.node.kind;

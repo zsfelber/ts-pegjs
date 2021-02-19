@@ -27,13 +27,13 @@ export namespace HyperG {
       this.anal = Analysis.backup();
       this.serializerStartingIdx = serializerStartingIdx;
       this.serializerCnt = serializerCnt;
-      this.functionTable = [].concat(functionTable);
-      this.ruleTable = [].concat(ruleTable);
-      this.ruleInterpreters = [].concat(ruleInterpreters);
-      this.nodeTable = [].concat(nodeTable);
-      this.ruleRefTable = [].concat(ruleRefTable);
+      this.functionTable = Object.assign([], functionTable);
+      this.ruleTable = Object.assign([], ruleTable);
+      this.ruleInterpreters = Object.assign([], ruleInterpreters);
+      this.nodeTable = Object.assign([], nodeTable);
+      this.ruleRefTable = Object.assign([], ruleRefTable);
       this.indent = indent;
-      this.stack = [].concat(stack);
+      this.stack = Object.assign([], stack);
     }
 
     save() {

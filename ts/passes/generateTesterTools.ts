@@ -145,7 +145,7 @@ function shortenTreeUpwards(tnode: RuleElementTraverser, parents: RuleElementTra
         p["$$$collapsed"] = 1;
         break;
       case PNodeKind.RULE:
-        if (!plab) {
+        if (!plab && p.parent.parent) {
           plab = p.parent.shortLabel;
           if (!pkind) pkind = p.node.kind;
           p = p.parent;
