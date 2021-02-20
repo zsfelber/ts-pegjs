@@ -439,6 +439,12 @@ export namespace Analysis {
 
   export function initChoiceTokens() {
     var tki = -1;
+
+    stackShiftNodes.forEach(ssn=>{
+      // lazy
+      ssn.child;
+    })
+
     choiceTokens.forEach(c => {
       c._tokenId = tki--;
       choiceTokenMap[c._tokenId] = c.children;
