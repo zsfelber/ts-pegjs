@@ -613,6 +613,28 @@ Object.prototype.toString =
     return (this.constructor ? this.constructor.name : "object") + "@" + this[UNIQUE_OBJECT_ID];
   };
 
+  
+export function indexOfArray<T>(arr: T[], value: T, cmp?: ((a: T, b: T) => number)) {
+  var res = -1;
+  if (!cmp) cmp = DefaultComparator;
+  for (var i = 0; i<arr.length; i++) {
+    if (!cmp(arr[i], value)) {
+      res = i;
+      break;
+    }
+  }
+  return res;
+}
+    
+export function removeArrayItemOnce<T>(arr: T[], value: T, cmp?: ((a: T, b: T) => number)): T[] {
+  if (!cmp) cmp = DefaultComparator;
+  var index = indexOfArray(arr, value, cmp);
+  if (index > -1) {
+    arr.splice(index, 1);
+  }
+  return arr;
+}
+
 export function minimum<T>(inparr0: NumMapLike<T>, cmp?: ((a: T, b: T) => number)): [number, T] {
   if (!inparr0) return [-1, undefined];
   var inparr:T[] = Object.values(inparr0);

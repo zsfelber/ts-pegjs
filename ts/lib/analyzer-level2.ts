@@ -426,18 +426,25 @@ export class GenerateParseTableStackMainGen {
               // NOTE precondition ok : dependants updated
               var tokens = Object.keys(gimp.allShifts).join(",");
 
+              var updateRequired = false;
               Object.values(group).forEach(([importer, child, recshift, rr]) => {
                 if (gimp !== importer) {
                   throw new Error("groupBy didn't work");
                 }
-                importer.appendChild(child, recshift, rr);
+                if (importer.appendChild(child, recshift, rr)) {
+                  updateRequired = true;
+                }
               });
 
               gimp.generateShifts(phase);
-              var tokens2 = Object.keys(gimp.allShifts).join(",");
 
-              if (tokens !== tokens2) {
+              if (updateRequired) {
                 gimp.addAsUnresolved({});
+              } else {
+                var tokens2 = Object.keys(gimp.allShifts).join(",");
+                if (tokens !== tokens2) {
+                  throw new Error("tokens !== tokens2    "+tokens+" !== "+tokens2);
+                }
               }
 
               childrenAffctd++;
@@ -663,6 +670,9 @@ export class GenerateParseTableStackBox {
   }
 
   private newShift(shift: gRTShift) {
+
+    var updateRequired = false;
+
     var key = shift.shiftIndex + ":" + shift.tokenId;
     var oldshift: gRTShift = this.allShifts[key];
     if (oldshift) {
@@ -679,12 +689,18 @@ export class GenerateParseTableStackBox {
       shift.serStackItms(buf);
       var srnew = CodeTblToHex(buf).join(",");
       if (srold !== srnew) {
-        throw new Error("srold !== srnew   " + srold + " !== " + srnew);
+        this.allShifts[key] = shift;
+        this.allShiftsByToken.replace(shift);
+
+        updateRequired = true;
       }
     } else {
       this.allShifts[key] = shift;
       this.allShiftsByToken.add(shift);
+      updateRequired = true;
     }
+
+    return updateRequired;
   }
 
   generateShifts(phase: number) {
@@ -751,6 +767,8 @@ export class GenerateParseTableStackBox {
     }
     var es: gRTShift[][] = Object.values(sm.map);
 
+    var updateRequired = false;
+
     es.forEach((childShifts) => {
 
       var childShift = childShifts[0];
@@ -761,9 +779,14 @@ export class GenerateParseTableStackBox {
       newImportShift.stepIntoRecursive =
         [newStackItem].concat(childShift.stepIntoRecursive);
 
-      this.newShift(newImportShift);
+      if (this.newShift(newImportShift)) {
+        updateRequired = true;
+      }
 
     });
+
+    return updateRequired;
   }
+
 }
 

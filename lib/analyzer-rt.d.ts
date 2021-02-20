@@ -60,6 +60,7 @@ export declare class GrammarParsingLeafStateTransitions {
 export declare class gGrammarParsingLeafStateTransitions extends GrammarParsingLeafStateTransitions {
     map: NumMapLike<gRTShift[]>;
     add(shift: gRTShift): void;
+    replace(shift: gRTShift): void;
     clone(fixIds?: boolean): gGrammarParsingLeafStateTransitions;
     fixedClone(): gGrammarParsingLeafStateTransitions;
 }

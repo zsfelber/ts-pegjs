@@ -64,6 +64,6 @@ export declare class GenerateParseTableStackBox {
     private newShift;
     generateShifts(phase: number): void;
     insertStackOpenShifts(phase: number, recursiveShift: RTShift): void;
-    appendChild(child: GenerateParseTableStackMainGen, recursiveShift: RTShift, rr: PRuleRef): void;
+    appendChild(child: GenerateParseTableStackMainGen, recursiveShift: RTShift, rr: PRuleRef): boolean;
 }
 export {};
