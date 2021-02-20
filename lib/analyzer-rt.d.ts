@@ -36,9 +36,10 @@ export declare class RTStackShiftItem {
     index: number;
     childIndex: number;
     toStateIndex: number;
-    child: RTStackShiftItem;
+    _child: RTStackShiftItem;
     depth: number;
     constructor(enter: PRuleRef, toStateIndex: number, child?: RTStackShiftItem);
+    get child(): RTStackShiftItem;
     lazy(parseTable?: ParseTable, enter?: PRuleRef): void;
     get tuple(): number[];
 }

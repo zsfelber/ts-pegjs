@@ -307,28 +307,33 @@ export class RTStackShiftItem {
 
   toStateIndex: number;
 
-  child: RTStackShiftItem;
+  _child: RTStackShiftItem;
 
   depth = 1;
 
   constructor(enter: PRuleRef, toStateIndex: number, child?: RTStackShiftItem) {
     this.enter = enter;
     this.toStateIndex = toStateIndex;
-    this.child = child;
+    this._child = child;
     if (child) {
       this.depth = child.depth + 1;
     }
+  }
+
+  get child() {
+    if (!this._child && this.childIndex) {
+      this._child = Analysis.stackShiftNodes[this.childIndex];
+      this.depth = this._child.depth + 1;
+    }
+    return this._child;
   }
 
   lazy(parseTable?: ParseTable, enter?: PRuleRef) {
     if (!this.enter) {
       this.enter = enter;
     }
-    if (!this.child && this.childIndex) {
-      this.child = Analysis.stackShiftNodes[this.childIndex];
-      if (!this.child.enter) {
-        this.child.enter = parseTable.allStates[this.toStateIndex].startingPoint as PRuleRef;
-      }
+    if (!this.child.enter) {
+      this.child.enter = parseTable.allStates[this.toStateIndex].startingPoint as PRuleRef;
     }
   }
 
