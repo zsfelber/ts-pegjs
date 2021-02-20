@@ -144,7 +144,15 @@ export class CompressParseTable {
 
       var tots: [number, number, number, number] = [0, 0, 0, 0];
 
-      var changed = this.tra(state.serialStateMap, tots);
+      var trans = state.serialStateMap;
+      if (this.allowReindexTransitions) {
+        trans = trans.fixedClone();
+      }
+
+      var changed = this.tra(trans, tots);
+
+      state.serialStateMap.index = trans.index;
+
       var [nonreq, nonreqtot, req, reqtot] = tots;
 
       if (nonreq) {
@@ -187,10 +195,6 @@ export class CompressParseTable {
   }
 
   tra(trans: GrammarParsingLeafStateTransitions, maplen: [number, number, number, number]): boolean {
-
-    if (this.allowReindexTransitions) {
-      trans = trans.fixedClone();
-    }
 
     var shiftses: [string, RTShift[]][] = Object.entries(trans.map);
     if (shiftses.length) {
