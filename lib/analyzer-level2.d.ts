@@ -1,6 +1,7 @@
 import { gGrammarParsingLeafStateTransitions, GrammarParsingLeafState, GrammarParsingLeafStateCommon, GrammarParsingLeafStateReduces, GrammarParsingLeafStateTransitions, gRTShift, ParseTable, PRule, PRuleRef, RTShift, StrMapLike } from '.';
 export declare class CompressParseTable {
     parseTable: ParseTable;
+    allowReindexTransitions: boolean;
     log: boolean;
     info: string;
     t0: number;
@@ -19,7 +20,7 @@ export declare class CompressParseTable {
     serializedStateCommons: {
         [index: string]: GrammarParsingLeafStateCommon;
     };
-    constructor(parseTable: ParseTable, log?: boolean, info?: string);
+    constructor(parseTable: ParseTable, allowReindexTransitions: boolean, log?: boolean, info?: string);
     pack(): boolean;
     prstate(state: GrammarParsingLeafState): boolean;
     prscmn(state: GrammarParsingLeafStateCommon): boolean;

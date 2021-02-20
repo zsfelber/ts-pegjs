@@ -25,6 +25,7 @@ import {
 export class CompressParseTable {
 
   parseTable: ParseTable;
+  allowReindexTransitions: boolean;
   log = true;
   info = "";
   t0: number;
@@ -42,8 +43,9 @@ export class CompressParseTable {
 
   serializedStateCommons: { [index: string]: GrammarParsingLeafStateCommon } = {};
 
-  constructor(parseTable: ParseTable, log = true, info = "") {
+  constructor(parseTable: ParseTable, allowReindexTransitions: boolean, log = true, info = "") {
     this.parseTable = parseTable;
+    this.allowReindexTransitions = allowReindexTransitions;
     this.log = log;
     this.info = info;
 
@@ -184,6 +186,11 @@ export class CompressParseTable {
   }
 
   tra(trans: GrammarParsingLeafStateTransitions, maplen: [number, number, number, number]): boolean {
+
+    if (this.allowReindexTransitions) {
+      trans = trans.fixedClone();
+    }
+
     var shiftses: [string, RTShift[]][] = Object.entries(trans.map);
     if (shiftses.length) {
       var nonreq = 0;
@@ -677,7 +684,7 @@ export class GenerateParseTableStackBox {
 
   generateShifts(phase: number) {
 
-    var shifts = this.allShiftsByToken.fixedClone();
+    var shifts = this.allShiftsByToken.clone();
 
     this.common.replace(shifts);
   }

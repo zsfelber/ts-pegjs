@@ -241,7 +241,7 @@ function generate(ast) {
             allstarts.forEach(function (r) {
                 var ptg = analyzer_1.Analysis.parseTableGens[r];
                 var parseTable = analyzer_1.Analysis.parseTable(ptg.rule, ptg);
-                parseTable.pack(r === lastr, "OPTIMIZATION LEVEL 0");
+                parseTable.pack(false, r === lastr, "OPTIMIZATION LEVEL 0");
             });
             savedStack[0] = analyzer_1.Analysis.backup();
         });
@@ -260,7 +260,7 @@ function generate(ast) {
                     //console.log("Phase " + phase);
                     parseTable.fillStackOpenerTransitions(phase);
                 }
-                parseTable.pack(r === lastr, "OPTIMIZATION LEVEL 1 : PEG-LL(0)");
+                parseTable.pack(true, r === lastr, "OPTIMIZATION LEVEL 1 : PEG-LL(0)");
             });
             savedStack[1] = analyzer_1.Analysis.backup();
         });

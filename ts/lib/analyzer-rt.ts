@@ -103,10 +103,10 @@ export class ParseTable {
     this.openerTrans.generate(phase);
   }
 
-  pack(log = true, info = "") {
+  pack(allowReindexTransitions: boolean, log = true, info = "") {
     var result: boolean;
     if (!this.packed) {
-      var comp = new CompressParseTable(this, log, info);
+      var comp = new CompressParseTable(this, allowReindexTransitions, log, info);
       result = comp.pack();
 
       this.packed = true;
@@ -383,6 +383,10 @@ export class GrammarParsingLeafStateTransitions {
     return slots;
   }
 
+  fixedClone(): GrammarParsingLeafStateTransitions {
+    throw new Error("Default shifts not fixable");
+  }
+
   ser(buf: number[]): void {
 
     var ord: number[][] = [];
@@ -496,7 +500,8 @@ export class gGrammarParsingLeafStateTransitions extends GrammarParsingLeafState
     tshs.push(shift);
   }
 
-  fixedClone() {
+  clone(fixIds = false) {
+    var fixIdCnt = 0;
     var slots:gRTShift[][] = this.slotsByNonUniqueShiftIndex() as gRTShift[][];
     var result = new gGrammarParsingLeafStateTransitions();
     slots.forEach(slot=>{
@@ -505,11 +510,16 @@ export class gGrammarParsingLeafStateTransitions extends GrammarParsingLeafState
         if (!forTkn) {
           result.map[shift.tokenId] = forTkn = [];
         }
-        var dupWithFixedGenId = new gRTShift(shift.shiftIndex, shift.toStateIndex, shift.tokenId, shift.stepIntoRecursive);
+        const shidx = fixIds ? fixIdCnt++ :  shift.shiftIndex;
+        var dupWithFixedGenId = new gRTShift(shidx, shift.toStateIndex, shift.tokenId, shift.stepIntoRecursive);
         forTkn.push(dupWithFixedGenId);
       });      
     });
     return result;
+  }
+
+  fixedClone() {
+    return this.clone(true);
   }
 
 }

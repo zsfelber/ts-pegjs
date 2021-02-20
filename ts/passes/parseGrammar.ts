@@ -297,7 +297,7 @@ function generate(ast, ...args) {
         var ptg = Analysis.parseTableGens[r];
         var parseTable = Analysis.parseTable(ptg.rule, ptg);
 
-        parseTable.pack(r === lastr, "OPTIMIZATION LEVEL 0");
+        parseTable.pack(false, r === lastr, "OPTIMIZATION LEVEL 0");
       });
 
       savedStack[0] = Analysis.backup();
@@ -326,7 +326,7 @@ function generate(ast, ...args) {
 
         }
 
-        parseTable.pack(r === lastr, "OPTIMIZATION LEVEL 1 : PEG-LL(0)");
+        parseTable.pack(true, r === lastr, "OPTIMIZATION LEVEL 1 : PEG-LL(0)");
 
       });
 

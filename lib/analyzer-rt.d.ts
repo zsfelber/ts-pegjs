@@ -11,7 +11,7 @@ export declare class ParseTable {
     constructor(rule: PRule, g?: ParseTableGenerator);
     resetOptimization(log?: boolean): void;
     fillStackOpenerTransitions(phase: number, log?: boolean): void;
-    pack(log?: boolean, info?: string): boolean;
+    pack(allowReindexTransitions: boolean, log?: boolean, info?: string): boolean;
     static deserialize(rule: PRule, buf: number[]): ParseTable;
     leafStateCommon(index: number): GrammarParsingLeafStateCommon;
     leafState(index: number): GrammarParsingLeafState;
@@ -52,6 +52,7 @@ export declare class GrammarParsingLeafStateTransitions {
     constructor(copy?: GrammarParsingLeafStateTransitions);
     clear(): void;
     slotsByNonUniqueShiftIndex(): RTShift[][];
+    fixedClone(): GrammarParsingLeafStateTransitions;
     ser(buf: number[]): void;
     deser(index: number, buf: number[], pos: number): number;
     diagnosticEqualityCheck(table: GrammarParsingLeafStateTransitions): boolean;
@@ -59,6 +60,7 @@ export declare class GrammarParsingLeafStateTransitions {
 export declare class gGrammarParsingLeafStateTransitions extends GrammarParsingLeafStateTransitions {
     map: NumMapLike<gRTShift[]>;
     add(shift: gRTShift): void;
+    clone(fixIds?: boolean): gGrammarParsingLeafStateTransitions;
     fixedClone(): gGrammarParsingLeafStateTransitions;
 }
 export declare class GrammarParsingLeafStateReduces {
