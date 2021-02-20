@@ -1,4 +1,4 @@
-import { Analysis, EntryPointInterpreter, ParseTable, PNode, PRule, PRuleRef, PValueNode } from '.';
+import { Analysis, EntryPointInterpreter, ParseTable, PNode, PRule, PRuleRef, PValueNode, NumMapLike } from '.';
 
 export const MATCH_TOKEN = 40;
 export const ACCEPT_TOKEN = 41;
@@ -597,8 +597,9 @@ Object.prototype.toString =
     return (this.constructor ? this.constructor.name : "object") + "@" + this[UNIQUE_OBJECT_ID];
   };
 
-export function minimum<T>(inparr: T[], cmp?: ((a: T, b: T) => number)): [number, T] {
-  if (!inparr) return [-1, undefined];
+export function minimum<T>(inparr0: NumMapLike<T>, cmp?: ((a: T, b: T) => number)): [number, T] {
+  if (!inparr0) return [-1, undefined];
+  var inparr:T[] = Object.values(inparr0);
   if (!inparr.length) return [-1, undefined];
   if (!cmp) {
     cmp = DefaultComparator;
@@ -615,8 +616,9 @@ export function minimum<T>(inparr: T[], cmp?: ((a: T, b: T) => number)): [number
   return [mini, min];
 }
 
-export function maximum<T>(inparr: T[], cmp?: ((a: T, b: T) => number)): [number, T] {
-  if (!inparr) return [-1, undefined];
+export function maximum<T>(inparr0: NumMapLike<T>, cmp?: ((a: T, b: T) => number)): [number, T] {
+  if (!inparr0) return [-1, undefined];
+  var inparr:T[] = Object.values(inparr0);
   if (!inparr.length) return [-1, undefined];
   if (!cmp) {
     cmp = DefaultComparator;
@@ -633,19 +635,93 @@ export function maximum<T>(inparr: T[], cmp?: ((a: T, b: T) => number)): [number
   return [maxi, max];
 }
 
-export function distinct<T>(inparr: T[], cmp?: ((a: T, b: T) => number)) {
-  if (!inparr) return inparr;
-  if (!inparr.length) return [];
+export function distinct<T>(inparr0: NumMapLike<T>, cmp?: ((a: T, b: T) => number)) : T[] {
+  if (!inparr) return inparr0 as any;
   if (!cmp) {
     cmp = DefaultComparator;
   }
-  inparr = [].concat(inparr);
+  var inparr:T[] = Object.values(inparr0);
   inparr.sort(cmp);
   var pd = inparr[0];
   var resarr = [pd];
   for (var i = 1; i < inparr.length; i++, pd = d) {
     var d = inparr[i];
     if (cmp(d, pd)) resarr.push(d);
+  }
+  return resarr;
+}
+
+export function distinctIndexed<T>(inparr0: NumMapLike<T>, indexer: ((a: T) => number)) : T[] {
+  if (!inparr0) return inparr0 as any;
+  var inparr:T[] = Object.values(inparr0);
+  var resarr:T[] = [];
+  for (var i = 0; i < inparr.length; i++) {
+    var d = inparr[i];
+    var idx = indexer(d);
+    if (resarr[idx]) {
+      console.warn("distinctIndexed : index not unique : "+idx);
+    }
+    resarr[idx] = d;
+  }
+  return resarr;
+}
+
+
+export function groupBy<T>(inparr0: NumMapLike<T>, cmp?: ((a: T, b: T) => number)) : T[][] {
+  if (!inparr) return inparr0 as any;
+  if (!cmp) {
+    cmp = DefaultComparator;
+  }
+  var inparr:T[] = Object.values(inparr0);
+  inparr.sort(cmp);
+  var pd = inparr[0];
+  var curs = [pd];
+  var resarr = [curs];
+  for (var i = 1; i < inparr.length; i++, pd = d) {
+    var d = inparr[i];
+    if (cmp(d, pd)) {
+      resarr.push(curs = [d]);      
+    } else {
+      curs.push(d);
+    }
+  }
+
+  return resarr;
+
+}
+
+export function groupByIndexed<T>(inparr0: NumMapLike<T>, indexer: ((a: T) => number)) : T[][] {
+  if (!inparr0) return inparr0 as any;
+  var inparr:T[] = Object.values(inparr0);
+  var resarr:T[][] = [];
+  for (var i = 0; i < inparr.length; i++) {
+    var d = inparr[i];
+    var idx = indexer(d);
+    var slot = resarr[idx];
+    if (!slot) {
+      resarr[idx] = slot = [];
+    }
+
+    slot.push(d);
+  }
+  return resarr;
+}
+
+export function groupBy2Indexed<T>(inparr0: NumMapLike<NumMapLike<T>>, indexer: ((a: T) => number)) : T[][] {
+  if (!inparr0) return inparr0 as any;
+  var inparr:NumMapLike<T>[] = Object.values(inparr0);
+  var resarr:T[][] = [];
+  for (var i = 0; i < inparr.length; i++) {
+    var ds0 = inparr[i];
+    var ds = Object.values(ds0);
+    ds.forEach(d=>{
+      var idx = indexer(d);
+      var slot = resarr[idx];
+      if (!slot) {
+        resarr[idx] = slot = [];
+      }
+      slot.push(d);
+    });
   }
   return resarr;
 }

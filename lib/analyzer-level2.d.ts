@@ -1,4 +1,4 @@
-import { GrammarParsingLeafState, GrammarParsingLeafStateCommon, GrammarParsingLeafStateReduces, GrammarParsingLeafStateTransitions, NumMapLike, ParseTable, PRule, PRuleRef, RTShift, StrMapLike } from '.';
+import { gGrammarParsingLeafStateTransitions, GrammarParsingLeafState, GrammarParsingLeafStateCommon, GrammarParsingLeafStateReduces, GrammarParsingLeafStateTransitions, gRTShift, ParseTable, PRule, PRuleRef, RTShift, StrMapLike } from '.';
 export declare class CompressParseTable {
     parseTable: ParseTable;
     log: boolean;
@@ -29,7 +29,6 @@ export declare class CompressParseTable {
 declare type UnresolvedTuple = [GenerateParseTableStackBox, GenerateParseTableStackMainGen, RTShift, PRuleRef];
 declare type DependantTuple = [GenerateParseTableStackBox, RTShift, PRuleRef];
 declare type BoxImportTuple = [GenerateParseTableStackMainGen, RTShift, PRuleRef];
-declare type TknShiftTuple = [number, RTShift];
 export declare class GenerateParseTableStackMainGen {
     readonly parent: GenerateParseTableStackBox;
     readonly top: GenerateParseTableStackMainGen;
@@ -40,7 +39,6 @@ export declare class GenerateParseTableStackMainGen {
     readonly rule: PRule | PRuleRef;
     unresolvedRecursiveBoxes: UnresolvedTuple[];
     mainRuleBox: GenerateParseTableStackBox;
-    mainRuleBoxFinished: GrammarParsingLeafStateCommon;
     children: GenerateParseTableStackBox[];
     dependants: DependantTuple[];
     constructor(parent: GenerateParseTableStackBox, parseTable: ParseTable, rr?: PRuleRef);
@@ -53,20 +51,17 @@ export declare class GenerateParseTableStackBox {
     parseTable: ParseTable;
     common: GrammarParsingLeafStateCommon;
     trivial: GrammarParsingLeafStateTransitions;
-    lastTokens: string;
     stack: StrMapLike<GenerateParseTableStackMainGen>;
-    allShifts: StrMapLike<TknShiftTuple>;
-    allShiftsByToken: NumMapLike<RTShift[]>;
-    cntGenerationSecondaryIndex: number;
+    allShifts: StrMapLike<gRTShift>;
+    allShiftsByToken: gGrammarParsingLeafStateTransitions;
     children: BoxImportTuple[];
     recursiveShifts: RTShift[];
     constructor(parent: GenerateParseTableStackMainGen, parseTable: ParseTable, common: GrammarParsingLeafStateCommon, stack: StrMapLike<GenerateParseTableStackMainGen>);
     generate(phase: number): void;
     resetShitsToTrivial(): void;
-    generateShiftsAgain(phase: number): void;
     addAsUnresolved(stack: StrMapLike<GenerateParseTableStackMainGen>): void;
     private newShift;
-    private generateShifts;
+    generateShifts(phase: number): void;
     insertStackOpenShifts(phase: number, recursiveShift: RTShift): void;
     appendChild(child: GenerateParseTableStackMainGen, recursiveShift: RTShift, rr: PRuleRef): void;
 }

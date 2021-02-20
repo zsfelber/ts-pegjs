@@ -22,13 +22,16 @@ export declare class ParseTable {
 }
 export declare class RTShift {
     shiftIndex: number;
-    generationSecondaryIndex: number;
     readonly toStateIndex: number;
     stepIntoRecursive: RTStackShiftItem[];
     constructor(shiftIndex: number, toStateIndex: number, stepIntoRecursive?: RTStackShiftItem[]);
     serStackItms(buf: number[]): void;
     deserStackItms(buf: number[], pos: number): number;
     diagnosticEqualityCheck(table: RTShift): boolean;
+}
+export declare class gRTShift extends RTShift {
+    tokenId: number;
+    constructor(shiftIndex: number, toStateIndex: number, tokenId: number, stepIntoRecursive?: RTStackShiftItem[]);
 }
 export declare class RTStackShiftItem {
     parent: RTStackShiftItem;
@@ -46,12 +49,17 @@ export declare class RTReduce {
 export declare class GrammarParsingLeafStateTransitions {
     index: number;
     map: NumMapLike<RTShift[]>;
-    alreadySerialized: number[];
     constructor(copy?: GrammarParsingLeafStateTransitions);
     clear(): void;
+    slotsByNonUniqueShiftIndex(): RTShift[][];
     ser(buf: number[]): void;
     deser(index: number, buf: number[], pos: number): number;
     diagnosticEqualityCheck(table: GrammarParsingLeafStateTransitions): boolean;
+}
+export declare class gGrammarParsingLeafStateTransitions extends GrammarParsingLeafStateTransitions {
+    map: NumMapLike<gRTShift[]>;
+    add(shift: gRTShift): void;
+    fixedClone(): gGrammarParsingLeafStateTransitions;
 }
 export declare class GrammarParsingLeafStateReduces {
     index: number;

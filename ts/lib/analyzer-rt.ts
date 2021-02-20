@@ -3,6 +3,7 @@ import {
   CompressParseTable,
   distinct,
   GenerateParseTableStackMainGen,
+  groupBy2Indexed,
   HyperG,
   HyperGEnvType,
   NumMapLike,
@@ -264,15 +265,11 @@ export class RTShift {
 
   shiftIndex: number;
 
-  generationSecondaryIndex: number;
-
   readonly toStateIndex: number;
 
   stepIntoRecursive: RTStackShiftItem[] = [];
 
   constructor(shiftIndex: number, toStateIndex: number, stepIntoRecursive?: RTStackShiftItem[]) {
-    this[UNIQUE_OBJECT_ID];
-
     this.shiftIndex = shiftIndex;
     this.toStateIndex = toStateIndex;
     if (stepIntoRecursive) this.stepIntoRecursive = [].concat(stepIntoRecursive);
@@ -303,6 +300,18 @@ export class RTShift {
     return debuggerTrap(true);
   }
 }
+
+export class gRTShift extends RTShift {
+
+  tokenId: number;
+
+  constructor(shiftIndex: number, toStateIndex: number, tokenId: number, stepIntoRecursive?: RTStackShiftItem[]) {
+    super(shiftIndex, toStateIndex, stepIntoRecursive);
+    this[UNIQUE_OBJECT_ID];
+    this.tokenId = tokenId;
+  }
+}
+
 
 export class RTStackShiftItem {
 
@@ -356,26 +365,29 @@ export class GrammarParsingLeafStateTransitions {
 
   map: NumMapLike<RTShift[]> = {};
 
-  alreadySerialized: number[];
-
   constructor(copy?: GrammarParsingLeafStateTransitions) {
     if (copy) {
       this.index = copy.index;
       this.map = Object.assign({}, copy.map);
-      this.alreadySerialized = [].concat(copy.alreadySerialized);
     }
   }
 
   clear() {
     this.map = {};
-    this.alreadySerialized = undefined;
+  }
+
+  slotsByNonUniqueShiftIndex(): RTShift[][] {
+    var slots = groupBy2Indexed(this.map, (a)=>{
+      return a.shiftIndex;
+    })
+    return slots;
   }
 
   ser(buf: number[]): void {
 
     var ord: number[][] = [];
-    var es = Object.entries(this.map);
-    es.forEach(([key, shifts]: [string, RTShift[]]) => {
+    var es:[string, RTShift[]][] = Object.entries(this.map);
+    es.forEach(([key, shifts]) => {
       var tokenId = Number(key);
       shifts.forEach(shift => {
         var buf = [shift.shiftIndex, shift.toStateIndex, tokenId];
@@ -472,6 +484,35 @@ export class GrammarParsingLeafStateTransitions {
   }
 }
 
+export class gGrammarParsingLeafStateTransitions extends GrammarParsingLeafStateTransitions {
+
+  map: NumMapLike<gRTShift[]> = {};
+
+  add(shift: gRTShift) {
+    var tshs = this.map[shift.tokenId];
+    if (!tshs) {
+      this.map[shift.tokenId] = tshs = [];
+    }
+    tshs.push(shift);
+  }
+
+  fixedClone() {
+    var slots:gRTShift[][] = this.slotsByNonUniqueShiftIndex() as gRTShift[][];
+    var result = new gGrammarParsingLeafStateTransitions();
+    slots.forEach(slot=>{
+      Object.values(slot).forEach(shift=>{
+        var forTkn = result.map[shift.tokenId];
+        if (!forTkn) {
+          result.map[shift.tokenId] = forTkn = [];
+        }
+        var dupWithFixedGenId = new gRTShift(shift.shiftIndex, shift.toStateIndex, shift.tokenId, shift.stepIntoRecursive);
+        forTkn.push(dupWithFixedGenId);
+      });      
+    });
+    return result;
+  }
+
+}
 
 export class GrammarParsingLeafStateReduces {
 
