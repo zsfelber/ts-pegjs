@@ -1,4 +1,4 @@
-import { removeArrayItemOnce } from './hyperg';
+import { removeArrayItemMore } from './hyperg';
 import {
   Analysis,
   CompressParseTable,
@@ -503,12 +503,15 @@ export class gGrammarParsingLeafStateTransitions extends GrammarParsingLeafState
 
   replace(shift: gRTShift) {
     var tshs = this.map[shift.tokenId];
-    if (tshs) {
-      throw new Error("Replace nothing");
+    if (!tshs) {
+      throw new Error("Replace very nothing");
     }
-    removeArrayItemOnce(tshs, shift, (a,b)=>{
+    var rs = removeArrayItemMore(tshs, shift, (a,b)=>{
       return a.shiftIndex - b.shiftIndex;
     });
+    if (rs !== 1) {
+      throw new Error("Replace cnt not 1 : "+rs);
+    }
     tshs.push(shift);
   }
 

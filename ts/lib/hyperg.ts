@@ -614,10 +614,10 @@ Object.prototype.toString =
   };
 
   
-export function indexOfArray<T>(arr: T[], value: T, cmp?: ((a: T, b: T) => number)) {
+export function indexOfArray<T>(arr: T[], value: T, from: number, cmp?: ((a: T, b: T) => number)) {
   var res = -1;
   if (!cmp) cmp = DefaultComparator;
-  for (var i = 0; i<arr.length; i++) {
+  for (var i = from; i<arr.length; i++) {
     if (!cmp(arr[i], value)) {
       res = i;
       break;
@@ -626,13 +626,16 @@ export function indexOfArray<T>(arr: T[], value: T, cmp?: ((a: T, b: T) => numbe
   return res;
 }
     
-export function removeArrayItemOnce<T>(arr: T[], value: T, cmp?: ((a: T, b: T) => number)): T[] {
+export function removeArrayItemMore<T>(arr: T[], value: T, cmp?: ((a: T, b: T) => number)) {
+  var itms = 0;
   if (!cmp) cmp = DefaultComparator;
-  var index = indexOfArray(arr, value, cmp);
-  if (index > -1) {
+  var index = indexOfArray(arr, value, 0, cmp);
+  while (index > -1) {
     arr.splice(index, 1);
+    itms++;
+    index = indexOfArray(arr, value, index, cmp);
   }
-  return arr;
+  return itms;
 }
 
 export function minimum<T>(inparr0: NumMapLike<T>, cmp?: ((a: T, b: T) => number)): [number, T] {
