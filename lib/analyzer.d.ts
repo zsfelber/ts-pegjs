@@ -1,4 +1,4 @@
-import { ChoiceTraverser, EntryPointTraverser, GrammarParsingLeafState, GrammarParsingLeafStateCommon, GrammarParsingLeafStateReduces, GrammarParsingLeafStateTransitions, IncVariator, LinearTraversion, ParseTable, PRule, PValueNode, RefTraverser, RuleElementTraverser, RuleRefTraverser, TerminalRefTraverser } from '.';
+import { ChoiceTraverser, EntryPointTraverser, GrammarParsingLeafState, GrammarParsingLeafStateCommon, GrammarParsingLeafStateReduces, GrammarParsingLeafStateTransitions, IncVariator, LinearTraversion, ParseTable, PRule, PValueNode, RefTraverser, RTStackShiftItem, RuleElementTraverser, RuleRefTraverser, TerminalRefTraverser } from '.';
 export declare const FAIL_STATE = 0;
 export declare const START_STATE = 1;
 export declare const CNT_HUB_LEVELS = 1;
@@ -20,6 +20,7 @@ export declare namespace Analysis {
         leafStateCommons: GrammarParsingLeafStateCommon[];
         leafStateTransitionTables: GrammarParsingLeafStateTransitions[];
         leafStateReduceTables: GrammarParsingLeafStateReduces[];
+        stackShiftNodes: RTStackShiftItem[];
         choiceTokens: PValueNode[];
         choiceTokenMap: PValueNode[][];
         maxTokenId: number;
@@ -38,6 +39,7 @@ export declare namespace Analysis {
             [index: string]: SerOutputWithIndex;
         };
         serializedParseTables: SerOutputWithIndex[];
+        serializedStackShiftNodes: StrMapLike<[number, number, number]>;
         stack: Backup[];
         serializedParseTablesCnt: number;
         parseTableGens: StrMapLike<ParseTableGenerator>;
@@ -67,6 +69,7 @@ export declare namespace Analysis {
     var leafStateCommons: GrammarParsingLeafStateCommon[];
     var leafStateTransitionTables: GrammarParsingLeafStateTransitions[];
     var leafStateReduceTables: GrammarParsingLeafStateReduces[];
+    var stackShiftNodes: RTStackShiftItem[];
     var choiceTokens: PValueNode[];
     var choiceTokenMap: PValueNode[][];
     var maxTokenId: number;
@@ -86,6 +89,7 @@ export declare namespace Analysis {
         [index: string]: SerOutputWithIndex;
     };
     var serializedParseTables: SerOutputWithIndex[];
+    var serializedStackShiftNodes: StrMapLike<[number, number, number]>;
     var stack: Backup[];
     var serializedParseTablesCnt: number;
     var parseTableGens: StrMapLike<ParseTableGenerator>;
@@ -110,6 +114,7 @@ export declare namespace Analysis {
     function readAllSerializedTables(buf: number[]): number;
     function generateTableSerializationData(): void;
     function initChoiceTokens(): void;
+    function createStackShiftNode(toStateId: number, child: RTStackShiftItem): RTStackShiftItem;
 }
 export declare abstract class StateNodeCommon {
     parseTable: ParseTableGenerator;

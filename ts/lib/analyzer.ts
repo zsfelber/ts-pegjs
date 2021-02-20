@@ -7,20 +7,20 @@ import {
   GrammarParsingLeafStateReduces,
   GrammarParsingLeafStateTransitions,
   HyperG,
-  HyperGEnvType,
   IncVariator,
   LinearTraversion,
   ParseTable,
+  PNodeKind,
   PRule,
   PTerminalRef,
   PValueNode,
   RefTraverser,
+  RTStackShiftItem,
   RuleElementTraverser,
   RuleRefTraverser,
   TerminalRefTraverser,
   TraversionPurpose,
 } from '.';
-import { PNodeKind } from './parsers';
 
 
 export const FAIL_STATE = 0;
@@ -56,6 +56,7 @@ export namespace Analysis {
     leafStateCommons: GrammarParsingLeafStateCommon[] = [];
     leafStateTransitionTables: GrammarParsingLeafStateTransitions[] = [];
     leafStateReduceTables: GrammarParsingLeafStateReduces[] = [];
+    stackShiftNodes: RTStackShiftItem[] = [];
     choiceTokens: PValueNode[] = [];
     choiceTokenMap: PValueNode[][] = [];
     maxTokenId: number;
@@ -66,6 +67,7 @@ export namespace Analysis {
     serializedTransitions: {[index: string]:SerOutputWithIndex} = {};
     serializedReduces: {[index: string]:SerOutputWithIndex} = {};
     serializedParseTables: SerOutputWithIndex[] = [];
+    serializedStackShiftNodes: StrMapLike<[number,number,number]> = {};
     stack: Backup[] = [];
     serializedParseTablesCnt = 1;
     parseTableGens: StrMapLike<ParseTableGenerator> = {};
@@ -91,6 +93,7 @@ export namespace Analysis {
       this.leafStateCommons = Object.assign([], leafStateCommons);
       this.leafStateTransitionTables = Object.assign([], leafStateTransitionTables);
       this.leafStateReduceTables = Object.assign([], leafStateReduceTables);
+      this.stackShiftNodes = Object.assign([], stackShiftNodes);
       this.choiceTokens = Object.assign([], choiceTokens);
       this.choiceTokenMap = Object.assign([], choiceTokenMap);
       this.maxTokenId = maxTokenId;
@@ -101,6 +104,7 @@ export namespace Analysis {
       this.serializedTransitions = Object.assign({}, serializedTransitions);
       this.serializedReduces = Object.assign({}, serializedReduces);
       this.serializedParseTables = Object.assign([], serializedParseTables);
+      this.serializedStackShiftNodes = Object.assign({}, serializedStackShiftNodes);
       this.stack = Object.assign([], stack);
       this.serializedParseTablesCnt = serializedParseTablesCnt;
       this.parseTableGens = Object.assign({}, parseTableGens);
@@ -126,6 +130,7 @@ export namespace Analysis {
       leafStateCommons = this.leafStateCommons;
       leafStateTransitionTables = this.leafStateTransitionTables;
       leafStateReduceTables = this.leafStateReduceTables;
+      stackShiftNodes = this.stackShiftNodes;
       choiceTokens = this.choiceTokens;
       choiceTokenMap = this.choiceTokenMap;
       maxTokenId = this.maxTokenId;
@@ -136,6 +141,7 @@ export namespace Analysis {
       serializedTransitions = this.serializedTransitions;
       serializedReduces = this.serializedReduces;
       serializedParseTables = this.serializedParseTables;
+      serializedStackShiftNodes = this.serializedStackShiftNodes;
       stack = this.stack;
       serializedParseTablesCnt = this.serializedParseTablesCnt;
       parseTableGens = this.parseTableGens;
@@ -174,6 +180,8 @@ export namespace Analysis {
 
   export var leafStateReduceTables: GrammarParsingLeafStateReduces[] = [];
 
+  export var stackShiftNodes: RTStackShiftItem[] = [];
+
   export var choiceTokens: PValueNode[] = [];
 
   export var choiceTokenMap: PValueNode[][] = [];
@@ -195,6 +203,8 @@ export namespace Analysis {
   export var serializedReduces: {[index: string]:SerOutputWithIndex} = {};
 
   export var serializedParseTables: SerOutputWithIndex[] = [];
+
+  export var serializedStackShiftNodes: StrMapLike<[number,number,number]> = {};
 
   export var stack: Backup[] = [];
 
@@ -273,6 +283,7 @@ export namespace Analysis {
     var scmn0 = serializedStateCommons;
     var slf0 = serializedLeafStates;
     var ctk0 = choiceTokens;
+    var ssixtp:[number,number,number][] = Object.values(serializedStackShiftNodes);
     var strans = distinct(strans0, (a,b)=>{
       return a.index-b.index;
     });
@@ -290,12 +301,21 @@ export namespace Analysis {
       return b.tokenId-a.tokenId;
     });
 
+    buf.push(ssixtp.length);
     buf.push(strans.length);
     buf.push(sreds.length);
     buf.push(scmn.length);
     buf.push(slf.length);
     buf.push(ctk.length);
 
+    var i = 1;
+    ssixtp.forEach(s=>{
+      buf.push(s[1], s[2]);
+      if (s[0] !== i) {
+        throw new Error("s[0] !== i   "+s[0]+" !== "+i);
+      }
+      i++;
+    });
     var i = 1;
     strans.forEach(s=>{
       s.output.forEach(num=>buf.push(num));
@@ -338,8 +358,15 @@ export namespace Analysis {
   export function readAllSerializedTables(buf: number[]): number {
 
     var pos = 0;
-    var [stransln,sredsln,scmnln,slfln,ctks] = [buf[pos++], buf[pos++], buf[pos++], buf[pos++], buf[pos++]];
+    var [ssixln,stransln,sredsln,scmnln,slfln,ctks] = [buf[pos++], buf[pos++], buf[pos++], buf[pos++], buf[pos++], buf[pos++]];
 
+    for (var i=1; i<=ssixln; i++) {
+      var x = new RTStackShiftItem(null, buf[pos++]);
+      x.index = i;
+      x.childIndex= buf[pos++];
+      stackShiftNodes[i] = x;
+      serializedStackShiftNodes[i] = [i, x.toStateIndex, x.childIndex];
+    }
     for (var i=1; i<=stransln; i++) {
       var trans = new GrammarParsingLeafStateTransitions();
       pos = trans.deser(i, buf, pos);
@@ -429,6 +456,20 @@ export namespace Analysis {
     });
   }
 
+  export function createStackShiftNode(toStateId: number, child: RTStackShiftItem) {
+    var key = toStateId + "," + child.index;
+    var r = serializedStackShiftNodes[key];
+    var rs: RTStackShiftItem;
+    if (r) {
+      rs = stackShiftNodes[r[0]];
+    } else {
+      serializedStackShiftNodes[key] = r = [stackShiftNodes.length + 1, toStateId, child.index];
+      rs = new RTStackShiftItem(null, toStateId, child);
+      rs.index = r[0];
+      stackShiftNodes[r[0]] = rs;
+    }
+    return rs;
+  }
 
 }
 

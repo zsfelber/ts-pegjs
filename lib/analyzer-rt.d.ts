@@ -23,22 +23,24 @@ export declare class ParseTable {
 export declare class RTShift {
     shiftIndex: number;
     readonly toStateIndex: number;
-    stepIntoRecursive: RTStackShiftItem[];
-    constructor(shiftIndex: number, toStateIndex: number, stepIntoRecursive?: RTStackShiftItem[]);
-    serStackItms(buf: number[]): void;
-    deserStackItms(buf: number[], pos: number): number;
+    stepIntoRecursive: RTStackShiftItem;
+    constructor(shiftIndex: number, toStateIndex: number, stepIntoRecursive?: RTStackShiftItem);
     diagnosticEqualityCheck(table: RTShift): boolean;
 }
 export declare class gRTShift extends RTShift {
     tokenId: number;
-    constructor(shiftIndex: number, toStateIndex: number, tokenId: number, stepIntoRecursive?: RTStackShiftItem[]);
+    constructor(shiftIndex: number, toStateIndex: number, tokenId: number, stepIntoRecursive?: RTStackShiftItem);
 }
 export declare class RTStackShiftItem {
-    parent: RTStackShiftItem;
     enter: PRuleRef;
+    index: number;
+    childIndex: number;
     toStateIndex: number;
-    constructor(enter: PRuleRef, toStateIndex: number, parent?: RTStackShiftItem);
-    lazyRule(parseTable?: ParseTable, shift0?: RTShift): void;
+    child: RTStackShiftItem;
+    depth: number;
+    constructor(enter: PRuleRef, toStateIndex: number, child?: RTStackShiftItem);
+    lazy(parseTable?: ParseTable, enter?: PRuleRef): void;
+    get tuple(): number[];
 }
 export declare class RTReduce {
     readonly shiftIndex: number;
