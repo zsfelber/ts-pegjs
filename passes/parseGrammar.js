@@ -209,8 +209,8 @@ function generate(ast) {
         analyzer_1.Analysis.localDeferredRules = lib_1.distinct(analyzer_1.Analysis.localDeferredRules);
         var def0 = 0, ldef0 = 0;
         for (var first = true;;) {
-            var ds = analyzer_1.Analysis.deferredRules.slice(def0).concat(analyzer_1.Analysis.localDeferredRules.slice(ldef0));
-            ds = lib_1.distinct(ds);
+            var ds0 = analyzer_1.Analysis.deferredRules.slice(def0).concat(analyzer_1.Analysis.localDeferredRules.slice(ldef0));
+            var ds = lib_1.distinct(ds0);
             if (ds.length) {
                 console.log("Remaining deferred rules: " + ds.join(", "));
             }

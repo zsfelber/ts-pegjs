@@ -10,6 +10,7 @@ export interface StrMapLike<V> {
 export interface NumMapLike<V> {
     [index: number]: V;
 }
+export declare type MapLike<V> = StrMapLike<V> | NumMapLike<V>;
 export declare namespace Analysis {
     class Backup {
         ERRORS: number;

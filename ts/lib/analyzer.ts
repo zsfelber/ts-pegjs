@@ -43,6 +43,7 @@ export interface StrMapLike<V> {
 export interface NumMapLike<V> {
   [index: number]: V;
 }
+export type MapLike<V> = StrMapLike<V>|NumMapLike<V>;
 
 export namespace Analysis {
 
@@ -267,11 +268,11 @@ export namespace Analysis {
   }
 
   export function writeAllSerializedTables(buf: number[]) {
-    var strans0 = Object.values(serializedTransitions);
-    var sreds0 = Object.values(serializedReduces);
-    var scmn0 = Object.values(serializedStateCommons);
-    var slf0 = Object.values(serializedLeafStates);
-    var ctk0 = Object.values(choiceTokens);
+    var strans0 = serializedTransitions;
+    var sreds0 = serializedReduces;
+    var scmn0 = serializedStateCommons;
+    var slf0 = serializedLeafStates;
+    var ctk0 = choiceTokens;
     var strans = distinct(strans0, (a,b)=>{
       return a.index-b.index;
     });

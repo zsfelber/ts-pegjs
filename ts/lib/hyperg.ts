@@ -1,4 +1,4 @@
-import { Analysis, EntryPointInterpreter, ParseTable, PNode, PRule, PRuleRef, PValueNode, NumMapLike } from '.';
+import { Analysis, EntryPointInterpreter, ParseTable, PNode, PRule, PRuleRef, PValueNode, NumMapLike, MapLike } from '.';
 
 export const MATCH_TOKEN = 40;
 export const ACCEPT_TOKEN = 41;
@@ -635,12 +635,14 @@ export function maximum<T>(inparr0: NumMapLike<T>, cmp?: ((a: T, b: T) => number
   return [maxi, max];
 }
 
-export function distinct<T>(inparr0: NumMapLike<T>, cmp?: ((a: T, b: T) => number)) : T[] {
-  if (!inparr) return inparr0 as any;
+export function distinct<T>(inparr0: MapLike<T>, cmp?: ((a: T, b: T) => number)) : T[] {
+  if (!inparr0) return inparr0 as any;
   if (!cmp) {
     cmp = DefaultComparator;
   }
   var inparr:T[] = Object.values(inparr0);
+  if (!inparr.length) return [];
+
   inparr.sort(cmp);
   var pd = inparr[0];
   var resarr = [pd];
@@ -651,7 +653,7 @@ export function distinct<T>(inparr0: NumMapLike<T>, cmp?: ((a: T, b: T) => numbe
   return resarr;
 }
 
-export function distinctIndexed<T>(inparr0: NumMapLike<T>, indexer: ((a: T) => number)) : T[] {
+export function distinctIndexed<T>(inparr0: MapLike<T>, indexer: ((a: T) => number)) : T[] {
   if (!inparr0) return inparr0 as any;
   var inparr:T[] = Object.values(inparr0);
   var resarr:T[] = [];
@@ -667,12 +669,14 @@ export function distinctIndexed<T>(inparr0: NumMapLike<T>, indexer: ((a: T) => n
 }
 
 
-export function groupBy<T>(inparr0: NumMapLike<T>, cmp?: ((a: T, b: T) => number)) : T[][] {
-  if (!inparr) return inparr0 as any;
+export function groupBy<T>(inparr0: MapLike<T>, cmp?: ((a: T, b: T) => number)) : T[][] {
+  if (!inparr0) return inparr0 as any;
   if (!cmp) {
     cmp = DefaultComparator;
   }
   var inparr:T[] = Object.values(inparr0);
+  if (!inparr.length) return [];
+
   inparr.sort(cmp);
   var pd = inparr[0];
   var curs = [pd];
@@ -690,7 +694,7 @@ export function groupBy<T>(inparr0: NumMapLike<T>, cmp?: ((a: T, b: T) => number
 
 }
 
-export function groupByIndexed<T>(inparr0: NumMapLike<T>, indexer: ((a: T) => number)) : T[][] {
+export function groupByIndexed<T>(inparr0: MapLike<T>, indexer: ((a: T) => number)) : T[][] {
   if (!inparr0) return inparr0 as any;
   var inparr:T[] = Object.values(inparr0);
   var resarr:T[][] = [];
@@ -707,13 +711,13 @@ export function groupByIndexed<T>(inparr0: NumMapLike<T>, indexer: ((a: T) => nu
   return resarr;
 }
 
-export function groupBy2Indexed<T>(inparr0: NumMapLike<NumMapLike<T>>, indexer: ((a: T) => number)) : T[][] {
+export function groupBy2Indexed<T>(inparr0: MapLike<MapLike<T>>, indexer: ((a: T) => number)) : T[][] {
   if (!inparr0) return inparr0 as any;
-  var inparr:NumMapLike<T>[] = Object.values(inparr0);
+  var inparr:MapLike<T>[] = Object.values(inparr0);
   var resarr:T[][] = [];
   for (var i = 0; i < inparr.length; i++) {
     var ds0 = inparr[i];
-    var ds = Object.values(ds0);
+    var ds:T[] = Object.values(ds0);
     ds.forEach(d=>{
       var idx = indexer(d);
       var slot = resarr[idx];

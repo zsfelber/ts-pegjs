@@ -254,8 +254,8 @@ function generate(ast, ...args) {
 
     var def0 = 0, ldef0 = 0;
     for (var first = true; ;) {
-      var ds = Analysis.deferredRules.slice(def0).concat(Analysis.localDeferredRules.slice(ldef0));
-      ds = distinct(ds);
+      var ds0 = Analysis.deferredRules.slice(def0).concat(Analysis.localDeferredRules.slice(ldef0));
+      var ds = distinct(ds0);
 
       if (ds.length) {
         console.log("Remaining deferred rules: " + ds.join(", "));

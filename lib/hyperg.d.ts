@@ -1,4 +1,4 @@
-import { Analysis, EntryPointInterpreter, ParseTable, PNode, PRule, PRuleRef, PValueNode, NumMapLike } from '.';
+import { Analysis, EntryPointInterpreter, ParseTable, PNode, PRule, PRuleRef, PValueNode, NumMapLike, MapLike } from '.';
 export declare const MATCH_TOKEN = 40;
 export declare const ACCEPT_TOKEN = 41;
 export declare enum HyperGEnvType {
@@ -142,11 +142,11 @@ export declare const DefaultComparator: (a: any, b: any) => any;
 export declare var UNIQUE_OBJECT_ID: string;
 export declare function minimum<T>(inparr0: NumMapLike<T>, cmp?: ((a: T, b: T) => number)): [number, T];
 export declare function maximum<T>(inparr0: NumMapLike<T>, cmp?: ((a: T, b: T) => number)): [number, T];
-export declare function distinct<T>(inparr0: NumMapLike<T>, cmp?: ((a: T, b: T) => number)): T[];
-export declare function distinctIndexed<T>(inparr0: NumMapLike<T>, indexer: ((a: T) => number)): T[];
-export declare function groupBy<T>(inparr0: NumMapLike<T>, cmp?: ((a: T, b: T) => number)): T[][];
-export declare function groupByIndexed<T>(inparr0: NumMapLike<T>, indexer: ((a: T) => number)): T[][];
-export declare function groupBy2Indexed<T>(inparr0: NumMapLike<NumMapLike<T>>, indexer: ((a: T) => number)): T[][];
+export declare function distinct<T>(inparr0: MapLike<T>, cmp?: ((a: T, b: T) => number)): T[];
+export declare function distinctIndexed<T>(inparr0: MapLike<T>, indexer: ((a: T) => number)): T[];
+export declare function groupBy<T>(inparr0: MapLike<T>, cmp?: ((a: T, b: T) => number)): T[][];
+export declare function groupByIndexed<T>(inparr0: MapLike<T>, indexer: ((a: T) => number)): T[][];
+export declare function groupBy2Indexed<T>(inparr0: MapLike<MapLike<T>>, indexer: ((a: T) => number)): T[][];
 export declare function CodeTblToHex(s: number[]): any[];
 export declare function encodePrsTbl(parseTable: ParseTable): string;
 export declare function encodeVsimPck(code: number[]): string;

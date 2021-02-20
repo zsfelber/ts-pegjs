@@ -153,8 +153,8 @@ export class ParseTable {
 
     switch (mode) {
       case HyperGEnvType.ANALYZING:
-        myc = distinct(Object.values(this.myCommons), (a, b) => (a.replacedIndex - b.replacedIndex));
-        als = distinct(Object.values(this.allStates), (a, b) => (a.replacedIndex - b.replacedIndex));
+        myc = distinct(this.myCommons, (a, b) => (a.replacedIndex - b.replacedIndex));
+        als = distinct(this.allStates, (a, b) => (a.replacedIndex - b.replacedIndex));
         break;
       default:
         myc = Object.values(this.myCommons);
