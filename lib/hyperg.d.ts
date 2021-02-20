@@ -138,7 +138,7 @@ export declare class SourceFilePosUtil {
     calculatePosition(buffer: IStringLike, pos: number): IFilePosition;
 }
 export declare function JSstringEscape(s: any): any;
-export declare const DefaultComparator: (a: any, b: any) => any;
+export declare const DefaultComparator: (a: any, b: any) => number;
 export declare var UNIQUE_OBJECT_INDEX: string;
 export declare var UNIQUE_OBJECT_ID: string;
 export declare function indexOfArray<T>(arr: T[], value: T, from: number, cmp?: ((a: T, b: T) => number)): number;

@@ -102,18 +102,18 @@ export namespace HyperG {
     });
   }
 
-  
+
 }
 
-export function findDiff(str1, str2){ 
-  let diff= "";
-  str2.split('').some(function(val, i){
+export function findDiff(str1, str2) {
+  let diff = "";
+  str2.split('').some(function (val, i) {
     if (val != str1.charAt(i)) {
-      diff += "<"+i+":"
+      diff += "<" + i + ":"
       diff += "\n";
       diff += str1.substring(i);
       diff += "\n";
-      diff += ">"+i+":";
+      diff += ">" + i + ":";
       diff += "\n";
       diff += str2.substring(i);
       return true;
@@ -565,7 +565,7 @@ export const DefaultComparator = (a, b) => {
   } else if (typeof (a) === "string" && typeof (b) === "string") {
     return a.localeCompare(b);
   } else {
-    return a[UNIQUE_OBJECT_ID].toString().localeCompare(b[UNIQUE_OBJECT_ID].toString());
+    return a[UNIQUE_OBJECT_INDEX] - b[UNIQUE_OBJECT_INDEX];
   }
 };
 
@@ -613,11 +613,11 @@ Object.prototype.toString =
     return (this.constructor ? this.constructor.name : "object") + "@" + this[UNIQUE_OBJECT_ID];
   };
 
-  
+
 export function indexOfArray<T>(arr: T[], value: T, from: number, cmp?: ((a: T, b: T) => number)) {
   var res = -1;
   if (!cmp) cmp = DefaultComparator;
-  for (var i = from; i<arr.length; i++) {
+  for (var i = from; i < arr.length; i++) {
     if (!cmp(arr[i], value)) {
       res = i;
       break;
@@ -625,7 +625,7 @@ export function indexOfArray<T>(arr: T[], value: T, from: number, cmp?: ((a: T, 
   }
   return res;
 }
-    
+
 export function removeArrayItemMore<T>(arr: T[], value: T, cmp?: ((a: T, b: T) => number)) {
   var itms = 0;
   if (!cmp) cmp = DefaultComparator;
@@ -640,7 +640,7 @@ export function removeArrayItemMore<T>(arr: T[], value: T, cmp?: ((a: T, b: T) =
 
 export function minimum<T>(inparr0: NumMapLike<T>, cmp?: ((a: T, b: T) => number)): [number, T] {
   if (!inparr0) return [-1, undefined];
-  var inparr:T[] = Object.values(inparr0);
+  var inparr: T[] = Object.values(inparr0);
   if (!inparr.length) return [-1, undefined];
   if (!cmp) {
     cmp = DefaultComparator;
@@ -659,7 +659,7 @@ export function minimum<T>(inparr0: NumMapLike<T>, cmp?: ((a: T, b: T) => number
 
 export function maximum<T>(inparr0: NumMapLike<T>, cmp?: ((a: T, b: T) => number)): [number, T] {
   if (!inparr0) return [-1, undefined];
-  var inparr:T[] = Object.values(inparr0);
+  var inparr: T[] = Object.values(inparr0);
   if (!inparr.length) return [-1, undefined];
   if (!cmp) {
     cmp = DefaultComparator;
@@ -676,12 +676,12 @@ export function maximum<T>(inparr0: NumMapLike<T>, cmp?: ((a: T, b: T) => number
   return [maxi, max];
 }
 
-export function distinct<T>(inparr0: MapLike<T>, cmp?: ((a: T, b: T) => number)) : T[] {
+export function distinct<T>(inparr0: MapLike<T>, cmp?: ((a: T, b: T) => number)): T[] {
   if (!inparr0) return inparr0 as any;
   if (!cmp) {
     cmp = DefaultComparator;
   }
-  var inparr:T[] = Object.values(inparr0);
+  var inparr: T[] = Object.values(inparr0);
   if (!inparr.length) return [];
 
   inparr.sort(cmp);
@@ -694,15 +694,15 @@ export function distinct<T>(inparr0: MapLike<T>, cmp?: ((a: T, b: T) => number))
   return resarr;
 }
 
-export function distinctIndexed<T>(inparr0: MapLike<T>, indexer: ((a: T) => number)) : T[] {
+export function distinctIndexed<T>(inparr0: MapLike<T>, indexer: ((a: T) => number)): T[] {
   if (!inparr0) return inparr0 as any;
-  var inparr:T[] = Object.values(inparr0);
-  var resarr:T[] = [];
+  var inparr: T[] = Object.values(inparr0);
+  var resarr: T[] = [];
   for (var i = 0; i < inparr.length; i++) {
     var d = inparr[i];
     var idx = indexer(d);
     if (resarr[idx]) {
-      console.warn("distinctIndexed : index not unique : "+idx);
+      console.warn("distinctIndexed : index not unique : " + idx);
     }
     resarr[idx] = d;
   }
@@ -710,12 +710,12 @@ export function distinctIndexed<T>(inparr0: MapLike<T>, indexer: ((a: T) => numb
 }
 
 
-export function groupBy<T>(inparr0: MapLike<T>, cmp?: ((a: T, b: T) => number)) : T[][] {
+export function groupBy<T>(inparr0: MapLike<T>, cmp?: ((a: T, b: T) => number)): T[][] {
   if (!inparr0) return inparr0 as any;
   if (!cmp) {
     cmp = DefaultComparator;
   }
-  var inparr:T[] = Object.values(inparr0);
+  var inparr: T[] = Object.values(inparr0);
   if (!inparr.length) return [];
 
   inparr.sort(cmp);
@@ -725,7 +725,7 @@ export function groupBy<T>(inparr0: MapLike<T>, cmp?: ((a: T, b: T) => number)) 
   for (var i = 1; i < inparr.length; i++, pd = d) {
     var d = inparr[i];
     if (cmp(d, pd)) {
-      resarr.push(curs = [d]);      
+      resarr.push(curs = [d]);
     } else {
       curs.push(d);
     }
@@ -735,10 +735,10 @@ export function groupBy<T>(inparr0: MapLike<T>, cmp?: ((a: T, b: T) => number)) 
 
 }
 
-export function groupByIndexed<T>(inparr0: MapLike<T>, indexer: ((a: T) => number)) : T[][] {
+export function groupByIndexed<T>(inparr0: MapLike<T>, indexer: ((a: T) => number)): T[][] {
   if (!inparr0) return inparr0 as any;
-  var inparr:T[] = Object.values(inparr0);
-  var resarr:T[][] = [];
+  var inparr: T[] = Object.values(inparr0);
+  var resarr: T[][] = [];
   for (var i = 0; i < inparr.length; i++) {
     var d = inparr[i];
     var idx = indexer(d);
@@ -752,14 +752,14 @@ export function groupByIndexed<T>(inparr0: MapLike<T>, indexer: ((a: T) => numbe
   return resarr;
 }
 
-export function groupBy2Indexed<T>(inparr0: MapLike<MapLike<T>>, indexer: ((a: T) => number)) : T[][] {
+export function groupBy2Indexed<T>(inparr0: MapLike<MapLike<T>>, indexer: ((a: T) => number)): T[][] {
   if (!inparr0) return inparr0 as any;
-  var inparr:MapLike<T>[] = Object.values(inparr0);
-  var resarr:T[][] = [];
+  var inparr: MapLike<T>[] = Object.values(inparr0);
+  var resarr: T[][] = [];
   for (var i = 0; i < inparr.length; i++) {
     var ds0 = inparr[i];
-    var ds:T[] = Object.values(ds0);
-    ds.forEach(d=>{
+    var ds: T[] = Object.values(ds0);
+    ds.forEach(d => {
       var idx = indexer(d);
       var slot = resarr[idx];
       if (!slot) {
@@ -821,55 +821,55 @@ export function verySimplePackMany0(raw: string) {
 }
 
 const HTOD = {
-  '0': 0,'1': 1,'2': 2,'3': 3,'4': 4,
-  '5': 5,'6': 6,'7': 7,'8': 8,'9': 9,
-  'A': 10,'B': 11,'C': 12,'D': 13,'E': 14,'F': 15,
+  '0': 0, '1': 1, '2': 2, '3': 3, '4': 4,
+  '5': 5, '6': 6, '7': 7, '8': 8, '9': 9,
+  'A': 10, 'B': 11, 'C': 12, 'D': 13, 'E': 14, 'F': 15,
 }
 
 export function peg$decode(s: string) {
   var code: number[] = [];
-  for (var i=0, sign=1; i<s.length; ) {
-    const rrr = (R)=>{
+  for (var i = 0, sign = 1; i < s.length;) {
+    const rrr = (R) => {
       var ra = R.exec(s);
       var num = 0;
-      for (var j=0; j<ra[1].length; j++) {
-        num = (num<<4) + HTOD[ra[1][j]];
+      for (var j = 0; j < ra[1].length; j++) {
+        num = (num << 4) + HTOD[ra[1][j]];
       }
       i = R.lastIndex;
       return num;
     };
     var char1 = s.charAt(i++);
     switch (char1) {
-    case "{":
-      var R = /\\{(.*?)\\}/;
-      var len = rrr(R);
-      for (var k=0; k<len; k++) code.push(0);
-      sign=1;
-      break;
-    case "(":
-      var R = /\\((.*?)\\)/;
-      var num = rrr(R);
-      code.push(sign*num);
-      sign=1;
-      break;
-    case "X":
-      code.push(sign*((HTOD[s.charAt(i++)]<<12) + (HTOD[s.charAt(i++)]<<8) + (HTOD[s.charAt(i++)]<<4) +  HTOD[s.charAt(i++)]));
-      sign=1;
-      break;
-    case "x":
-      code.push(sign*((HTOD[s.charAt(i++)]<<8) +  (HTOD[s.charAt(i++)]<<4) +  HTOD[s.charAt(i++)]));
-      sign=1;
-      break;
-    case "-":
-      sign=-1;
-      break;
-    case "+":
-      sign=1;
-      break;
-    default:
-      code.push(sign*((HTOD[    char1    ]<<4) +  HTOD[s.charAt(i++)]));
-      sign=1;
-      break;
+      case "{":
+        var R = /\\{(.*?)\\}/;
+        var len = rrr(R);
+        for (var k = 0; k < len; k++) code.push(0);
+        sign = 1;
+        break;
+      case "(":
+        var R = /\\((.*?)\\)/;
+        var num = rrr(R);
+        code.push(sign * num);
+        sign = 1;
+        break;
+      case "X":
+        code.push(sign * ((HTOD[s.charAt(i++)] << 12) + (HTOD[s.charAt(i++)] << 8) + (HTOD[s.charAt(i++)] << 4) + HTOD[s.charAt(i++)]));
+        sign = 1;
+        break;
+      case "x":
+        code.push(sign * ((HTOD[s.charAt(i++)] << 8) + (HTOD[s.charAt(i++)] << 4) + HTOD[s.charAt(i++)]));
+        sign = 1;
+        break;
+      case "-":
+        sign = -1;
+        break;
+      case "+":
+        sign = 1;
+        break;
+      default:
+        code.push(sign * ((HTOD[char1] << 4) + HTOD[s.charAt(i++)]));
+        sign = 1;
+        break;
     }
   }
   return code;
@@ -945,10 +945,10 @@ function checkParseTableIntegrity(parseTable: ParseTable, serializedForm: string
     console.log("Parse table integrity check successful pass 1 : " + parseTable);
   }
 
-  parseTable.allStates.forEach(c=>{
+  parseTable.allStates.forEach(c => {
     Analysis.leafStates[c.packedIndex] = c;
   });
-  parseTable.myCommons.forEach(c=>{
+  parseTable.myCommons.forEach(c => {
     Analysis.leafStateCommons[c.packedIndex] = c;
   });
 
@@ -959,7 +959,7 @@ function checkParseTableIntegrity(parseTable: ParseTable, serializedForm: string
   } else {
     console.log("Parse table integrity check successful pass 2: " + parseTable);
   }
- 
+
 }
 
 

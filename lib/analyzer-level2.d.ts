@@ -30,6 +30,10 @@ export declare class CompressParseTable {
 declare type UnresolvedTuple = [GenerateParseTableStackBox, GenerateParseTableStackMainGen, RTShift, PRuleRef];
 declare type DependantTuple = [GenerateParseTableStackBox, RTShift, PRuleRef];
 declare type BoxImportTuple = [GenerateParseTableStackMainGen, RTShift, PRuleRef];
+export declare class UniqueParseTableInGenStack {
+    useCnt: number;
+    dependants: DependantTuple[];
+}
 export declare class GenerateParseTableStackMainGen {
     readonly parent: GenerateParseTableStackBox;
     readonly top: GenerateParseTableStackMainGen;
@@ -38,12 +42,13 @@ export declare class GenerateParseTableStackMainGen {
     readonly parseTable: ParseTable;
     readonly rr: PRuleRef;
     readonly rule: PRule | PRuleRef;
-    unresolvedRecursiveBoxes: UnresolvedTuple[];
     mainRuleBox: GenerateParseTableStackBox;
     children: GenerateParseTableStackBox[];
-    dependants: DependantTuple[];
+    parseTableVars: UniqueParseTableInGenStack;
+    unresolvedRecursiveBoxes: UnresolvedTuple[];
+    parseTableVarsPool: UniqueParseTableInGenStack[];
     constructor(parent: GenerateParseTableStackBox, parseTable: ParseTable, rr?: PRuleRef);
-    addAsUnresolved(stack: StrMapLike<GenerateParseTableStackMainGen>): void;
+    addAsUnresolved(): void;
     generate(phase: number): void;
 }
 export declare class GenerateParseTableStackBox {
@@ -59,11 +64,11 @@ export declare class GenerateParseTableStackBox {
     recursiveShifts: RTShift[];
     constructor(parent: GenerateParseTableStackMainGen, parseTable: ParseTable, common: GrammarParsingLeafStateCommon, stack: StrMapLike<GenerateParseTableStackMainGen>);
     generate(phase: number): void;
+    insertStackOpenShifts(phase: number, recursiveShift: RTShift): void;
     resetShitsToPreGenDef(): void;
-    addAsUnresolved(stack: StrMapLike<GenerateParseTableStackMainGen>): void;
+    addAsUnresolved(): void;
     private newShift;
     generateShifts(phase: number): void;
-    insertStackOpenShifts(phase: number, recursiveShift: RTShift): void;
-    appendChild(child: GenerateParseTableStackMainGen, recursiveShift: RTShift, rr: PRuleRef): boolean;
+    appendChildTransitions(child: GenerateParseTableStackMainGen, recursiveShift: RTShift, rr: PRuleRef): boolean;
 }
 export {};
