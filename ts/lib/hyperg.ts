@@ -569,12 +569,28 @@ export const DefaultComparator = (a, b) => {
   }
 };
 
+export var UNIQUE_OBJECT_INDEX = "_uniqueObjIndex";
 export var UNIQUE_OBJECT_ID = "_uniqueObjId";
 
 // static
 var cnt_uniqueObjId = 1000;
 
 if (!Object.prototype.hasOwnProperty(UNIQUE_OBJECT_ID)) {
+  Object.defineProperty(Object.prototype, UNIQUE_OBJECT_INDEX,
+    {
+      // Using shorthand method names (ES2015 feature).
+      // This is equivalent to:
+      // get: function() { return bValue; },
+      // set: function(newValue) { bValue = newValue; },
+      get() {
+        if (!this.__uniqueObjIndex) {
+          this.__uniqueObjIndex = (cnt_uniqueObjId++);
+        }
+        return this.__uniqueObjIndex;
+      },
+      enumerable: false,
+      configurable: false
+    });
   Object.defineProperty(Object.prototype, UNIQUE_OBJECT_ID,
     {
       // Using shorthand method names (ES2015 feature).
@@ -583,7 +599,7 @@ if (!Object.prototype.hasOwnProperty(UNIQUE_OBJECT_ID)) {
       // set: function(newValue) { bValue = newValue; },
       get() {
         if (!this.__uniqueObjId) {
-          this.__uniqueObjId = "_oid$¤" + (cnt_uniqueObjId++);
+          this.__uniqueObjId = "_oid$¤" + this._uniqueObjIndex;
         }
         return this.__uniqueObjId;
       },

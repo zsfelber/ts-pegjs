@@ -139,6 +139,7 @@ export declare class SourceFilePosUtil {
 }
 export declare function JSstringEscape(s: any): any;
 export declare const DefaultComparator: (a: any, b: any) => any;
+export declare var UNIQUE_OBJECT_INDEX: string;
 export declare var UNIQUE_OBJECT_ID: string;
 export declare function minimum<T>(inparr0: NumMapLike<T>, cmp?: ((a: T, b: T) => number)): [number, T];
 export declare function maximum<T>(inparr0: NumMapLike<T>, cmp?: ((a: T, b: T) => number)): [number, T];

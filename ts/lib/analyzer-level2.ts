@@ -18,6 +18,7 @@ import {
   RTStackShiftItem,
   StrMapLike,
   UNIQUE_OBJECT_ID,
+  UNIQUE_OBJECT_INDEX
 } from '.';
 
 
@@ -414,12 +415,12 @@ export class GenerateParseTableStackMainGen {
 
             var unresolvedRecursiveBoxesNowProc = groupByIndexed(unresolvedRecursiveBoxesNow,
               (a) => {
-                return a[0][UNIQUE_OBJECT_ID];
+                return a[0][UNIQUE_OBJECT_INDEX];
               });
 
             var childrenAffctd = 0;
 
-            unresolvedRecursiveBoxesNowProc.forEach(group => {
+            Object.values(unresolvedRecursiveBoxesNowProc).forEach(group => {
               var gimp = group[0][0];
 
               // NOTE precondition ok : dependants updated
@@ -559,7 +560,7 @@ export class GenerateParseTableStackBox {
   parseTable: ParseTable;
 
   common: GrammarParsingLeafStateCommon;
-  trivial: GrammarParsingLeafStateTransitions;
+  preGeneratedAndOrDefault: GrammarParsingLeafStateTransitions;
 
   stack: StrMapLike<GenerateParseTableStackMainGen>;
 
@@ -583,7 +584,7 @@ export class GenerateParseTableStackBox {
     this.parseTable = parseTable;
     this.common = common;
 
-    this.trivial = this.common.transitions;
+    this.preGeneratedAndOrDefault = this.common.transitions;
 
     this.stack = stack;
 
@@ -609,19 +610,20 @@ export class GenerateParseTableStackBox {
         break;
 
       case 1:
-        this.resetShitsToTrivial();
+        this.resetShitsToPreGenDef();
 
         // NOTE this ensures a processing order of dependants first :
         this.children.forEach(([ruleMain, shift, rr]) => {
           ruleMain.generate(phase);
         });
 
-        // Trivial shifts copied  but no recursion anywhere after ROUND 1
+        // Trivial and pregenerated shifts copied  
+        // but no additional recursion added anywhere after ROUND 1
         this.generateShifts(phase);
         break;
 
       default:
-        this.resetShitsToTrivial();
+        this.resetShitsToPreGenDef();
 
         // NOTE this ensures a processing order of dependants first :
         this.children.forEach(([ruleMain, shift, rr]) => {
@@ -638,15 +640,16 @@ export class GenerateParseTableStackBox {
     }
   }
 
-  resetShitsToTrivial() {
+  resetShitsToPreGenDef() {
     this.allShifts = {};
     this.allShiftsByToken = new gGrammarParsingLeafStateTransitions();
 
-    var esths: [string, RTShift[]][] = Object.entries(this.trivial.map);
+    var esths: [string, RTShift[]][] = Object.entries(this.preGeneratedAndOrDefault.map);
     esths.forEach(([key, shifts]) => {
       var tokenId = Number(key);
       shifts.forEach(shift => {
-        var shift2 = new gRTShift(shift.shiftIndex, shift.toStateIndex, tokenId);
+        var shift2 = new gRTShift(shift.shiftIndex, shift.toStateIndex, 
+            tokenId, shift.stepIntoRecursive);
         this.newShift(shift2);
       });
     });
@@ -661,14 +664,16 @@ export class GenerateParseTableStackBox {
 
   private newShift(shift: gRTShift) {
     var key = shift.shiftIndex + ":" + shift.tokenId;
-    var olditm = this.allShifts[key];
-    if (olditm) {
-      var os = olditm[1];
-      if (os.shiftIndex !== shift.shiftIndex) {
-        throw new Error("tokenId !== olditm[0] ||  os.shiftIndex !== shiftIndex   " + shift.tokenId + " !== " + olditm[0] + " ||  " + os.shiftIndex + " !== " + shift.shiftIndex);
+    var oldshift: gRTShift = this.allShifts[key];
+    if (oldshift) {
+      if (oldshift.shiftIndex !== shift.shiftIndex) {
+        throw new Error("oldshift.shiftIndex !== shift.shiftIndex   " + oldshift.shiftIndex+" !== "+shift.shiftIndex);
       }
-      var buf = [os.toStateIndex];
-      os.serStackItms(buf);
+      if (oldshift.tokenId !== shift.tokenId) {
+        throw new Error("oldshift.tokenId !== shift.tokenId   " + oldshift.tokenId+" !== "+shift.tokenId);
+      }
+      var buf = [oldshift.toStateIndex];
+      oldshift.serStackItms(buf);
       var srold = CodeTblToHex(buf).join(",");
       buf = [shift.toStateIndex];
       shift.serStackItms(buf);

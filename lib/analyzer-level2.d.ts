@@ -51,7 +51,7 @@ export declare class GenerateParseTableStackBox {
     parent: GenerateParseTableStackMainGen;
     parseTable: ParseTable;
     common: GrammarParsingLeafStateCommon;
-    trivial: GrammarParsingLeafStateTransitions;
+    preGeneratedAndOrDefault: GrammarParsingLeafStateTransitions;
     stack: StrMapLike<GenerateParseTableStackMainGen>;
     allShifts: StrMapLike<gRTShift>;
     allShiftsByToken: gGrammarParsingLeafStateTransitions;
@@ -59,7 +59,7 @@ export declare class GenerateParseTableStackBox {
     recursiveShifts: RTShift[];
     constructor(parent: GenerateParseTableStackMainGen, parseTable: ParseTable, common: GrammarParsingLeafStateCommon, stack: StrMapLike<GenerateParseTableStackMainGen>);
     generate(phase: number): void;
-    resetShitsToTrivial(): void;
+    resetShitsToPreGenDef(): void;
     addAsUnresolved(stack: StrMapLike<GenerateParseTableStackMainGen>): void;
     private newShift;
     generateShifts(phase: number): void;
