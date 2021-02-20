@@ -379,8 +379,8 @@ export class GenerateParseTableStackMainGen {
     //console.log(this.indent + phase + ">" + (this.rr ? this.rr : this.parseTable.rule+"#0"));
 
     var top = !this.rr;
-    const debug = 1;
-    const deepStats = 1;
+    const debug = 0;
+    const deepStats = 0;
 
     this.parseTable.allStates.forEach(s => {
       if (s) s.lazy(this.parseTable);
@@ -840,17 +840,18 @@ export class GenerateParseTableStackBox {
 
     es.forEach((childShifts) => {
 
-      var childShift = childShifts[0];
-      var newImportShift = new gRTShift(recursiveShift.shiftIndex,
-        recursiveShift.toStateIndex, childShift.tokenId);
+      childShifts.forEach((childShift) => {
+        var newImportShift = new gRTShift(recursiveShift.shiftIndex,
+          recursiveShift.toStateIndex, childShift.tokenId);
 
-      var newStackItem = new RTStackShiftItem(rr, childShift.toStateIndex);
-      newImportShift.stepIntoRecursive =
-        [newStackItem].concat(childShift.stepIntoRecursive);
+        var newStackItem = new RTStackShiftItem(rr, childShift.toStateIndex);
+        newImportShift.stepIntoRecursive =
+          [newStackItem].concat(childShift.stepIntoRecursive);
 
-      if (this.newShift(newImportShift)) {
-        updateRequired = true;
-      }
+        if (this.newShift(newImportShift)) {
+          updateRequired = true;
+        }
+      });
 
     });
 
