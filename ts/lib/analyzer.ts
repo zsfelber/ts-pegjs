@@ -38,7 +38,7 @@ export const LEV_CNT_BRANCH_NODES = 50000;
 
 
 export interface StrMapLike<V> {
-  [index: number]: V;
+  [index: string]: V;
 }
 export interface NumMapLike<V> {
   [index: number]: V;

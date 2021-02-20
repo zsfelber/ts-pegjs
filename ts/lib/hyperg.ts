@@ -735,7 +735,7 @@ export function groupBy<T>(inparr0: MapLike<T>, cmp?: ((a: T, b: T) => number)):
 
 }
 
-export function groupByIndexed<T>(inparr0: MapLike<T>, indexer: ((a: T) => number)): T[][] {
+export function groupByIndexed<T>(inparr0: MapLike<T>, indexer: ((a: T) => number)): NumMapLike<T[]> {
   if (!inparr0) return inparr0 as any;
   var inparr: T[] = Object.values(inparr0);
   var resarr: T[][] = [];
@@ -752,7 +752,7 @@ export function groupByIndexed<T>(inparr0: MapLike<T>, indexer: ((a: T) => numbe
   return resarr;
 }
 
-export function groupBy2Indexed<T>(inparr0: MapLike<MapLike<T>>, indexer: ((a: T) => number)): T[][] {
+export function groupBy2Indexed<T>(inparr0: MapLike<MapLike<T>>, indexer: ((a: T) => number)): NumMapLike<T[]> {
   if (!inparr0) return inparr0 as any;
   var inparr: MapLike<T>[] = Object.values(inparr0);
   var resarr: T[][] = [];

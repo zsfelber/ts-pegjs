@@ -14,7 +14,8 @@ export enum TraversionItemKind {
 
 
 
-interface TraversionMakerCache extends StrMapLike<RuleElementTraverser> {
+interface TraversionMakerCache {
+
   depth: number;
   indent: string;
   upwardBranchCnt: number;

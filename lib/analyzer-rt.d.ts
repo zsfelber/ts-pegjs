@@ -51,7 +51,7 @@ export declare class GrammarParsingLeafStateTransitions {
     map: NumMapLike<RTShift[]>;
     constructor(copy?: GrammarParsingLeafStateTransitions);
     clear(): void;
-    slotsByNonUniqueShiftIndex(): RTShift[][];
+    slotsByNonUniqueShiftIndex(): NumMapLike<RTShift[]>;
     fixedClone(): GrammarParsingLeafStateTransitions;
     ser(buf: number[]): void;
     deser(index: number, buf: number[], pos: number): number;

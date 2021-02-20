@@ -148,8 +148,8 @@ export declare function maximum<T>(inparr0: NumMapLike<T>, cmp?: ((a: T, b: T) =
 export declare function distinct<T>(inparr0: MapLike<T>, cmp?: ((a: T, b: T) => number)): T[];
 export declare function distinctIndexed<T>(inparr0: MapLike<T>, indexer: ((a: T) => number)): T[];
 export declare function groupBy<T>(inparr0: MapLike<T>, cmp?: ((a: T, b: T) => number)): T[][];
-export declare function groupByIndexed<T>(inparr0: MapLike<T>, indexer: ((a: T) => number)): T[][];
-export declare function groupBy2Indexed<T>(inparr0: MapLike<MapLike<T>>, indexer: ((a: T) => number)): T[][];
+export declare function groupByIndexed<T>(inparr0: MapLike<T>, indexer: ((a: T) => number)): NumMapLike<T[]>;
+export declare function groupBy2Indexed<T>(inparr0: MapLike<MapLike<T>>, indexer: ((a: T) => number)): NumMapLike<T[]>;
 export declare function CodeTblToHex(s: number[]): any[];
 export declare function encodePrsTbl(parseTable: ParseTable): string;
 export declare function encodeVsimPck(code: number[]): string;

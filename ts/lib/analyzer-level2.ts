@@ -361,6 +361,10 @@ export class GenerateParseTableStackMainGen {
 
   }
 
+  get dependants() {
+    return this.parseTableVars.dependants;
+  }
+
   // not recursive, it is in a while (true) 
   // it triggers updating the first level (not indirect) dependencies in the next turn
   // in which each one passing its dependants' update to the 2nd round ... etc 
@@ -375,6 +379,7 @@ export class GenerateParseTableStackMainGen {
     //console.log(this.indent + phase + ">" + (this.rr ? this.rr : this.parseTable.rule+"#0"));
 
     var top = !this.rr;
+    const debug = 1;
     const deepStats = 1;
 
     this.parseTable.allStates.forEach(s => {
@@ -440,6 +445,9 @@ export class GenerateParseTableStackMainGen {
 
           var i;
           for (i = 0; this.unresolvedRecursiveBoxes.length && i < 100; i++) {
+            if (debug) {
+              console.log(" * * * * * *   circular dependencies round "+i+"  now:"+this.unresolvedRecursiveBoxes.length);
+            }
             var unresolvedRecursiveBoxesNow = this.unresolvedRecursiveBoxes;
             this.unresolvedRecursiveBoxes = [];
 
@@ -451,7 +459,8 @@ export class GenerateParseTableStackMainGen {
             var childrenAffctd = 0;
             var newUnresolved: GenerateParseTableStackBox[] = [];
 
-            Object.values(unresolvedRecursiveBoxesNowProc).forEach(group => {
+            var unrs:UnresolvedTuple[][] = Object.values(unresolvedRecursiveBoxesNowProc);
+            unrs.forEach(group => {
 
               var gimp = group[0][0];
 
@@ -459,7 +468,8 @@ export class GenerateParseTableStackMainGen {
               var tokens = Object.keys(gimp.allShifts).join(",");
 
               var updateRequired = false;
-              Object.values(group).forEach(([importer, child, recshift, rr]) => {
+              var gs = Object.values(group);
+              gs.forEach(([importer, child, recshift, rr]) => {
                 if (gimp !== importer) {
                   throw new Error("groupBy didn't work");
                 }
@@ -470,10 +480,25 @@ export class GenerateParseTableStackMainGen {
 
               gimp.generateShifts(phase);
 
+              var tokens2;
+              if (debug) {
+                tokens2 = Object.keys(gimp.allShifts).join(",");
+                if (updateRequired) {
+                  console.log("UPDATED  "+gimp.parent.rule.rule+":"+gimp.common.index+" "+gs.length+"  "+tokens+"  ->  "+tokens2);
+                } else {
+                  console.log("NOT UPDATED  "+gimp.parent.rule.rule+":"+gimp.common.index+" "+gs.length+"  "+tokens);
+                }
+              }
+
               if (updateRequired) {
                 newUnresolved.push(gimp);
+                if (debug) {
+                  console.log("triggered updates ----> "+gimp.dependants.map(itm=>(itm[0]+"(from "+itm[2].rule+")")));
+                }
               } else {
-                var tokens2 = Object.keys(gimp.allShifts).join(",");
+                if (!tokens2) {
+                  tokens2 = Object.keys(gimp.allShifts).join(",");
+                }
                 if (tokens !== tokens2) {
                   throw new Error("tokens !== tokens2    "+tokens+" !== "+tokens2);
                 }
@@ -488,9 +513,8 @@ export class GenerateParseTableStackMainGen {
             });
 
             if (deepStats) {
-              console.log("Phase " + phase + " " + this.rule.rule + "/" + i + ". Additional cyclic dependencies updated.  Affected : " +
-                childrenAffctd + "    With dependencies : " + unresolvedRecursiveBoxesNow.length + "    In next round : " +
-                this.unresolvedRecursiveBoxes.length);
+              console.log("Phase " + phase + " " + this.rule.rule + "/" + i + ". Additional cyclic dependencies updated.     Processed : " + unresolvedRecursiveBoxesNow.length+" items    Affected boxes : " +
+                childrenAffctd  + "    of which Made updates for next round : " + newUnresolved.length + "   all items next round : "+this.unresolvedRecursiveBoxes.length);
             }
           }
           if (i && deepStats) {
@@ -563,6 +587,10 @@ export class GenerateParseTableStackMainGen {
     //console.log(this.indent + phase + "<" + this.rule.rule);
   }
 
+  toString() {
+    return this.rule.rule;
+  }
+
 }
 
 
@@ -609,9 +637,9 @@ export class GenerateParseTableStackBox {
 
   //shifts: GrammarParsingLeafStateTransitions;
 
-  // tokenId+shiftIndex -> RTShift
+  // tokenId+state path -> RTShift
   allShifts: StrMapLike<gRTShift>
-  // tokenId -> RTShift[] ordered by shiftindex,genShiftIndex
+  // tokenId -> RTShift[]
   allShiftsByToken: gGrammarParsingLeafStateTransitions;
 
   children: BoxImportTuple[] = [];
@@ -756,11 +784,22 @@ export class GenerateParseTableStackBox {
     }
   }
 
+  get dependants() {
+    if (this === this.parent.mainRuleBox) {
+      return this.parent.dependants;
+    } else {
+      return [] as DependantTuple[];
+    }
+  }
+
   private newShift(shift: gRTShift) {
 
     var updateRequired = false;
 
-    var key = shift.shiftIndex + ":" + shift.tokenId;
+    var buf = [shift.tokenId, shift.toStateIndex];
+    shift.stepIntoRecursive.forEach(item => buf.push(item.toStateIndex));
+    var key = buf.join("/");
+
     var oldshift: gRTShift = this.allShifts[key];
     if (oldshift) {
       if (oldshift.shiftIndex !== shift.shiftIndex) {
@@ -769,18 +808,7 @@ export class GenerateParseTableStackBox {
       if (oldshift.tokenId !== shift.tokenId) {
         throw new Error("oldshift.tokenId !== shift.tokenId   " + oldshift.tokenId+" !== "+shift.tokenId);
       }
-      var buf = [oldshift.toStateIndex];
-      oldshift.serStackItms(buf);
-      var srold = CodeTblToHex(buf).join(",");
-      buf = [shift.toStateIndex];
-      shift.serStackItms(buf);
-      var srnew = CodeTblToHex(buf).join(",");
-      if (srold !== srnew) {
-        this.allShifts[key] = shift;
-        this.allShiftsByToken.replace(shift);
 
-        updateRequired = true;
-      }
     } else {
       this.allShifts[key] = shift;
       this.allShiftsByToken.add(shift);
@@ -829,5 +857,8 @@ export class GenerateParseTableStackBox {
     return updateRequired;
   }
 
+  toString() {
+    return this.parent.rule.rule+":"+this.common.index;
+  }
 }
 

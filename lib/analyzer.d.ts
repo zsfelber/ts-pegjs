@@ -5,7 +5,7 @@ export declare const CNT_HUB_LEVELS = 1;
 export declare const LEV_CNT_LN_RULE = 50000;
 export declare const LEV_CNT_BRANCH_NODES = 50000;
 export interface StrMapLike<V> {
-    [index: number]: V;
+    [index: string]: V;
 }
 export interface NumMapLike<V> {
     [index: number]: V;

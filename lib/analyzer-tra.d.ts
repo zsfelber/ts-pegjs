@@ -1,11 +1,11 @@
-import { EntryPointTraverser, ParseTableGenerator, RuleElementTraverser, StateNodeWithPrefix, StrMapLike } from '.';
+import { EntryPointTraverser, ParseTableGenerator, RuleElementTraverser, StateNodeWithPrefix } from '.';
 export declare enum TraversionItemKind {
     NODE_START = 0,
     NODE_END = 1,
     CHILD_SEPARATOR = 2,
     NEGATE = 3
 }
-interface TraversionMakerCache extends StrMapLike<RuleElementTraverser> {
+interface TraversionMakerCache {
     depth: number;
     indent: string;
     upwardBranchCnt: number;

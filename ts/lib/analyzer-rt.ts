@@ -377,7 +377,7 @@ export class GrammarParsingLeafStateTransitions {
     this.map = {};
   }
 
-  slotsByNonUniqueShiftIndex(): RTShift[][] {
+  slotsByNonUniqueShiftIndex(): NumMapLike<RTShift[]> {
     var slots = groupBy2Indexed(this.map, (a)=>{
       return a.shiftIndex;
     })
@@ -519,8 +519,8 @@ export class gGrammarParsingLeafStateTransitions extends GrammarParsingLeafState
     var fixIdCnt = 0;
     var slots:gRTShift[][] = this.slotsByNonUniqueShiftIndex() as gRTShift[][];
     var result = new gGrammarParsingLeafStateTransitions();
-    slots.forEach(slot=>{
-      Object.values(slot).forEach(shift=>{
+    Object.values(slots).forEach(slot=>{
+      slot.forEach(shift=>{
         var forTkn = result.map[shift.tokenId];
         if (!forTkn) {
           result.map[shift.tokenId] = forTkn = [];

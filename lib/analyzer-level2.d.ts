@@ -48,8 +48,10 @@ export declare class GenerateParseTableStackMainGen {
     unresolvedRecursiveBoxes: UnresolvedTuple[];
     parseTableVarsPool: UniqueParseTableInGenStack[];
     constructor(parent: GenerateParseTableStackBox, parseTable: ParseTable, rr?: PRuleRef);
+    get dependants(): DependantTuple[];
     addAsUnresolved(): void;
     generate(phase: number): void;
+    toString(): string;
 }
 export declare class GenerateParseTableStackBox {
     top: GenerateParseTableStackMainGen;
@@ -67,8 +69,10 @@ export declare class GenerateParseTableStackBox {
     insertStackOpenShifts(phase: number, recursiveShift: RTShift): void;
     resetShitsToPreGenDef(): void;
     addAsUnresolved(): void;
+    get dependants(): DependantTuple[];
     private newShift;
     generateShifts(phase: number): void;
     appendChildTransitions(child: GenerateParseTableStackMainGen, recursiveShift: RTShift, rr: PRuleRef): boolean;
+    toString(): string;
 }
 export {};
