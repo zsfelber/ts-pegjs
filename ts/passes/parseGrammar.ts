@@ -3,6 +3,7 @@ import { visitor } from "pegjs/lib/compiler";
 import { Analysis, ParseTableGenerator } from '../lib/analyzer';
 import { distinct, HyperG } from '../lib';
 import { IncVariator } from '../lib/index';
+import { GenerateParseDeferrerMainGen } from '../lib/analyzer-level3';
 import {
   PActContainer, PActionKind, PFunction,
   PGrammar, PLogicNode, PNode, PNodeKind, PRule,
@@ -13,6 +14,7 @@ import {
 var options;
 const terminals: string[] = [];
 const terminalConsts: Map<string, number> = new Map;
+const terminalDeconsts = {};
 var ctx: Context;
 
 
@@ -22,10 +24,20 @@ function generate(ast, ...args) {
   // pegjs 0.11+ api pass(ast, config, options);
   options = args[args.length - 1];
 
+  Analysis.ast = ast;
   ast.terminals = terminals;
   ast.terminalConsts = terminalConsts;
+  ast.terminalDeconsts = terminalDeconsts;
 
-  Analysis.deferredRules = options.deferredRules ? options.deferredRules : [];
+  if (options.deferredRules) {
+    options.deferredRules = distinct(options.deferredRules);
+
+    console.log("User-defined deferred rules: " + options.deferredRules.join(", "));
+  }
+
+
+  Analysis.startRules = options.deferredRules ? [].concat(options.deferredRules) : [];
+  Analysis.deferredRules = options.deferredRules ? [].concat(options.deferredRules) : [];
 
 
   var findTerminals = visitor.build({
@@ -42,6 +54,7 @@ function generate(ast, ...args) {
       if (context.terminal) {
         var tokenId = node.value.charCodeAt(0);
         terminalConsts.set(context.terminal, tokenId);
+        terminalDeconsts[tokenId] = context.terminal;
         terminals.push("    " + context.terminal + " = " + tokenId);
       }
     }
@@ -243,18 +256,12 @@ function generate(ast, ...args) {
       });
     }
 
-    if (options.deferredRules) {
-      options.deferredRules = distinct(options.deferredRules);
-
-      console.log("User-defined deferred rules: " + options.deferredRules.join(", "));
-    }
-
-    Analysis.deferredRules = distinct(Analysis.deferredRules);
+    Analysis.startRules = distinct(Analysis.startRules);
     Analysis.localDeferredRules = distinct(Analysis.localDeferredRules);
 
     var def0 = 0, ldef0 = 0;
     for (var first = true; ;) {
-      var ds0 = Analysis.deferredRules.slice(def0).concat(Analysis.localDeferredRules.slice(ldef0));
+      var ds0 = Analysis.startRules.slice(def0).concat(Analysis.localDeferredRules.slice(ldef0));
       var ds = distinct(ds0);
 
       if (ds.length) {
@@ -265,7 +272,7 @@ function generate(ast, ...args) {
         break;
       }
 
-      def0 = Analysis.deferredRules.length;
+      def0 = Analysis.startRules.length;
       ldef0 = Analysis.localDeferredRules.length;
       ds.forEach(r => {
         if (doit(r)) allstarts.push(r);
@@ -325,6 +332,8 @@ function generate(ast, ...args) {
           parseTable.fillStackOpenerTransitions(phase);
 
         }
+
+        new GenerateParseDeferrerMainGen(ast, parseTable);
 
         parseTable.pack(true, r === lastr, "OPTIMIZATION LEVEL 1 : PEG-LL(0)");
 

@@ -15,6 +15,7 @@ export declare namespace Analysis {
     class Backup {
         ERRORS: number;
         deferredRules: any[];
+        startRules: any[];
         localDeferredRules: any[];
         leafStates: GrammarParsingLeafState[];
         leafStateCommons: GrammarParsingLeafStateCommon[];
@@ -68,6 +69,7 @@ export declare namespace Analysis {
     }
     var ERRORS: number;
     var deferredRules: any[];
+    var startRules: any[];
     var localDeferredRules: any[];
     var leafStates: GrammarParsingLeafState[];
     var leafStateCommons: GrammarParsingLeafStateCommon[];
@@ -113,6 +115,7 @@ export declare namespace Analysis {
     var varRuleRefs: IncVariator;
     var varTerminalRefs: IncVariator;
     var varLfStates: IncVariator;
+    var ast: any;
     function backup(): Backup;
     function empty(): Backup;
     function parseTable(rule: PRule, g?: ParseTableGenerator): ParseTable;

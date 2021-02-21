@@ -16,6 +16,80 @@ export const peg$FAILED: Readonly<any> = {};
 
 export const peg$SUCCESS: Readonly<any> = {};
 
+
+
+export interface IParserProgram {
+
+  inputPos: number;
+  currentRule: number;
+  
+  readonly numRules: number;
+
+  fail(token: IToken): void;
+  cacheKey(rule: PRule): number;
+  next(): IToken;
+
+}
+
+
+// NOTE :
+// We collect the reduced nodes but we don't actually reduce
+// until the final state top node reached ! 
+// We can omit calculation of the dead branches this way:
+
+export class DeferredReduce {
+
+  readonly action: PFunction;
+  readonly fun: (...etc) => any;
+  readonly argsToLeft: DeferredReduce[];
+  readonly calculatedArgs: any[];
+  readonly pos: number;
+
+  constructor(action: PFunction, argsToLeft: any[], pos: number) {
+    this.action = action;
+    this.fun = action?action.fun:null;
+    this.argsToLeft = argsToLeft;
+    this.pos = pos;
+  }
+  /*
+
+  calculateFromTop(parser: InterpreterRunner) {
+    const p = parser.owner;
+    var savedPos = p.inputPos;
+    var result = this.calculate(parser);
+    p.inputPos = savedPos;
+    return result;
+  }
+
+  private calculate(parser: InterpreterRunner) {
+    const p = parser.owner;
+    this.calculateArgs(parser);
+    if (this.fun) {
+      p.inputPos = this.pos;
+      return this.fun.apply(parser, this.calculateArgs);
+    } else {
+      return this.calculatedArgs;
+    }
+  }
+
+  private calculateArgs(parser: InterpreterRunner) {
+    this.argsToLeft.forEach(arg=>{
+      var result: any;
+      if (arg) {
+        result = arg.calculate(parser);
+      } else {
+        result = arg;
+      }
+      this.calculatedArgs.push(result);
+    });
+  }
+  */
+}
+
+// absolutely not necessary
+
+/*
+
 // NOTE The only exported Parser is EntryPointParser
 namespace Factory {
 
@@ -70,57 +144,6 @@ class RuleProcessStack {
 }
 
 
-// NOTE :
-// We collect the reduced nodes but we don't actually reduce
-// until the final state top node reached ! 
-// We can omit calculation of the dead branches this way:
-
-export class DeferredReduce {
-
-  readonly action: PFunction;
-  readonly fun: (...etc) => any;
-  readonly argsToLeft: DeferredReduce[];
-  readonly calculatedArgs: any[];
-  readonly pos: number;
-
-  constructor(action: PFunction, argsToLeft: any[], pos: number) {
-    this.action = action;
-    this.fun = action?action.fun:null;
-    this.argsToLeft = argsToLeft;
-    this.pos = pos;
-  }
-
-  calculateFromTop(parser: InterpreterRunner) {
-    const p = parser.owner;
-    var savedPos = p.inputPos;
-    var result = this.calculate(parser);
-    p.inputPos = savedPos;
-    return result;
-  }
-
-  private calculate(parser: InterpreterRunner) {
-    const p = parser.owner;
-    this.calculateArgs(parser);
-    if (this.fun) {
-      p.inputPos = this.pos;
-      return this.fun.apply(parser, this.calculateArgs);
-    } else {
-      return this.calculatedArgs;
-    }
-  }
-
-  private calculateArgs(parser: InterpreterRunner) {
-    this.argsToLeft.forEach(arg=>{
-      var result: any;
-      if (arg) {
-        result = arg.calculate(parser);
-      } else {
-        result = arg;
-      }
-      this.calculatedArgs.push(result);
-    });
-  }
-}
 
 // NOTE Not exported.  The only exported one is EntryPointParser
 abstract class RuleElementInterpreter {
@@ -486,3 +509,5 @@ export class InterpreterRunner {
       result });
   }
 }
+
+*/

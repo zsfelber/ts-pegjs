@@ -507,7 +507,7 @@ export class RuleRefTraverser extends RefTraverser {
   }
 
   lazyBuildMonoRefTree() {
-    var deferred = Analysis.deferredRules.indexOf(this.targetRule.rule) !== -1;
+    var deferred = Analysis.startRules.indexOf(this.targetRule.rule) !== -1;
     if (!deferred && this.targetRule.refs <= 1) {
       this.lazyLinkRule();
     }
@@ -541,7 +541,7 @@ export class RuleRefTraverser extends RefTraverser {
 
     if (this.stateNode) throw new Error("There is a stateNode already : " + this + "  stateNode:" + this.stateNode);
 
-    var deferred = Analysis.deferredRules.indexOf(this.targetRule.rule) !== -1;
+    var deferred = Analysis.startRules.indexOf(this.targetRule.rule) !== -1;
 
     if (deferred) {
       //console.log("Deferred node : "+this+" in "+inTraversion);
@@ -571,7 +571,7 @@ export class RuleRefTraverser extends RefTraverser {
 
       if (this.targetRule.refs > 1) {
 
-        Analysis.deferredRules.push(this.targetRule.rule);
+        Analysis.startRules.push(this.targetRule.rule);
         this.isDeferred = true;
         delete Traversing.recursionCacheStack["rule_ref#" + this.targetRule.nodeIdx];
 
@@ -610,7 +610,7 @@ export class RuleRefTraverser extends RefTraverser {
                 "  time and output table size due to its exponential nature.\n");
             }*/
 
-            Analysis.deferredRules.push(this.targetRule.rule);
+            Analysis.startRules.push(this.targetRule.rule);
             this.isDeferred = true;
             delete Traversing.recursionCacheStack["rule_ref#" + this.targetRule.nodeIdx];
             //} else if (estCntNodes>=20) {
@@ -839,7 +839,7 @@ export class EntryPointTraverser extends RuleTraverser {
     if (maxLev > 0) this.allRuleReferences.forEach(rr => {
       rr.lazyLinkRule();
       if (rr.linkedRuleEntry !== this) {
-        var deferred = Analysis.deferredRules.indexOf(rr.targetRule.rule) !== -1;
+        var deferred = Analysis.startRules.indexOf(rr.targetRule.rule) !== -1;
         if (!deferred) {
           result += rr.linkedRuleEntry.hubSize(maxLev - 1);
         }

@@ -1,83 +1,46 @@
-import { ParseTable } from '.';
-import { GrammarParsingLeafStateCommon } from '.';
-import { GrammarParsingLeafState } from '.';
-import { RTShift } from '.';
-import { PNodeKind } from '.';
+import { ParseTable, Analysis } from '.';
+import { PTerminalRef } from './parsers';
 
 
 
-export class GenerateParseLookaheadsMainGen {
+export class GenerateParseDeferrerMainGen {
 
-  parent: GenerateParseLookaheadsCommon;
   parseTable: ParseTable;
-  leafs: GenerateParseLookaheadsLeaf[] = [];
-  commons: GenerateParseLookaheadsCommon[] = [];
+  ambiogousTokens = {};
+  internalAmbiguity = 0;
+  externalAmbiguity = 0;
 
-  constructor(parent: GenerateParseLookaheadsCommon, parseTable: ParseTable) {
+  constructor(ast: any, parseTable: ParseTable) {
+    this.parseTable = parseTable;
 
-    parseTable.allStates.forEach(c=>{
-      var child = new GenerateParseLookaheadsLeaf(this, parseTable, c);
-      this.leafs.push(child);
-    })
+    var common = parseTable.startingState.common;
+    var tokenSet:number[] = Object.keys(common.transitions.map) as any;
+
+    const terminalDeconsts = ast.terminalDeconsts;
+
+    const tknToStr = (token: number) => {
+      if (token >= 0) {
+        return terminalDeconsts[token]
+      } else {
+        return Analysis.choiceTokens[-token].children.map(termRef=>(termRef as PTerminalRef).terminal).join("|");
+      }
+    };
+    tokenSet.forEach(token=>{
+      var shifts = common.transitions.map[token];
+      if (shifts.length > 1) {
+        this.ambiogousTokens[tknToStr(token)] = 1;
+        shifts.forEach(shift=>{
+          if (shift.stepIntoRecursive && shift.stepIntoRecursive.child) {
+            this.externalAmbiguity += shift.stepIntoRecursive.depth;
+          } else {
+            this.internalAmbiguity ++;
+          }
+        });
+      }
+    });
+    if (this.internalAmbiguity + this.externalAmbiguity >= 100) {
+      console.warn("WARNING  Amibigous shifts for the start rule of '"+parseTable.rule.rule+"'  Ambiguity internal:"+this.internalAmbiguity+" external:"+this.externalAmbiguity+" of tokens "+Object.keys(this.ambiogousTokens).join(",")+"  Advised to define some rules as deferred and trying to compile the grammar again.");
+    }
   }
 
-  common(common: GrammarParsingLeafStateCommon) {
-    var result = this.commons[common.index];
-    if (!result) {
-      this.commons[common.index] = result = new GenerateParseLookaheadsCommon(this, this.parseTable, common);
-    }
-    return result;
-  }
-}
-
-export class GenerateParseLookaheadsLeaf {
-
-  parent: GenerateParseLookaheadsMainGen;
-  parseTable: ParseTable;
-  leaf: GrammarParsingLeafState;
-  common: GenerateParseLookaheadsCommon;
-
-  constructor(parent: GenerateParseLookaheadsMainGen, parseTable: ParseTable, leaf: GrammarParsingLeafState) {
-
-    this.common = parent.common(leaf.common);
-
-  }
-
-}
-
-export class GenerateParseLookaheadsCommon {
-
-  parent: GenerateParseLookaheadsMainGen;
-  parseTable: ParseTable;
-  common: GrammarParsingLeafStateCommon;
-
-  children: GenerateParseLookaheadsMainGen[] = [];
-
-  constructor(parent: GenerateParseLookaheadsMainGen, parseTable: ParseTable, common: GrammarParsingLeafStateCommon) {
-
-    var recursiveShifts = common.recursiveShifts.map[0];
-
-    if (recursiveShifts) {
-      recursiveShifts.forEach(rshift => {
-        this.insertImported(rshift);
-      });
-    }
-
-  }
-
-  insertImported(recursiveShift: RTShift) {
-    if (!recursiveShift.toStateIndex) {
-      throw new Error("recursiveShift.toStateIndex   " + recursiveShift.toStateIndex);
-    }
-
-    var state = this.parseTable.allStates[recursiveShift.toStateIndex];
-    if (state.startingPoint.kind !== PNodeKind.RULE_REF) {
-      throw new Error("state.startingPoint.kind !== PNodeKind.RULE_REF   " + state.startingPoint.kind + " !== " + PNodeKind.RULE_REF);
-    }
-    if (recursiveShift.toStateIndex !== state.index) {
-      throw new Error("recursiveShift.toStateIndex !== state.index   " + recursiveShift.toStateIndex + " !== " + state.index);
-    }
-
-
-  }
 }

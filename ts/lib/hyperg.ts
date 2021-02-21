@@ -1,4 +1,4 @@
-import { Analysis, EntryPointInterpreter, ParseTable, PNode, PRule, PRuleRef, PValueNode, NumMapLike, MapLike } from '.';
+import { Analysis, ParseTable, PNode, PRule, PRuleRef, PValueNode, NumMapLike, MapLike } from '.';
 
 export const MATCH_TOKEN = 40;
 export const ACCEPT_TOKEN = 41;
@@ -16,7 +16,7 @@ export namespace HyperG {
     serializerCnt = 0;
     functionTable: ((...etc) => any)[];
     ruleTable: PRule[];
-    ruleInterpreters: EntryPointInterpreter[];
+    //ruleInterpreters: EntryPointInterpreter[];
     nodeTable: PNode[] = [];
     ruleRefTable: PRuleRef[] = [];
     indent = "";
@@ -29,7 +29,7 @@ export namespace HyperG {
       this.serializerCnt = serializerCnt;
       this.functionTable = Object.assign([], functionTable);
       this.ruleTable = Object.assign([], ruleTable);
-      this.ruleInterpreters = Object.assign([], ruleInterpreters);
+      //this.ruleInterpreters = Object.assign([], ruleInterpreters);
       this.nodeTable = Object.assign([], nodeTable);
       this.ruleRefTable = Object.assign([], ruleRefTable);
       this.indent = indent;
@@ -43,7 +43,7 @@ export namespace HyperG {
       serializerCnt = this.serializerCnt;
       functionTable = this.functionTable;
       ruleTable = this.ruleTable;
-      ruleInterpreters = this.ruleInterpreters;
+      //ruleInterpreters = this.ruleInterpreters;
       nodeTable = this.nodeTable;
       ruleRefTable = this.ruleRefTable;
       indent = this.indent;
@@ -61,7 +61,7 @@ export namespace HyperG {
 
   export var ruleTable: PRule[];
 
-  export var ruleInterpreters: EntryPointInterpreter[];
+  //export var ruleInterpreters: EntryPointInterpreter[];
 
   export var nodeTable: PNode[] = [];
 
@@ -829,29 +829,29 @@ const HTOD = {
 export function peg$decode(s: string) {
   var code: number[] = [];
   for (var i = 0, sign = 1; i < s.length;) {
-    const rrr = (R:RegExp) => {
-      R.lastIndex = i;
+    const rrr = (R: RegExp) => {
+      R.lastIndex = i - 1;
       var ra = R.exec(s);
-      if (ra.index !== 0) {
-        throw new Error("ra.index !== 0   "+ra.index+" !== "+0);
+      if (!ra || ra.index !== 0 || !ra[1].length) {
+        throw new Error("!ra || ra.index !== 0 || !ra[1].length   !" + (ra ? true : false) + " || " + (ra ? ra.index : ra) + " !== 0 || !" + (ra && ra[1] ? ra[1].length : undefined));
       }
       var num = 0;
-      for (var j = 0; j < ra[1].length; j++) {
+      for (var j = 0; j < ra[1].length; j++, i++) {
         num = (num << 4) + HTOD[ra[1][j]];
       }
-      i = R.lastIndex;
+      i++;
       return num;
     };
     var char1 = s.charAt(i++);
     switch (char1) {
       case "{":
-        var R = /\\{(.*?)\\}/;
+        var R = /\{(.*?)\}/;
         var len = rrr(R);
         for (var k = 0; k < len; k++) code.push(0);
         sign = 1;
         break;
       case "(":
-        var R = /\\((.*?)\\)/;
+        var R = /\((.*?)\)/;
         var num = rrr(R);
         code.push(sign * num);
         sign = 1;

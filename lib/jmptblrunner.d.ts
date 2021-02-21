@@ -1,5 +1,5 @@
-import { DeferredReduce, GrammarParsingLeafState, IBaseParserProgram, IToken, Packrat, ParseTable } from '.';
-export interface IJumpTableProgram extends IBaseParserProgram {
+import { DeferredReduce, GrammarParsingLeafState, IParserProgram, IToken, Packrat, ParseTable } from '.';
+export interface IJumpTableProgram extends IParserProgram {
     inputPos: number;
     inputLength: number;
 }

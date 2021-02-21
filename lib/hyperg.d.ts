@@ -1,4 +1,4 @@
-import { Analysis, EntryPointInterpreter, ParseTable, PNode, PRule, PRuleRef, PValueNode, NumMapLike, MapLike } from '.';
+import { Analysis, ParseTable, PNode, PRule, PRuleRef, PValueNode, NumMapLike, MapLike } from '.';
 export declare const MATCH_TOKEN = 40;
 export declare const ACCEPT_TOKEN = 41;
 export declare enum HyperGEnvType {
@@ -16,7 +16,6 @@ export declare namespace HyperG {
         serializerCnt: number;
         functionTable: ((...etc: any[]) => any)[];
         ruleTable: PRule[];
-        ruleInterpreters: EntryPointInterpreter[];
         nodeTable: PNode[];
         ruleRefTable: PRuleRef[];
         indent: string;
@@ -29,7 +28,6 @@ export declare namespace HyperG {
     var serializerCnt: number;
     var functionTable: ((...etc: any[]) => any)[];
     var ruleTable: PRule[];
-    var ruleInterpreters: EntryPointInterpreter[];
     var nodeTable: PNode[];
     var ruleRefTable: PRuleRef[];
     var indent: string;

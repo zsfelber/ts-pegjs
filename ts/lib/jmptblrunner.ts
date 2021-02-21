@@ -3,7 +3,7 @@ import {
   GrammarParsingLeafState,
   GrammarParsingLeafStateTransitions,
   HyperG,
-  IBaseParserProgram,
+  IParserProgram,
   IToken,
   Packrat,
   ParseTable,
@@ -12,7 +12,7 @@ import {
   RTShift,
 } from '.';
 
-export interface IJumpTableProgram extends IBaseParserProgram {
+export interface IJumpTableProgram extends IParserProgram {
 
   inputPos: number;
   inputLength: number;

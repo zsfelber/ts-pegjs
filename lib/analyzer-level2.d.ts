@@ -33,6 +33,7 @@ declare type BoxImportTuple = [GenerateParseTableStackMainGen, RTShift, PRuleRef
 export declare class UniqueParseTableInGenStack {
     useCnt: number;
     dependants: DependantTuple[];
+    isDeferred: boolean;
 }
 export declare class GenerateParseTableStackMainGen {
     readonly parent: GenerateParseTableStackBox;

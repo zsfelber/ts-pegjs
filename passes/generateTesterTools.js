@@ -22,7 +22,6 @@ function generateTT(ast) {
     var ri = 0;
     ast.rules.forEach(function (r) { ruleMap[r.name] = ri++; });
     lib_2.HyperG.ruleTable = grammar.rules;
-    lib_1.Analysis.deferredRules = options.deferredRules ? options.deferredRules : [];
     var allstarts = ast.allstarts;
     console.log("");
     console.log("-- TESTER/DEBUG TOOLS ------------------------------");

@@ -93,25 +93,25 @@ export class CompressParseTable {
     };
 
     if (this.log) {
-      console.log((this.info ? this.info : this.parseTable.rule.rule) + "   Total: [ states T/D:" + Analysis.totalStates + " " + (this.lfidx) + "   states/common T/D:"+ Analysis.totalStatesCommon + " "+(this.cmnidx) + "    transitions T/D:"+Analysis.varShReqs.n+" "+ (this.transidx)+ "    stack states D:"+Analysis.stackShiftNodes.length + "    reduces D:" + (this.redidx) + "   tokens/trans:" + Analysis.varTkns + "   shifts/trans:" + Analysis.varShs + "    rec shifts/trans:" + Analysis.varShReqs + "   stack deepness:" + Analysis.varDeep + "   reduces:" + Analysis.varRds + " ]");
-      var byChild = groupByIndexed(Analysis.serializedStackShiftNodes,(a)=>a[2]);
+      console.log((this.info ? this.info : this.parseTable.rule.rule) + "   Total: [ states T/D:" + Analysis.totalStates + " " + (this.lfidx) + "   states/common T/D:" + Analysis.totalStatesCommon + " " + (this.cmnidx) + "    transitions T/D:" + Analysis.varShReqs.n + " " + (this.transidx) + "    stack states D:" + Analysis.stackShiftNodes.length + "    reduces D:" + (this.redidx) + "   tokens/trans:" + Analysis.varTkns + "   shifts/trans:" + Analysis.varShs + "    rec shifts/trans:" + Analysis.varShReqs + "   stack deepness:" + Analysis.varDeep + "   reduces:" + Analysis.varRds + " ]");
+      var byChild = groupByIndexed(Analysis.serializedStackShiftNodes, (a) => a[2]);
 
       var roots = {};
       var children = {};
       var leaves = {};
 
       var ssvals = Object.values(Analysis.serializedStackShiftNodes);
-      var maxi = Analysis.stackShiftNodes.length-1;
+      var maxi = Analysis.stackShiftNodes.length - 1;
       if (ssvals.length !== maxi) {
-        throw new Error("ssvals.length !== maxi    "+ssvals.length+" !== "+maxi);
+        throw new Error("ssvals.length !== maxi    " + ssvals.length + " !== " + maxi);
       }
-      for (var i=0; i<maxi; i++) {
+      for (var i = 0; i < maxi; i++) {
         if (!ssvals[i][2]) {
           roots[i] = 1;
         }
         leaves[i] = 1;
       }
-      Object.keys(byChild).forEach(childRef=>{
+      Object.keys(byChild).forEach(childRef => {
         children[childRef] = 1;
         delete leaves[childRef];
       });
@@ -121,10 +121,10 @@ export class CompressParseTable {
       var unusedLeaves = Object.assign({}, leaves);
 
       var shss = Object.keys(Analysis.allShiftStackStates);
-      shss.forEach((_shs)=>{
+      shss.forEach((_shs) => {
         var shs = Number(_shs);
         if (shs > maxi) {
-          console.error("Wrong stack state index used in a shift : "+shs)
+          console.error("Wrong stack state index used in a shift : " + shs)
         } else {
           delete unusedRoots[shs];
           delete unusedChildren[shs];
@@ -132,7 +132,7 @@ export class CompressParseTable {
         }
       });
 
-      console.log("totalShifts:"+Analysis.totalShifts+"   total stack states:"+maxi+"   roots:"+Object.keys(roots).length+" unusued:"+Object.keys(unusedRoots).length+"    children:"+Object.keys(children).length+" unused:"+Object.keys(unusedChildren).length+"    leaves:"+Object.keys(leaves).length+" unused:"+Object.keys(unusedLeaves).length);
+      console.log("totalShifts:" + Analysis.totalShifts + "   total stack states:" + maxi + "   roots:" + Object.keys(roots).length + " unusued:" + Object.keys(unusedRoots).length + "    children:" + Object.keys(children).length + " unused:" + Object.keys(unusedChildren).length + "    leaves:" + Object.keys(leaves).length + " unused:" + Object.keys(unusedLeaves).length);
     }
 
     return changed;
@@ -344,6 +344,8 @@ export class UniqueParseTableInGenStack {
 
   dependants: DependantTuple[] = [];
 
+  isDeferred = false;
+
 }
 
 export class GenerateParseTableStackMainGen {
@@ -396,6 +398,11 @@ export class GenerateParseTableStackMainGen {
     } else {
       this.top.parseTableVarsPool[this.parseTable[UNIQUE_OBJECT_INDEX]] =
         this.parseTableVars = new UniqueParseTableInGenStack();
+
+      this.parseTableVars.isDeferred = Analysis.deferredRules.indexOf(this.rule.rule) >= 0;
+      if (this.parseTableVars.isDeferred) {
+        console.log("Rule is deferred : " + this.rule.rule);
+      }
     }
 
     this.top.stack[this.rule.rule] = this;
@@ -878,22 +885,57 @@ export class GenerateParseTableStackBox {
 
     var updateRequired = false;
 
+    const pr = (childShift: gRTShift) => {
+      var newImportShift = new gRTShift(recursiveShift.shiftIndex,
+        childShift.tokenId);
+
+      /*
+    newImportShift.stepIntoRecursive =
+      Analysis.createStackShiftNode(recursiveShift.toStateIndex,
+        child.parseTableVars.isDeferred ? null : childShift.stepIntoRecursive);*/
+
+      newImportShift.stepIntoRecursive =
+        Analysis.createStackShiftNode(recursiveShift.toStateIndex, null);
+
+      if (this.newShift(newImportShift)) {
+        updateRequired = true;
+      }
+    };
+
+    // NOTE
+    // using 1-level auto deferration 
+    // much better solution  no cons just pros:
+    // - always the same runtime steps (not reading stack opening steps from [.,.,..]
+    // but from [][][] arrays)
+    // - much smaller lookup tables
+
     es.forEach((childShifts) => {
 
-      childShifts.forEach((childShift) => {
-        var newImportShift = new gRTShift(recursiveShift.shiftIndex,
-          childShift.tokenId);
+      var childShift = childShifts[0];
 
-        newImportShift.stepIntoRecursive =
-          Analysis.createStackShiftNode(recursiveShift.toStateIndex,
-            childShift.stepIntoRecursive);
-
-        if (this.newShift(newImportShift)) {
-          updateRequired = true;
-        }
-      });
+      pr(childShift);
 
     });
+
+    /*if (child.parseTableVars.isDeferred) {
+
+      es.forEach((childShifts) => {
+
+        var childShift = childShifts[0];
+ 
+        pr(childShift);
+  
+      });
+ 
+    } else {
+
+      es.forEach((childShifts) => {
+
+        childShifts.forEach(pr);
+  
+      });
+  
+    }*/
 
     return updateRequired;
   }

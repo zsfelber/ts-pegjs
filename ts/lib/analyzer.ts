@@ -51,6 +51,7 @@ export namespace Analysis {
 
     ERRORS = 0;
     deferredRules = [];
+    startRules = [];
     localDeferredRules = [];
     leafStates: GrammarParsingLeafState[] = [];
     leafStateCommons: GrammarParsingLeafStateCommon[] = [];
@@ -92,6 +93,7 @@ export namespace Analysis {
     load() {
       this.ERRORS = ERRORS;
       this.deferredRules = Object.assign([], deferredRules);
+      this.startRules = Object.assign([], startRules);
       this.localDeferredRules = Object.assign([], localDeferredRules);
       this.leafStates = Object.assign([], leafStates);
       this.leafStateCommons = Object.assign([], leafStateCommons);
@@ -133,6 +135,7 @@ export namespace Analysis {
     save() {
       ERRORS = this.ERRORS;
       deferredRules = this.deferredRules;
+      startRules = this.startRules;
       localDeferredRules = this.localDeferredRules;
       leafStates = this.leafStates;
       leafStateCommons = this.leafStateCommons;
@@ -181,6 +184,7 @@ export namespace Analysis {
   export var ERRORS = 0;
 
   export var deferredRules = [];
+  export var startRules = [];
 
   export var localDeferredRules = [];
 
@@ -243,6 +247,8 @@ export namespace Analysis {
   export var varRuleRefs = new IncVariator();
   export var varTerminalRefs = new IncVariator();
   export var varLfStates = new IncVariator();
+
+  export var ast;
 
   export function backup() {
     var backup = new Backup();
