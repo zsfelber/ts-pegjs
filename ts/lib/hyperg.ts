@@ -829,8 +829,12 @@ const HTOD = {
 export function peg$decode(s: string) {
   var code: number[] = [];
   for (var i = 0, sign = 1; i < s.length;) {
-    const rrr = (R) => {
+    const rrr = (R:RegExp) => {
+      R.lastIndex = i;
       var ra = R.exec(s);
+      if (ra.index !== 0) {
+        throw new Error("ra.index !== 0   "+ra.index+" !== "+0);
+      }
       var num = 0;
       for (var j = 0; j < ra[1].length; j++) {
         num = (num << 4) + HTOD[ra[1][j]];
