@@ -25,6 +25,8 @@ export declare namespace Analysis {
         choiceTokenMap: PValueNode[][];
         maxTokenId: number;
         totalStates: number;
+        totalStatesCommon: number;
+        totalShifts: number;
         cntChoiceTknIds: number;
         serializedLeafStates: {
             [index: string]: SerOutputWithIndex;
@@ -40,6 +42,7 @@ export declare namespace Analysis {
         };
         serializedParseTables: SerOutputWithIndex[];
         serializedStackShiftNodes: StrMapLike<[number, number, number]>;
+        allShiftStackStates: StrMapLike<number>;
         stack: Backup[];
         serializedParseTablesCnt: number;
         parseTableGens: StrMapLike<ParseTableGenerator>;
@@ -49,6 +52,7 @@ export declare namespace Analysis {
         varTkns: IncVariator;
         varRds: IncVariator;
         varDeep: IncVariator;
+        varStackE: IncVariator;
         varEntryPts: IncVariator;
         varAllNds: IncVariator;
         varAllRuleRefs: IncVariator;
@@ -74,6 +78,8 @@ export declare namespace Analysis {
     var choiceTokenMap: PValueNode[][];
     var maxTokenId: number;
     var totalStates: number;
+    var totalStatesCommon: number;
+    var totalShifts: number;
     var cntChoiceTknIds: number;
     const uniformMaxStateId = 57344;
     var serializedLeafStates: {
@@ -90,6 +96,7 @@ export declare namespace Analysis {
     };
     var serializedParseTables: SerOutputWithIndex[];
     var serializedStackShiftNodes: StrMapLike<[number, number, number]>;
+    var allShiftStackStates: StrMapLike<number>;
     var stack: Backup[];
     var serializedParseTablesCnt: number;
     var parseTableGens: StrMapLike<ParseTableGenerator>;
@@ -99,6 +106,7 @@ export declare namespace Analysis {
     var varTkns: IncVariator;
     var varRds: IncVariator;
     var varDeep: IncVariator;
+    var varStackE: IncVariator;
     var varEntryPts: IncVariator;
     var varAllNds: IncVariator;
     var varAllRuleRefs: IncVariator;

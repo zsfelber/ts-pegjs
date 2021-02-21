@@ -266,20 +266,21 @@ export class RTShift {
 
   shiftIndex: number;
 
-  readonly toStateIndex: number;
-
   stepIntoRecursive: RTStackShiftItem;
 
-  constructor(shiftIndex: number, toStateIndex: number, stepIntoRecursive?: RTStackShiftItem) {
+  constructor(shiftIndex: number, stepIntoRecursive?: RTStackShiftItem) {
     this.shiftIndex = shiftIndex;
-    this.toStateIndex = toStateIndex;
     this.stepIntoRecursive = stepIntoRecursive;
+  }
+
+  get toStateIndex() {
+    return this.stepIntoRecursive.toStateIndex;
   }
 
   diagnosticEqualityCheck(table: RTShift) {
     if (this.shiftIndex !== table.shiftIndex) {
       return debuggerTrap(false);
-    } else if (this.toStateIndex !== table.toStateIndex) {
+    } else if (this.stepIntoRecursive !== table.stepIntoRecursive) {
       return debuggerTrap(false);
     }
     return debuggerTrap(true);
@@ -290,8 +291,8 @@ export class gRTShift extends RTShift {
 
   tokenId: number;
 
-  constructor(shiftIndex: number, toStateIndex: number, tokenId: number, stepIntoRecursive?: RTStackShiftItem) {
-    super(shiftIndex, toStateIndex, stepIntoRecursive);
+  constructor(shiftIndex: number, tokenId: number, stepIntoRecursive?: RTStackShiftItem) {
+    super(shiftIndex, stepIntoRecursive);
     this[UNIQUE_OBJECT_ID];
     this.tokenId = tokenId;
   }
@@ -404,7 +405,8 @@ export class GrammarParsingLeafStateTransitions {
     es.forEach(([key, shifts]) => {
       var tokenId = Number(key);
       shifts.forEach(shift => {
-        var buf = [shift.shiftIndex, shift.toStateIndex, tokenId, shift.stepIntoRecursive ? shift.stepIntoRecursive.index : 0];
+        var buf = [shift.shiftIndex, tokenId, 
+          shift.stepIntoRecursive ? shift.stepIntoRecursive.index : 0];
         ord.push(buf);
       });
     });
@@ -429,9 +431,8 @@ export class GrammarParsingLeafStateTransitions {
         throw new Error("shi !== idx   " + shi + " !== " + idx);
       }
       // 0 - not
-      for (var i = 1; i < numbers.length; i++) {
-        buf.push(numbers[i]);
-      }
+      buf.push(numbers[1]);
+      buf.push(numbers[2]);
       idx++;
     });
 
@@ -445,7 +446,6 @@ export class GrammarParsingLeafStateTransitions {
 
     var idx = 0;
     for (var i = 0; i < ordlen; i++, idx++) {
-      var sti = buf[pos++];
       var tki = buf[pos++];
 
       var shs = this.map[tki];
@@ -453,7 +453,7 @@ export class GrammarParsingLeafStateTransitions {
         this.map[tki] = shs = [];
       }
 
-      var shift = new RTShift(idx, sti);
+      var shift = new RTShift(idx);
 
       var rsti = buf[pos++];
       shift.stepIntoRecursive = Analysis.stackShiftNodes[rsti];
@@ -531,13 +531,9 @@ export class gGrammarParsingLeafStateTransitions extends GrammarParsingLeafState
     var result = new gGrammarParsingLeafStateTransitions();
     Object.values(slots).forEach(slot => {
       slot.forEach(shift => {
-        var forTkn = result.map[shift.tokenId];
-        if (!forTkn) {
-          result.map[shift.tokenId] = forTkn = [];
-        }
         const shidx = fixIds ? fixIdCnt++ : shift.shiftIndex;
-        var dupWithFixedGenId = new gRTShift(shidx, shift.toStateIndex, shift.tokenId, shift.stepIntoRecursive);
-        forTkn.push(dupWithFixedGenId);
+        var dupWithFixedId = new gRTShift(shidx, shift.tokenId, shift.stepIntoRecursive);
+        result.add(dupWithFixedId)
       });
     });
     return result;
@@ -680,7 +676,9 @@ export class GrammarParsingLeafStateCommon {
           if (!ts) {
             map.map[tokenId] = ts = [];
           }
-          var shift = new RTShift(shiftIndex, s.item.stateNode.index);
+
+          var stk = Analysis.createStackShiftNode(s.item.stateNode.index, null);
+          var shift = new RTShift(shiftIndex, stk);
           ts.push(shift)
         };
 

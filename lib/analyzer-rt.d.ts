@@ -22,14 +22,14 @@ export declare class ParseTable {
 }
 export declare class RTShift {
     shiftIndex: number;
-    readonly toStateIndex: number;
     stepIntoRecursive: RTStackShiftItem;
-    constructor(shiftIndex: number, toStateIndex: number, stepIntoRecursive?: RTStackShiftItem);
+    constructor(shiftIndex: number, stepIntoRecursive?: RTStackShiftItem);
+    get toStateIndex(): number;
     diagnosticEqualityCheck(table: RTShift): boolean;
 }
 export declare class gRTShift extends RTShift {
     tokenId: number;
-    constructor(shiftIndex: number, toStateIndex: number, tokenId: number, stepIntoRecursive?: RTStackShiftItem);
+    constructor(shiftIndex: number, tokenId: number, stepIntoRecursive?: RTStackShiftItem);
 }
 export declare class RTStackShiftItem {
     enter: PRuleRef;

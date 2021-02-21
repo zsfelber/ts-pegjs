@@ -61,6 +61,8 @@ export namespace Analysis {
     choiceTokenMap: PValueNode[][] = [];
     maxTokenId: number;
     totalStates = 0;
+    totalStatesCommon = 0;
+    totalShifts = 0;
     cntChoiceTknIds = -1;
     serializedLeafStates: { [index: string]: SerOutputWithIndex } = {};
     serializedStateCommons: { [index: string]: SerOutputWithIndex } = {};
@@ -68,6 +70,7 @@ export namespace Analysis {
     serializedReduces: { [index: string]: SerOutputWithIndex } = {};
     serializedParseTables: SerOutputWithIndex[] = [];
     serializedStackShiftNodes: StrMapLike<[number, number, number]> = {};
+    allShiftStackStates: StrMapLike<number> = {};
     stack: Backup[] = [];
     serializedParseTablesCnt = 1;
     parseTableGens: StrMapLike<ParseTableGenerator> = {};
@@ -77,6 +80,7 @@ export namespace Analysis {
     varTkns = new IncVariator();
     varRds = new IncVariator();
     varDeep = new IncVariator();
+    varStackE = new IncVariator();
     varEntryPts = new IncVariator();
     varAllNds = new IncVariator();
     varAllRuleRefs = new IncVariator();
@@ -98,6 +102,8 @@ export namespace Analysis {
       this.choiceTokenMap = Object.assign([], choiceTokenMap);
       this.maxTokenId = maxTokenId;
       this.totalStates = totalStates;
+      this.totalStatesCommon = totalStatesCommon;
+      this.totalShifts = totalShifts;
       this.cntChoiceTknIds = cntChoiceTknIds;
       this.serializedLeafStates = Object.assign({}, serializedLeafStates);
       this.serializedStateCommons = Object.assign({}, serializedStateCommons);
@@ -105,6 +111,7 @@ export namespace Analysis {
       this.serializedReduces = Object.assign({}, serializedReduces);
       this.serializedParseTables = Object.assign([], serializedParseTables);
       this.serializedStackShiftNodes = Object.assign({}, serializedStackShiftNodes);
+      this.allShiftStackStates = Object.assign({}, allShiftStackStates);
       this.stack = Object.assign([], stack);
       this.serializedParseTablesCnt = serializedParseTablesCnt;
       this.parseTableGens = Object.assign({}, parseTableGens);
@@ -114,6 +121,7 @@ export namespace Analysis {
       this.varTkns = new IncVariator(varTkns);
       this.varRds = new IncVariator(varRds);
       this.varDeep = new IncVariator(varDeep);
+      this.varStackE = new IncVariator(varStackE);
       this.varEntryPts = new IncVariator(varEntryPts);
       this.varAllNds = new IncVariator(varAllNds);
       this.varAllRuleRefs = new IncVariator(varAllRuleRefs);
@@ -135,6 +143,8 @@ export namespace Analysis {
       choiceTokenMap = this.choiceTokenMap;
       maxTokenId = this.maxTokenId;
       totalStates = this.totalStates;
+      totalStatesCommon = this.totalStatesCommon;
+      totalShifts = this.totalShifts;
       cntChoiceTknIds = this.cntChoiceTknIds;
       serializedLeafStates = this.serializedLeafStates;
       serializedStateCommons = this.serializedStateCommons;
@@ -142,6 +152,7 @@ export namespace Analysis {
       serializedReduces = this.serializedReduces;
       serializedParseTables = this.serializedParseTables;
       serializedStackShiftNodes = this.serializedStackShiftNodes;
+      allShiftStackStates = this.allShiftStackStates;
       stack = this.stack;
       serializedParseTablesCnt = this.serializedParseTablesCnt;
       parseTableGens = this.parseTableGens;
@@ -151,6 +162,7 @@ export namespace Analysis {
       varTkns = this.varTkns;
       varRds = this.varRds;
       varDeep = this.varDeep;
+      varStackE = this.varStackE;
       varEntryPts = this.varEntryPts;
       varAllNds = this.varAllNds;
       varAllRuleRefs = this.varAllRuleRefs;
@@ -190,6 +202,10 @@ export namespace Analysis {
 
   export var totalStates = 0;
 
+  export var totalStatesCommon = 0;
+
+  export var totalShifts = 0;
+
   export var cntChoiceTknIds = -1;
 
   export const uniformMaxStateId = 0xe000;
@@ -206,6 +222,8 @@ export namespace Analysis {
 
   export var serializedStackShiftNodes: StrMapLike<[number, number, number]> = {};
 
+  export var allShiftStackStates: StrMapLike<number> = {};
+
   export var stack: Backup[] = [];
 
   export var serializedParseTablesCnt = 1;
@@ -218,6 +236,7 @@ export namespace Analysis {
   export var varTkns = new IncVariator();
   export var varRds = new IncVariator();
   export var varDeep = new IncVariator();
+  export var varStackE = new IncVariator();
   export var varEntryPts = new IncVariator();
   export var varAllNds = new IncVariator();
   export var varAllRuleRefs = new IncVariator();

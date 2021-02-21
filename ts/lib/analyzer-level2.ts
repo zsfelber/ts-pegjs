@@ -81,8 +81,8 @@ export class CompressParseTable {
       changed = state && (this.prstate(state) || changed);
     });
 
-    const sts = this.parseTable.allStates.length;
-    Analysis.totalStates += sts;
+    Analysis.totalStates += this.parseTable.allStates.length;
+    Analysis.totalStatesCommon += this.parseTable.myCommons.length;
 
     if (!this.parseTable.packedIndex) {
       this.parseTable.packedIndex = Analysis.serializedParseTablesCnt++;
@@ -93,7 +93,46 @@ export class CompressParseTable {
     };
 
     if (this.log) {
-      console.log((this.info ? this.info : this.parseTable.rule.rule) + "   Total: [ total states:" + Analysis.totalStates + "  distinct:" + (this.lfidx) + "   distinct states/common:" + (this.cmnidx) + "    distinct transitions:" + (this.transidx) + "    distinct reduces:" + (this.redidx) + "    rec shifts:" + Analysis.varShReqs + "   jmp.tokens:" + Analysis.varTkns + "   shift/tkns:" + Analysis.varShs + "   stack deepness:" + Analysis.varDeep + "   reduces:" + Analysis.varRds + " ]");
+      console.log((this.info ? this.info : this.parseTable.rule.rule) + "   Total: [ states T/D:" + Analysis.totalStates + " " + (this.lfidx) + "   states/common T/D:"+ Analysis.totalStatesCommon + " "+(this.cmnidx) + "    transitions T/D:"+Analysis.varShReqs.n+" "+ (this.transidx)+ "    stack states D:"+Analysis.stackShiftNodes.length + "    reduces D:" + (this.redidx) + "   tokens/trans:" + Analysis.varTkns + "   shifts/trans:" + Analysis.varShs + "    rec shifts/trans:" + Analysis.varShReqs + "   stack deepness:" + Analysis.varDeep + "   reduces:" + Analysis.varRds + " ]");
+      var byChild = groupByIndexed(Analysis.serializedStackShiftNodes,(a)=>a[2]);
+
+      var roots = {};
+      var children = {};
+      var leaves = {};
+
+      var ssvals = Object.values(Analysis.serializedStackShiftNodes);
+      var maxi = Analysis.stackShiftNodes.length-1;
+      if (ssvals.length !== maxi) {
+        throw new Error("ssvals.length !== maxi    "+ssvals.length+" !== "+maxi);
+      }
+      for (var i=0; i<maxi; i++) {
+        if (!ssvals[i][2]) {
+          roots[i] = 1;
+        }
+        leaves[i] = 1;
+      }
+      Object.keys(byChild).forEach(childRef=>{
+        children[childRef] = 1;
+        delete leaves[childRef];
+      });
+
+      var unusedRoots = Object.assign({}, roots);
+      var unusedChildren = Object.assign({}, children);
+      var unusedLeaves = Object.assign({}, leaves);
+
+      var shss = Object.keys(Analysis.allShiftStackStates);
+      shss.forEach((_shs)=>{
+        var shs = Number(_shs);
+        if (shs > maxi) {
+          console.error("Wrong stack state index used in a shift : "+shs)
+        } else {
+          delete unusedRoots[shs];
+          delete unusedChildren[shs];
+          delete unusedLeaves[shs];
+        }
+      });
+
+      console.log("totalShifts:"+Analysis.totalShifts+"   total stack states:"+maxi+"   roots:"+Object.keys(roots).length+" unusued:"+Object.keys(unusedRoots).length+"    children:"+Object.keys(children).length+" unused:"+Object.keys(unusedChildren).length+"    leaves:"+Object.keys(leaves).length+" unused:"+Object.keys(unusedLeaves).length);
     }
 
     return changed;
@@ -159,7 +198,7 @@ export class CompressParseTable {
 
       if (nonreq) {
         Analysis.varTkns.add(nonreq);
-        Analysis.varShs.add(nonreqtot / nonreq);
+        Analysis.varShs.add(nonreqtot);
       }
       if (req) {
         if (req !== 1) {
@@ -207,6 +246,8 @@ export class CompressParseTable {
       shiftses.forEach(([key, shs]) => {
         shs.forEach(sh => {
           Analysis.varDeep.add(sh.stepIntoRecursive ? sh.stepIntoRecursive.depth : 0);
+          Analysis.allShiftStackStates[sh.stepIntoRecursive.index] = 1;
+          Analysis.totalShifts++;
         })
         var tki = Number(key);
         if (tki) {
@@ -770,8 +811,7 @@ export class GenerateParseTableStackBox {
     esths.forEach(([key, shifts]) => {
       var tokenId = Number(key);
       shifts.forEach(shift => {
-        var shift2 = new gRTShift(shift.shiftIndex, shift.toStateIndex,
-          tokenId, shift.stepIntoRecursive);
+        var shift2 = new gRTShift(shift.shiftIndex, tokenId, shift.stepIntoRecursive);
         this.newShift(shift2);
       });
     });
@@ -797,8 +837,7 @@ export class GenerateParseTableStackBox {
     var updateRequired = false;
 
     var r = shift.stepIntoRecursive;
-    var buf = r ? [shift.tokenId, shift.toStateIndex, r.toStateIndex, r.child ? r.child.index : 0]
-      : [shift.tokenId, shift.toStateIndex];
+    var buf = [shift.tokenId, r ? r.index : 0];
     var key = buf.join("/");
 
     var oldshift: gRTShift = this.allShifts[key];
@@ -843,10 +882,10 @@ export class GenerateParseTableStackBox {
 
       childShifts.forEach((childShift) => {
         var newImportShift = new gRTShift(recursiveShift.shiftIndex,
-          recursiveShift.toStateIndex, childShift.tokenId);
+          childShift.tokenId);
 
         newImportShift.stepIntoRecursive =
-          Analysis.createStackShiftNode(childShift.toStateIndex,
+          Analysis.createStackShiftNode(recursiveShift.toStateIndex,
             childShift.stepIntoRecursive);
 
         if (this.newShift(newImportShift)) {
